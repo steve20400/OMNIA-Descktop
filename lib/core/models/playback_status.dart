@@ -30,6 +30,9 @@ enum PlaybackErrorCode {
   unsupportedFormat,
   decodeFailed,
   permissionDenied,
+
+  /// Dossier ouvert mais ne contenant aucun fichier lisible.
+  emptyFolder,
   unknown;
 
   static PlaybackErrorCode fromJson(Object? value) => values.firstWhere(

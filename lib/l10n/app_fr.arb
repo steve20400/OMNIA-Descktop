@@ -35,15 +35,75 @@
   "errorUnsupported": "Ce type de fichier n'est pas pris en charge par OMNIA.",
   "errorDecode": "Le fichier semble endommagé, ou son format n'est pas lisible par le moteur.",
   "errorPermission": "OMNIA n'a pas l'autorisation de lire ce fichier ou ce dossier.",
+  "errorEmptyFolder": "Ce dossier ne contient aucun fichier qu'OMNIA sache lire.",
   "errorUnknown": "Une erreur inattendue s'est produite pendant la lecture.",
   "errorHint": "Vous pouvez ouvrir un autre fichier, ou déposer un fichier ici.",
   "openAnotherFile": "Ouvrir un autre fichier",
-  "shortcutHint": "{shortcut}",
-  "@shortcutHint": {
+
+  "panelShow": "Afficher le panneau",
+  "panelHide": "Masquer le panneau",
+  "panelSearchPlaceholder": "Rechercher dans le dossier",
+  "panelScanning": "Analyse du dossier…",
+  "panelEmpty": "Aucun fichier lisible dans ce dossier",
+  "panelNoResults": "Aucun résultat pour « {query} »",
+  "@panelNoResults": {
     "placeholders": {
-      "shortcut": {
+      "query": {
         "type": "String"
       }
     }
-  }
+  },
+  "panelNoFolder": "Ouvrez un fichier pour voir ses voisins",
+  "panelFileCount": "{count, plural, =0{aucun fichier} =1{1 fichier} other{{count} fichiers}}",
+  "@panelFileCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "panelFileCountFiltered": "{visible} sur {total}",
+  "@panelFileCountFiltered": {
+    "placeholders": {
+      "visible": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "filterAll": "Tous",
+  "filterVideo": "Vidéo",
+  "filterAudio": "Audio",
+  "filterDocuments": "Documents",
+  "sortLabel": "Trier",
+  "sortName": "Nom",
+  "sortDate": "Date",
+  "sortSize": "Taille",
+  "sortType": "Type",
+  "sortAscending": "Ordre croissant",
+  "sortDescending": "Ordre décroissant",
+  "contextPlay": "Lire",
+  "contextRemove": "Retirer de la liste",
+  "contextReveal": "Ouvrir l'emplacement du fichier",
+  "badgeWatched": "Déjà lu",
+  "badgeResume": "Reprendre à {time}",
+  "@badgeResume": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "nextFile": "Fichier suivant",
+  "previousFile": "Fichier précédent",
+  "endModeLabel": "En fin de lecture",
+  "endModeStop": "S'arrêter",
+  "endModeNext": "Fichier suivant",
+  "endModeRepeatOne": "Répéter le fichier",
+  "endModeLoopFolder": "Boucler le dossier",
+  "endModeShuffle": "Lecture aléatoire",
+  "clearSearch": "Effacer la recherche",
+  "resizePanel": "Redimensionner le panneau"
 }

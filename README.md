@@ -6,22 +6,26 @@ Lecteur universel desktop : vidéo, audio, PDF et texte dans une seule applicati
 Flutter + media_kit (libmpv), architecture « bus de commandes » prête pour la future télécommande mobile
 ([OMNIA-Mobile](https://github.com/steve20400/OMNIA-Mobile)).
 
-> État : **Phase 1 — Fondations** (architecture, thème, fenêtre, ouverture de fichiers, lecture audio/vidéo de base).
+> État : **Phase 2 — Playlist du dossier** terminée.
+> Phase 1 (fondations, thème, fenêtre, lecture audio/vidéo) et Phase 2 (scan du dossier, panneau latéral,
+> navigation, modes de fin de lecture, reprise de lecture) sont en place.
 > Voir `DESIGN.md` pour le plan design.
 
 ## Plateformes
 
 OMNIA s'installe sur **Windows** et **Linux (Ubuntu)** ; le code reste compatible macOS.
-Un seul code source, aucune API spécifique à un système sans abstraction.
+Un seul code source, aucune API spécifique à un système sans abstraction : les différences réelles
+(codes d'erreur, position de fenêtre sous Wayland, bordures de redimensionnement, gestionnaire de
+fichiers) sont isolées dans `lib/core/utils/` et `lib/core/services/`.
 
 ## Prérequis
 
-Flutter stable ≥ 3.44 avec le support desktop activé (`flutter doctor` doit être vert pour la plateforme visée).
+Flutter stable ≥ 3.44 avec le support desktop activé.
 
 ### Windows
 
 - Visual Studio 2022 avec le workload **« Développement Desktop en C++ »** (MSVC, CMake, Windows 10 SDK).
-- **Mode développeur** activé (les plugins Flutter utilisent des liens symboliques) :
+- **Mode développeur** activé, car les plugins Flutter utilisent des liens symboliques :
 
 ```bash
 start ms-settings:developers
@@ -31,16 +35,24 @@ libmpv est embarqué par `media_kit_libs_video` : rien d'autre à installer.
 
 ### Linux (Ubuntu)
 
+Compilation :
+
 ```bash
 sudo apt install libmpv-dev mpv libgtk-3-dev clang cmake ninja-build pkg-config
 flutter config --enable-linux-desktop
+```
+
+Exécution sur la machine cible (le bundle Flutter n'embarque pas libmpv) :
+
+```bash
+sudo apt install libmpv2 xdg-desktop-portal-gtk
 ```
 
 ### macOS
 
 Xcode et CocoaPods. libmpv est embarqué.
 
-## Installation et compilation
+## Compilation
 
 ```bash
 flutter pub get
@@ -82,20 +94,21 @@ lib/
   core/                     # logique pure, sans widget
     commands/               # PlayerCommand (sealed, JSON) + PlayerCommandBus
     controllers/            # MediaController, AvController (mpv), MediaRouter
-    models/                 # PlaybackState, MediaFile, MediaType, modes, statuts
-    services/               # PlaybackService, WindowService, SettingsStore (Hive)
-    utils/                  # formatage des timecodes
+    models/                 # PlaybackState, PlaylistState, MediaFile, HistoryEntry…
+    services/               # PlaybackService, PlaylistService, FolderScanner,
+                            # HistoryStore, SettingsStore, WindowService, SystemIntegration
+    utils/                  # timecodes, tri naturel, codes d'erreur OS, session Wayland
     providers.dart          # câblage Riverpod
   ui/
     app.dart                # MaterialApp, thème, i18n, mémorisation de la fenêtre
     screens/player_screen.dart
-    widgets/                # barre de titre, contrôles, faisceau, scène, boutons
+    widgets/                # barre de titre, contrôles, faisceau, scène, panneau, tuiles
     shortcuts/              # table de raccourcis par défaut + handler
     theme/                  # OmniaColors, OmniaTypography, OmniaMotion, OmniaMetrics
-    file_dialogs.dart       # dialogues natifs → commandes sur le bus
+    panel_controller.dart   # état d'affichage du panneau (largeur, repli)
   l10n/                     # app_fr.arb (défaut), app_en.arb
 assets/fonts/               # Instrument Sans, IBM Plex Mono (embarquées)
-linux/omnia.desktop         # intégration bureau + associations MIME
+linux/                      # dev.omnia.omnia.desktop, dev.omnia.omnia.svg, CMake (mimalloc)
 test/core/                  # tests unitaires du core
 ```
 
@@ -103,11 +116,25 @@ test/core/                  # tests unitaires du core
 
 Toute action utilisateur devient une `PlayerCommand` publiée sur le `PlayerCommandBus`.
 L'interface n'appelle **jamais** un contrôleur directement. Le `PlaybackService` écoute le bus,
-route chaque commande (fenêtre, contrôleur de média actif, ou lui-même) et possède l'unique
-`PlaybackState`, lui aussi sérialisable en JSON. Brancher un serveur WebSocket sur le bus
-suffira pour la télécommande mobile.
+route chaque commande (fenêtre, playlist, contrôleur de média actif, ou lui-même) et possède l'unique
+`PlaybackState`, sérialisable en JSON, tout comme `PlaylistState`. Brancher un serveur WebSocket sur
+le bus suffira pour la télécommande mobile.
 
-## Raccourcis (Phase 1)
+## Playlist automatique du dossier
+
+Ouvrir un fichier — par le bouton, un raccourci, un glisser-déposer, la ligne de commande ou le
+gestionnaire de fichiers — déclenche le scan de son dossier parent. Tous les fichiers lisibles
+apparaissent dans le panneau de gauche.
+
+- Le scan tourne dans un isolate : l'interface ne gèle jamais, et la lecture démarre sans l'attendre.
+- Tri naturel par défaut (`ep2` avant `ep10`), ou par date, taille, type ; ordre inversable.
+- Recherche instantanée et filtre par type (tous / vidéo / audio / documents).
+- Fichier en cours surligné, avec défilement automatique vers lui.
+- Pastille « déjà lu » ou position mémorisée sur chaque ligne.
+- Clic simple pour lire, clic droit pour le menu contextuel (lire, ouvrir l'emplacement, retirer).
+- Panneau repliable (`Tab`) et redimensionnable à la souris ; largeur et état mémorisés.
+
+## Raccourcis
 
 | Touche | Action |
 |---|---|
@@ -116,29 +143,42 @@ suffira pour la télécommande mobile.
 | `↑` / `↓` | Volume ±5 |
 | `M` | Muet |
 | `F` / double-clic | Plein écran (`Échap` pour sortir) |
+| `N` / `P` | Fichier suivant / précédent |
 | `+` / `-` / `=` | Vitesse + / − / 1× |
-| `T` | Toujours au premier plan |
 | `L` | Mode de fin de lecture (cycle) |
+| `T` | Toujours au premier plan |
+| `Tab` | Afficher / masquer le panneau |
 | `Ctrl+O` / `Ctrl+Shift+O` | Ouvrir un fichier / un dossier |
 
 Molette sur la vidéo : volume. Clic simple : lecture/pause.
 
-## Installation du fichier `.desktop` (Ubuntu)
+## Installation sur Ubuntu
 
 ```bash
 flutter build linux --release
 sudo mkdir -p /opt/omnia
 sudo cp -r build/linux/x64/release/bundle/* /opt/omnia/
 sudo ln -sf /opt/omnia/omnia /usr/local/bin/omnia
-cp linux/omnia.desktop ~/.local/share/applications/
+
+# Intégration au bureau. Le nom du fichier .desktop DOIT être l'identifiant
+# d'application (dev.omnia.omnia), sinon GNOME ne peut pas relier la fenêtre
+# à son icône sous Wayland.
+mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/scalable/apps
+cp linux/dev.omnia.omnia.desktop ~/.local/share/applications/
+cp linux/dev.omnia.omnia.svg     ~/.local/share/icons/hicolor/scalable/apps/
 update-desktop-database ~/.local/share/applications
+gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
 ```
 
-Ensuite, « Ouvrir avec → OMNIA » est proposé par le gestionnaire de fichiers pour tous les types listés dans `MimeType`.
-(Une icône `omnia.png` sera ajoutée en Phase 6 dans `~/.local/share/icons/hicolor/`.)
+« Ouvrir avec → OMNIA » est ensuite proposé pour les formats audio et vidéo.
+Les types PDF et texte seront ajoutés au fichier `.desktop` en même temps que leurs contrôleurs (Phase 4) :
+les déclarer maintenant proposerait OMNIA pour des fichiers qu'il refuse encore d'ouvrir.
 
 ## Compromis documentés
 
-- **Sourdine** : mpv ne propose pas d'API « mute » dans media_kit ; OMNIA utilise la propriété native `mute`, ce qui préserve le volume réglé. Sur une plateforme sans `NativePlayer`, seul l'état visuel change.
-- **Ouverture d'un dossier** (Phase 1) : lit le premier fichier lisible par ordre alphabétique. Le scan complet, le tri naturel et le panneau arrivent en Phase 2.
-- **Vue audio** (Phase 1) : nom du morceau et symbole ; pochette et fond dérivé en Phase 5.
+- **Sourdine** : media_kit n'expose pas d'API « mute » ; OMNIA écrit la propriété native mpv `mute`, ce qui préserve le volume réglé. Sur une plateforme sans `NativePlayer`, seul l'état visuel change.
+- **Durées dans le panneau** : sonder la durée de chaque fichier au scan coûterait une ouverture mpv par fichier. OMNIA n'affiche donc une durée que lorsqu'elle est déjà connue par l'historique, et se rabat sinon sur la taille du fichier.
+- **Position de fenêtre sous Wayland** : le protocole interdit à une application de connaître ou d'imposer sa position. OMNIA n'y mémorise que la taille et laisse le compositeur placer la fenêtre.
+- **Bordures de fenêtre sous Linux** : masquer la barre de titre retire toutes les décorations GTK. OMNIA redessine donc ses propres bords de redimensionnement (`DragToResizeArea`), inutiles sur Windows et macOS qui gardent leur cadre natif.
+- **`N` en fin de liste** : la touche « fichier suivant » reboucle au premier fichier, alors que la lecture automatique en mode « suivant » s'arrête. Une action explicite ne doit pas être sans effet ; un enchaînement automatique ne doit pas tourner en rond sans qu'on l'ait demandé (mode « boucler le dossier » pour cela).
+- **Vue audio** : pochette et fond dérivé prévus en Phase 5 ; pour l'instant, nom du morceau et symbole.

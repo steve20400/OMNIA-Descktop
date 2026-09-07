@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/providers.dart';
+import '../core/utils/platform_session.dart';
 import '../l10n/app_localizations.dart';
 import 'screens/player_screen.dart';
 import 'theme/omnia_theme.dart';
@@ -37,9 +38,17 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
     final settings = ref.read(settingsStoreProvider);
     final maximized = await window.isMaximized();
     await settings.setWindowMaximized(maximized);
-    if (!maximized && !await window.isFullscreen()) {
-      await settings.setWindowBounds(await window.getBounds());
-    }
+    if (maximized || await window.isFullscreen()) return;
+
+    final bounds = await window.getBounds();
+    // Sous Wayland, la position rapportée est toujours (0, 0) : l'enregistrer
+    // ferait revenir la fenêtre dans le coin à chaque démarrage. On ne garde
+    // alors que la taille, et le compositeur choisit la place.
+    await settings.setWindowBounds(
+      isWaylandSession
+          ? Rect.fromLTWH(0, 0, bounds.width, bounds.height)
+          : bounds,
+    );
   }
 
   @override

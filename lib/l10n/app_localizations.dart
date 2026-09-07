@@ -266,6 +266,12 @@ abstract class AppLocalizations {
   /// **'OMNIA n\'a pas l\'autorisation de lire ce fichier ou ce dossier.'**
   String get errorPermission;
 
+  /// No description provided for @errorEmptyFolder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce dossier ne contient aucun fichier qu\'OMNIA sache lire.'**
+  String get errorEmptyFolder;
+
   /// No description provided for @errorUnknown.
   ///
   /// In fr, this message translates to:
@@ -284,11 +290,215 @@ abstract class AppLocalizations {
   /// **'Ouvrir un autre fichier'**
   String get openAnotherFile;
 
-  /// No description provided for @shortcutHint.
+  /// No description provided for @panelShow.
   ///
   /// In fr, this message translates to:
-  /// **'{shortcut}'**
-  String shortcutHint(String shortcut);
+  /// **'Afficher le panneau'**
+  String get panelShow;
+
+  /// No description provided for @panelHide.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer le panneau'**
+  String get panelHide;
+
+  /// No description provided for @panelSearchPlaceholder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher dans le dossier'**
+  String get panelSearchPlaceholder;
+
+  /// No description provided for @panelScanning.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analyse du dossier…'**
+  String get panelScanning;
+
+  /// No description provided for @panelEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun fichier lisible dans ce dossier'**
+  String get panelEmpty;
+
+  /// No description provided for @panelNoResults.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun résultat pour « {query} »'**
+  String panelNoResults(String query);
+
+  /// No description provided for @panelNoFolder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ouvrez un fichier pour voir ses voisins'**
+  String get panelNoFolder;
+
+  /// No description provided for @panelFileCount.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, =0{aucun fichier} =1{1 fichier} other{{count} fichiers}}'**
+  String panelFileCount(int count);
+
+  /// No description provided for @panelFileCountFiltered.
+  ///
+  /// In fr, this message translates to:
+  /// **'{visible} sur {total}'**
+  String panelFileCountFiltered(int visible, int total);
+
+  /// No description provided for @filterAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tous'**
+  String get filterAll;
+
+  /// No description provided for @filterVideo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vidéo'**
+  String get filterVideo;
+
+  /// No description provided for @filterAudio.
+  ///
+  /// In fr, this message translates to:
+  /// **'Audio'**
+  String get filterAudio;
+
+  /// No description provided for @filterDocuments.
+  ///
+  /// In fr, this message translates to:
+  /// **'Documents'**
+  String get filterDocuments;
+
+  /// No description provided for @sortLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Trier'**
+  String get sortLabel;
+
+  /// No description provided for @sortName.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nom'**
+  String get sortName;
+
+  /// No description provided for @sortDate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Date'**
+  String get sortDate;
+
+  /// No description provided for @sortSize.
+  ///
+  /// In fr, this message translates to:
+  /// **'Taille'**
+  String get sortSize;
+
+  /// No description provided for @sortType.
+  ///
+  /// In fr, this message translates to:
+  /// **'Type'**
+  String get sortType;
+
+  /// No description provided for @sortAscending.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ordre croissant'**
+  String get sortAscending;
+
+  /// No description provided for @sortDescending.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ordre décroissant'**
+  String get sortDescending;
+
+  /// No description provided for @contextPlay.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lire'**
+  String get contextPlay;
+
+  /// No description provided for @contextRemove.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer de la liste'**
+  String get contextRemove;
+
+  /// No description provided for @contextReveal.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ouvrir l\'emplacement du fichier'**
+  String get contextReveal;
+
+  /// No description provided for @badgeWatched.
+  ///
+  /// In fr, this message translates to:
+  /// **'Déjà lu'**
+  String get badgeWatched;
+
+  /// No description provided for @badgeResume.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reprendre à {time}'**
+  String badgeResume(String time);
+
+  /// No description provided for @nextFile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fichier suivant'**
+  String get nextFile;
+
+  /// No description provided for @previousFile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fichier précédent'**
+  String get previousFile;
+
+  /// No description provided for @endModeLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'En fin de lecture'**
+  String get endModeLabel;
+
+  /// No description provided for @endModeStop.
+  ///
+  /// In fr, this message translates to:
+  /// **'S\'arrêter'**
+  String get endModeStop;
+
+  /// No description provided for @endModeNext.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fichier suivant'**
+  String get endModeNext;
+
+  /// No description provided for @endModeRepeatOne.
+  ///
+  /// In fr, this message translates to:
+  /// **'Répéter le fichier'**
+  String get endModeRepeatOne;
+
+  /// No description provided for @endModeLoopFolder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Boucler le dossier'**
+  String get endModeLoopFolder;
+
+  /// No description provided for @endModeShuffle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecture aléatoire'**
+  String get endModeShuffle;
+
+  /// No description provided for @clearSearch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer la recherche'**
+  String get clearSearch;
+
+  /// No description provided for @resizePanel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Redimensionner le panneau'**
+  String get resizePanel;
 }
 
 class _AppLocalizationsDelegate

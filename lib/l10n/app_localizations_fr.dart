@@ -100,6 +100,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'OMNIA n\'a pas l\'autorisation de lire ce fichier ou ce dossier.';
 
   @override
+  String get errorEmptyFolder =>
+      'Ce dossier ne contient aucun fichier qu\'OMNIA sache lire.';
+
+  @override
   String get errorUnknown =>
       'Une erreur inattendue s\'est produite pendant la lecture.';
 
@@ -111,7 +115,122 @@ class AppLocalizationsFr extends AppLocalizations {
   String get openAnotherFile => 'Ouvrir un autre fichier';
 
   @override
-  String shortcutHint(String shortcut) {
-    return '$shortcut';
+  String get panelShow => 'Afficher le panneau';
+
+  @override
+  String get panelHide => 'Masquer le panneau';
+
+  @override
+  String get panelSearchPlaceholder => 'Rechercher dans le dossier';
+
+  @override
+  String get panelScanning => 'Analyse du dossier…';
+
+  @override
+  String get panelEmpty => 'Aucun fichier lisible dans ce dossier';
+
+  @override
+  String panelNoResults(String query) {
+    return 'Aucun résultat pour « $query »';
   }
+
+  @override
+  String get panelNoFolder => 'Ouvrez un fichier pour voir ses voisins';
+
+  @override
+  String panelFileCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fichiers',
+      one: '1 fichier',
+      zero: 'aucun fichier',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String panelFileCountFiltered(int visible, int total) {
+    return '$visible sur $total';
+  }
+
+  @override
+  String get filterAll => 'Tous';
+
+  @override
+  String get filterVideo => 'Vidéo';
+
+  @override
+  String get filterAudio => 'Audio';
+
+  @override
+  String get filterDocuments => 'Documents';
+
+  @override
+  String get sortLabel => 'Trier';
+
+  @override
+  String get sortName => 'Nom';
+
+  @override
+  String get sortDate => 'Date';
+
+  @override
+  String get sortSize => 'Taille';
+
+  @override
+  String get sortType => 'Type';
+
+  @override
+  String get sortAscending => 'Ordre croissant';
+
+  @override
+  String get sortDescending => 'Ordre décroissant';
+
+  @override
+  String get contextPlay => 'Lire';
+
+  @override
+  String get contextRemove => 'Retirer de la liste';
+
+  @override
+  String get contextReveal => 'Ouvrir l\'emplacement du fichier';
+
+  @override
+  String get badgeWatched => 'Déjà lu';
+
+  @override
+  String badgeResume(String time) {
+    return 'Reprendre à $time';
+  }
+
+  @override
+  String get nextFile => 'Fichier suivant';
+
+  @override
+  String get previousFile => 'Fichier précédent';
+
+  @override
+  String get endModeLabel => 'En fin de lecture';
+
+  @override
+  String get endModeStop => 'S\'arrêter';
+
+  @override
+  String get endModeNext => 'Fichier suivant';
+
+  @override
+  String get endModeRepeatOne => 'Répéter le fichier';
+
+  @override
+  String get endModeLoopFolder => 'Boucler le dossier';
+
+  @override
+  String get endModeShuffle => 'Lecture aléatoire';
+
+  @override
+  String get clearSearch => 'Effacer la recherche';
+
+  @override
+  String get resizePanel => 'Redimensionner le panneau';
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
+import '../../core/models/end_of_playback_mode.dart';
 import '../../core/models/playback_state.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';
@@ -38,6 +39,7 @@ class _ControlBarState extends ConsumerState<ControlBar> {
 
     final hasMedia = state.hasFile && state.status != PlaybackStatus.error && state.mediaType.isAv;
     final canSeek = hasMedia && state.duration > Duration.zero;
+    final hasPlaylist = state.playlist.length > 1;
     final mutedColor = colors.dust;
     final timeColor = hasMedia ? colors.screen : mutedColor;
 
@@ -78,11 +80,24 @@ class _ControlBarState extends ConsumerState<ControlBar> {
                 Row(
                   children: [
                     OmniaIconButton(
+                      icon: Icons.skip_previous_rounded,
+                      tooltip: '${l10n.previousFile}  ·  P',
+                      onPressed: hasPlaylist
+                          ? () => ref.dispatch(const PreviousFile())
+                          : null,
+                    ),
+                    OmniaIconButton(
                       icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                       size: OmniaMetrics.playButtonSize,
                       iconSize: OmniaMetrics.iconSizeLarge,
                       tooltip: isPlaying ? l10n.pause : l10n.play,
                       onPressed: hasMedia ? () => ref.dispatch(const TogglePlay()) : null,
+                    ),
+                    OmniaIconButton(
+                      icon: Icons.skip_next_rounded,
+                      tooltip: '${l10n.nextFile}  ·  N',
+                      onPressed:
+                          hasPlaylist ? () => ref.dispatch(const NextFile()) : null,
                     ),
                     const SizedBox(width: OmniaMetrics.space3),
                     Text(elapsed, style: type.timecode.copyWith(color: timeColor)),
@@ -99,6 +114,8 @@ class _ControlBarState extends ConsumerState<ControlBar> {
                       ),
                     ),
                     const Spacer(),
+                    _EndModeButton(mode: state.endMode),
+                    const SizedBox(width: OmniaMetrics.space2),
                     _SpeedChip(speed: state.speed, enabled: hasMedia),
                     const SizedBox(width: OmniaMetrics.space3),
                     OmniaIconButton(
@@ -124,6 +141,34 @@ class _ControlBarState extends ConsumerState<ControlBar> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Comportement en fin de lecture. Un clic passe au mode suivant du cycle,
+/// comme la touche `L`.
+class _EndModeButton extends ConsumerWidget {
+  const _EndModeButton({required this.mode});
+
+  final EndOfPlaybackMode mode;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+
+    final (icon, label) = switch (mode) {
+      EndOfPlaybackMode.stop => (Icons.stop_circle_outlined, l10n.endModeStop),
+      EndOfPlaybackMode.next => (Icons.playlist_play_rounded, l10n.endModeNext),
+      EndOfPlaybackMode.repeatOne => (Icons.repeat_one_rounded, l10n.endModeRepeatOne),
+      EndOfPlaybackMode.loopFolder => (Icons.repeat_rounded, l10n.endModeLoopFolder),
+      EndOfPlaybackMode.shuffle => (Icons.shuffle_rounded, l10n.endModeShuffle),
+    };
+
+    return OmniaIconButton(
+      icon: icon,
+      tooltip: '${l10n.endModeLabel} : $label  ·  L',
+      active: mode != EndOfPlaybackMode.next,
+      onPressed: () => ref.dispatch(const CycleLoopMode()),
     );
   }
 }

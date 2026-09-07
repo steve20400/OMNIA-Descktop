@@ -1,0 +1,200 @@
+import 'package:hive_ce_flutter/hive_flutter.dart';
+
+import '../models/history_entry.dart';
+import 'local_storage.dart';
+
+/// Mémoire de lecture d'OMNIA : positions reprises et fichiers récents.
+abstract interface class HistoryStore {
+  /// Ce qui est retenu de [path], ou `null` si le fichier n'a jamais été ouvert.
+  HistoryEntry? entryFor(String path);
+
+  /// Enregistre la progression. Les positions trop proches du début ou de la
+  /// fin sont effacées plutôt que conservées (voir [HistoryEntry]).
+  Future<void> savePosition(
+    String path, {
+    required Duration position,
+    required Duration duration,
+    DateTime? now,
+  });
+
+  /// Marque le fichier comme vu en entier.
+  Future<void> markCompleted(String path, {DateTime? now});
+
+  /// Fichiers récemment ouverts, du plus récent au plus ancien.
+  List<HistoryEntry> recent({int limit = 20});
+
+  /// Oublie un fichier.
+  Future<void> forget(String path);
+
+  /// Efface tout l'historique.
+  Future<void> clear();
+}
+
+/// Implémentation Hive, sur une boîte dédiée.
+class HiveHistoryStore implements HistoryStore {
+  HiveHistoryStore(this._box);
+
+  final Box<dynamic> _box;
+
+  static const boxName = 'history';
+
+  static Future<HiveHistoryStore> open() async {
+    await initialiseLocalStorage();
+    return HiveHistoryStore(await Hive.openBox<dynamic>(boxName));
+  }
+
+  @override
+  HistoryEntry? entryFor(String path) {
+    final raw = _box.get(path);
+    if (raw is! Map) return null;
+    try {
+      return HistoryEntry.fromJson(Map<String, Object?>.from(raw));
+    } on Object {
+      // Entrée écrite par une version antérieure : on l'ignore plutôt que de
+      // faire échouer l'ouverture du fichier.
+      return null;
+    }
+  }
+
+  @override
+  Future<void> savePosition(
+    String path, {
+    required Duration position,
+    required Duration duration,
+    DateTime? now,
+  }) async {
+    final reached = duration > Duration.zero &&
+        position.inMilliseconds / duration.inMilliseconds >=
+            HistoryEntry.completionThreshold;
+
+    if (reached) {
+      await markCompleted(path, now: now);
+      return;
+    }
+    if (!HistoryEntry.isWorthSaving(position, duration)) {
+      // Trop tôt dans le fichier : on garde une trace « déjà ouvert » sans
+      // position, pour la liste des récents.
+      final existing = entryFor(path);
+      await _put(
+        HistoryEntry(
+          path: path,
+          position: Duration.zero,
+          duration: duration,
+          lastOpened: now ?? DateTime.now(),
+          completed: existing?.completed ?? false,
+        ),
+      );
+      return;
+    }
+
+    await _put(
+      HistoryEntry(
+        path: path,
+        position: position,
+        duration: duration,
+        lastOpened: now ?? DateTime.now(),
+      ),
+    );
+  }
+
+  @override
+  Future<void> markCompleted(String path, {DateTime? now}) async {
+    final existing = entryFor(path);
+    await _put(
+      HistoryEntry(
+        path: path,
+        position: Duration.zero,
+        duration: existing?.duration ?? Duration.zero,
+        lastOpened: now ?? DateTime.now(),
+        completed: true,
+        pageCount: existing?.pageCount ?? 0,
+      ),
+    );
+  }
+
+  Future<void> _put(HistoryEntry entry) => _box.put(entry.path, entry.toJson());
+
+  @override
+  List<HistoryEntry> recent({int limit = 20}) {
+    final entries = <HistoryEntry>[];
+    for (final key in _box.keys) {
+      final entry = entryFor(key as String);
+      if (entry != null) entries.add(entry);
+    }
+    entries.sort((a, b) => b.lastOpened.compareTo(a.lastOpened));
+    return entries.take(limit).toList();
+  }
+
+  @override
+  Future<void> forget(String path) => _box.delete(path);
+
+  @override
+  Future<void> clear() => _box.clear();
+}
+
+/// Implémentation en mémoire, pour les tests.
+class MemoryHistoryStore implements HistoryStore {
+  final Map<String, HistoryEntry> entries = {};
+
+  @override
+  HistoryEntry? entryFor(String path) => entries[path];
+
+  @override
+  Future<void> savePosition(
+    String path, {
+    required Duration position,
+    required Duration duration,
+    DateTime? now,
+  }) async {
+    final stamp = now ?? DateTime.now();
+    final reached = duration > Duration.zero &&
+        position.inMilliseconds / duration.inMilliseconds >=
+            HistoryEntry.completionThreshold;
+    if (reached) {
+      await markCompleted(path, now: stamp);
+      return;
+    }
+    if (!HistoryEntry.isWorthSaving(position, duration)) {
+      entries[path] = HistoryEntry(
+        path: path,
+        position: Duration.zero,
+        duration: duration,
+        lastOpened: stamp,
+        completed: entries[path]?.completed ?? false,
+      );
+      return;
+    }
+    entries[path] = HistoryEntry(
+      path: path,
+      position: position,
+      duration: duration,
+      lastOpened: stamp,
+    );
+  }
+
+  @override
+  Future<void> markCompleted(String path, {DateTime? now}) async {
+    final existing = entries[path];
+    entries[path] = HistoryEntry(
+      path: path,
+      position: Duration.zero,
+      duration: existing?.duration ?? Duration.zero,
+      lastOpened: now ?? DateTime.now(),
+      completed: true,
+      pageCount: existing?.pageCount ?? 0,
+    );
+  }
+
+  @override
+  List<HistoryEntry> recent({int limit = 20}) {
+    final list = entries.values.toList()
+      ..sort((a, b) => b.lastOpened.compareTo(a.lastOpened));
+    return list.take(limit).toList();
+  }
+
+  @override
+  Future<void> forget(String path) async => entries.remove(path);
+
+  @override
+  Future<void> clear() async => entries.clear();
+}

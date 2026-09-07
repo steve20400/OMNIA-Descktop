@@ -5,20 +5,25 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
 import '../../core/controllers/media_router.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';
+import '../../core/utils/platform_session.dart';
 import '../../l10n/app_localizations.dart';
+import '../panel_controller.dart';
 import '../shortcuts/shortcut_handler.dart';
 import '../theme/omnia_theme.dart';
 import '../widgets/control_bar.dart';
+import '../widgets/side_panel.dart';
 import '../widgets/stage.dart';
 import '../widgets/title_bar.dart';
 
-/// Écran unique d'OMNIA : barre de titre, scène, contrôles flottants.
+/// Écran unique d'OMNIA : barre de titre, panneau de dossier, scène,
+/// contrôles flottants.
 ///
 /// Gère aussi le glisser-déposer, les raccourcis clavier, la molette (volume)
 /// et le masquage automatique des contrôles en plein écran.
@@ -111,7 +116,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final colors = context.colors;
     final type = context.type;
     final l10n = AppLocalizations.of(context);
-    final state = ref.watch(playbackStateProvider);
+    // On n'observe que les champs dont dépend la structure de l'écran : la
+    // position de lecture change plusieurs fois par seconde et ne doit pas
+    // reconstruire tout l'arbre.
+    final fullscreen = ref.watch(playbackStateProvider.select((s) => s.fullscreen));
+    final hasFile = ref.watch(playbackStateProvider.select((s) => s.hasFile));
+    final canToggleByClick = ref.watch(
+      playbackStateProvider.select(
+        (s) => s.hasFile && s.status != PlaybackStatus.error && s.mediaType.isAv,
+      ),
+    );
+    final panelVisible = ref.watch(panelStateProvider.select((p) => p.visible));
 
     ref.listen<bool>(playbackStateProvider.select((s) => s.fullscreen), (_, fullscreen) {
       if (fullscreen) {
@@ -122,89 +137,124 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
     });
 
-    final hideCursor = state.fullscreen && !_chromeVisible;
-    final canToggleByClick = state.hasFile && state.status != PlaybackStatus.error && state.mediaType.isAv;
+    final hideCursor = fullscreen && !_chromeVisible;
+    // En plein écran, la scène occupe tout : le panneau se retire.
+    final showPanel = panelVisible && !fullscreen;
 
-    return DropTarget(
-      onDragEntered: (_) => setState(() => _dragging = true),
-      onDragExited: (_) => setState(() => _dragging = false),
-      onDragDone: _onDrop,
-      child: Focus(
-        focusNode: _focusNode,
-        autofocus: true,
-        onKeyEvent: (_, event) => handleShortcut(event, ref),
-        child: MouseRegion(
-          cursor: hideCursor ? SystemMouseCursors.none : MouseCursor.defer,
-          onHover: (_) => _revealChrome(),
-          child: Listener(
-            onPointerSignal: _onPointerSignal,
-            onPointerDown: (_) {
-              _focusNode.requestFocus();
-              _revealChrome();
-            },
-            child: ColoredBox(
-              color: colors.velvet,
-              child: Column(
-                children: [
-                  if (!state.fullscreen) const TitleBar(),
-                  Expanded(
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: canToggleByClick ? () => ref.dispatch(const TogglePlay()) : null,
-                          onDoubleTap: state.hasFile ? () => ref.dispatch(const ToggleFullscreen()) : null,
-                          child: const Stage(),
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: IgnorePointer(
-                            ignoring: !_chromeVisible,
-                            child: AnimatedOpacity(
-                              opacity: _chromeVisible ? 1 : 0,
-                              duration: OmniaMotion.reveal,
-                              curve: _chromeVisible ? OmniaMotion.revealCurve : OmniaMotion.concealCurve,
-                              child: AnimatedSlide(
-                                offset: _chromeVisible ? Offset.zero : const Offset(0, 0.12),
-                                duration: OmniaMotion.reveal,
-                                curve: OmniaMotion.revealCurve,
-                                child: const ControlBar(),
+    final content = Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (_, event) => handleShortcut(event, ref),
+      child: MouseRegion(
+        cursor: hideCursor ? SystemMouseCursors.none : MouseCursor.defer,
+        onHover: (_) => _revealChrome(),
+        child: Listener(
+          onPointerDown: (_) => _revealChrome(),
+          child: ColoredBox(
+            color: colors.velvet,
+            child: Column(
+              children: [
+                if (!fullscreen) const TitleBar(),
+                Expanded(
+                  child: Row(
+                    children: [
+                      if (!fullscreen) const SidePanel(),
+                      if (showPanel) const PanelResizeHandle(),
+                      Expanded(
+                        child: Listener(
+                          onPointerSignal: _onPointerSignal,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: canToggleByClick
+                                    ? () {
+                                        _focusNode.requestFocus();
+                                        ref.dispatch(const TogglePlay());
+                                      }
+                                    : _focusNode.requestFocus,
+                                onDoubleTap: hasFile
+                                    ? () => ref.dispatch(const ToggleFullscreen())
+                                    : null,
+                                child: const Stage(),
                               ),
-                            ),
+                              if (!showPanel && !fullscreen)
+                                const Positioned(
+                                  left: OmniaMetrics.space3,
+                                  top: OmniaMetrics.space3,
+                                  child: PanelRevealButton(),
+                                ),
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                child: IgnorePointer(
+                                  ignoring: !_chromeVisible,
+                                  child: AnimatedOpacity(
+                                    opacity: _chromeVisible ? 1 : 0,
+                                    duration: OmniaMotion.reveal,
+                                    curve: _chromeVisible
+                                        ? OmniaMotion.revealCurve
+                                        : OmniaMotion.concealCurve,
+                                    child: AnimatedSlide(
+                                      offset: _chromeVisible
+                                          ? Offset.zero
+                                          : const Offset(0, 0.12),
+                                      duration: OmniaMotion.reveal,
+                                      curve: OmniaMotion.revealCurve,
+                                      child: const ControlBar(),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        IgnorePointer(
-                          child: AnimatedOpacity(
-                            opacity: _dragging ? 1 : 0,
-                            duration: OmniaMotion.reveal,
-                            curve: OmniaMotion.revealCurve,
-                            child: Container(
-                              color: colors.overlayScrim,
-                              padding: const EdgeInsets.all(OmniaMetrics.space4),
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  borderRadius: OmniaMetrics.overlayRadius,
-                                  border: Border.all(color: colors.projector, width: 1.5),
-                                ),
-                                child: Center(
-                                  child: Text(l10n.dropToPlay, style: type.viewTitle),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
+
+    // Le voile de dépôt couvre toute la fenêtre, panneau compris.
+    final dropOverlay = IgnorePointer(
+      child: AnimatedOpacity(
+        opacity: _dragging ? 1 : 0,
+        duration: OmniaMotion.reveal,
+        curve: OmniaMotion.revealCurve,
+        child: Container(
+          color: colors.overlayScrim,
+          padding: const EdgeInsets.all(OmniaMetrics.space4),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: OmniaMetrics.overlayRadius,
+              border: Border.all(color: colors.projector, width: 1.5),
+            ),
+            child: Center(child: Text(l10n.dropToPlay, style: type.viewTitle)),
+          ),
+        ),
+      ),
+    );
+
+    Widget root = DropTarget(
+      onDragEntered: (_) => setState(() => _dragging = true),
+      onDragExited: (_) => setState(() => _dragging = false),
+      onDragDone: _onDrop,
+      child: Stack(fit: StackFit.expand, children: [content, dropOverlay]),
+    );
+
+    // Sous Linux, masquer la barre de titre retire aussi les bordures de
+    // redimensionnement de GTK : OMNIA doit les fournir lui-même, sans quoi la
+    // fenêtre ne peut plus être redimensionnée à la souris.
+    if (needsCustomResizeEdges && !fullscreen) {
+      root = DragToResizeArea(resizeEdgeSize: 5, child: root);
+    }
+    return root;
   }
 }

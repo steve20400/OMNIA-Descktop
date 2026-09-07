@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 
 import '../models/end_of_playback_mode.dart';
+import '../models/playlist_sort.dart';
 
 /// Commandes du lecteur.
 ///
@@ -50,8 +51,20 @@ sealed class PlayerCommand {
       'cycleLoopMode' => const CycleLoopMode(),
       'toggleAlwaysOnTop' => const ToggleAlwaysOnTop(),
       'toggleSidePanel' => const ToggleSidePanel(),
+      'setSidePanelVisible' => SetSidePanelVisible(_bool(json, 'visible')),
+      'setSidePanelWidth' => SetSidePanelWidth(_num(json, 'width').toDouble()),
       'openFile' => OpenFile(_string(json, 'path')),
       'openFolder' => OpenFolder(_string(json, 'path')),
+      'setPlaylistSort' => SetPlaylistSort(
+          PlaylistSort.fromJson(json['sort']),
+          descending: json['descending'] as bool? ?? false,
+        ),
+      'setPlaylistFilter' =>
+        SetPlaylistFilter(PlaylistFilter.fromJson(json['filter'])),
+      'setPlaylistQuery' => SetPlaylistQuery(_string(json, 'query')),
+      'removeFromPlaylist' => RemoveFromPlaylist(_string(json, 'path')),
+      'rescanFolder' => const RescanFolder(),
+      'revealInFolder' => RevealInFolder(_string(json, 'path')),
       _ => throw FormatException('Commande inconnue : $type'),
     };
   }
@@ -66,6 +79,12 @@ sealed class PlayerCommand {
     final v = json[key];
     if (v is String) return v;
     throw FormatException('Argument texte manquant : $key');
+  }
+
+  static bool _bool(Map<String, Object?> json, String key) {
+    final v = json[key];
+    if (v is bool) return v;
+    throw FormatException('Argument booléen manquant : $key');
   }
 
   static const _equality = DeepCollectionEquality();
@@ -271,6 +290,24 @@ final class ToggleSidePanel extends PlayerCommand {
   String get type => 'toggleSidePanel';
 }
 
+final class SetSidePanelVisible extends PlayerCommand {
+  const SetSidePanelVisible(this.visible);
+  final bool visible;
+  @override
+  String get type => 'setSidePanelVisible';
+  @override
+  Map<String, Object?> get arguments => {'visible': visible};
+}
+
+final class SetSidePanelWidth extends PlayerCommand {
+  const SetSidePanelWidth(this.width);
+  final double width;
+  @override
+  String get type => 'setSidePanelWidth';
+  @override
+  Map<String, Object?> get arguments => {'width': width};
+}
+
 // --- Ouverture ------------------------------------------------------------
 
 /// Ouvre un fichier par son chemin absolu (déclenche le scan du dossier).
@@ -289,6 +326,65 @@ final class OpenFolder extends PlayerCommand {
   final String path;
   @override
   String get type => 'openFolder';
+  @override
+  Map<String, Object?> get arguments => {'path': path};
+}
+
+// --- Panneau de dossier ---------------------------------------------------
+
+final class SetPlaylistSort extends PlayerCommand {
+  const SetPlaylistSort(this.sort, {this.descending = false});
+  final PlaylistSort sort;
+  final bool descending;
+  @override
+  String get type => 'setPlaylistSort';
+  @override
+  Map<String, Object?> get arguments =>
+      {'sort': sort.name, 'descending': descending};
+}
+
+final class SetPlaylistFilter extends PlayerCommand {
+  const SetPlaylistFilter(this.filter);
+  final PlaylistFilter filter;
+  @override
+  String get type => 'setPlaylistFilter';
+  @override
+  Map<String, Object?> get arguments => {'filter': filter.name};
+}
+
+/// Recherche instantanée dans le panneau.
+final class SetPlaylistQuery extends PlayerCommand {
+  const SetPlaylistQuery(this.query);
+  final String query;
+  @override
+  String get type => 'setPlaylistQuery';
+  @override
+  Map<String, Object?> get arguments => {'query': query};
+}
+
+/// Retire un élément de la liste affichée, sans toucher au fichier sur disque.
+final class RemoveFromPlaylist extends PlayerCommand {
+  const RemoveFromPlaylist(this.path);
+  final String path;
+  @override
+  String get type => 'removeFromPlaylist';
+  @override
+  Map<String, Object?> get arguments => {'path': path};
+}
+
+/// Relance le scan du dossier courant.
+final class RescanFolder extends PlayerCommand {
+  const RescanFolder();
+  @override
+  String get type => 'rescanFolder';
+}
+
+/// Ouvre l'emplacement du fichier dans le gestionnaire de fichiers du système.
+final class RevealInFolder extends PlayerCommand {
+  const RevealInFolder(this.path);
+  final String path;
+  @override
+  String get type => 'revealInFolder';
   @override
   Map<String, Object?> get arguments => {'path': path};
 }

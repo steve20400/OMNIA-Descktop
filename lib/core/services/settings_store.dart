@@ -2,10 +2,17 @@ import 'dart:ui';
 
 import 'package:hive_ce_flutter/hive_flutter.dart';
 
+import 'local_storage.dart';
+
 /// Clés de persistance. Centralisées pour éviter les chaînes magiques.
 abstract final class SettingsKeys {
   static const windowBounds = 'window.bounds';
   static const windowMaximized = 'window.maximized';
+  static const sidePanelVisible = 'panel.visible';
+  static const sidePanelWidth = 'panel.width';
+  static const playlistSort = 'playlist.sort';
+  static const playlistDescending = 'playlist.descending';
+  static const endOfPlaybackMode = 'playback.endMode';
 }
 
 /// Préférences persistantes d'OMNIA.
@@ -18,6 +25,23 @@ abstract interface class SettingsStore {
 
   bool get windowMaximized;
   Future<void> setWindowMaximized(bool value);
+
+  /// Le panneau de dossier est déployé.
+  bool get sidePanelVisible;
+  Future<void> setSidePanelVisible(bool value);
+
+  /// Largeur du panneau, bornée par l'appelant.
+  double get sidePanelWidth;
+  Future<void> setSidePanelWidth(double value);
+
+  /// Tri du panneau, conservé d'une session à l'autre.
+  String? get playlistSort;
+  bool get playlistDescending;
+  Future<void> setPlaylistSort(String sort, bool descending);
+
+  /// Comportement en fin de lecture.
+  String? get endOfPlaybackMode;
+  Future<void> setEndOfPlaybackMode(String mode);
 }
 
 /// Implémentation Hive (fichier local dans le dossier de données de l'app).
@@ -30,7 +54,7 @@ class HiveSettingsStore implements SettingsStore {
 
   /// Initialise Hive et ouvre la boîte des préférences.
   static Future<HiveSettingsStore> open() async {
-    await Hive.initFlutter('omnia');
+    await initialiseLocalStorage();
     final box = await Hive.openBox<dynamic>(boxName);
     return HiveSettingsStore._(box);
   }
@@ -57,12 +81,54 @@ class HiveSettingsStore implements SettingsStore {
   @override
   Future<void> setWindowMaximized(bool value) =>
       _box.put(SettingsKeys.windowMaximized, value);
+
+  @override
+  bool get sidePanelVisible =>
+      _box.get(SettingsKeys.sidePanelVisible, defaultValue: true) as bool;
+
+  @override
+  Future<void> setSidePanelVisible(bool value) =>
+      _box.put(SettingsKeys.sidePanelVisible, value);
+
+  @override
+  double get sidePanelWidth =>
+      (_box.get(SettingsKeys.sidePanelWidth) as num?)?.toDouble() ?? 0;
+
+  @override
+  Future<void> setSidePanelWidth(double value) =>
+      _box.put(SettingsKeys.sidePanelWidth, value);
+
+  @override
+  String? get playlistSort => _box.get(SettingsKeys.playlistSort) as String?;
+
+  @override
+  bool get playlistDescending =>
+      _box.get(SettingsKeys.playlistDescending, defaultValue: false) as bool;
+
+  @override
+  Future<void> setPlaylistSort(String sort, bool descending) async {
+    await _box.put(SettingsKeys.playlistSort, sort);
+    await _box.put(SettingsKeys.playlistDescending, descending);
+  }
+
+  @override
+  String? get endOfPlaybackMode =>
+      _box.get(SettingsKeys.endOfPlaybackMode) as String?;
+
+  @override
+  Future<void> setEndOfPlaybackMode(String mode) =>
+      _box.put(SettingsKeys.endOfPlaybackMode, mode);
 }
 
 /// Implémentation en mémoire pour les tests.
 class MemorySettingsStore implements SettingsStore {
   Rect? _bounds;
   bool _maximized = false;
+  bool _panelVisible = true;
+  double _panelWidth = 0;
+  String? _sort;
+  bool _descending = false;
+  String? _endMode;
 
   @override
   Rect? get windowBounds => _bounds;
@@ -75,4 +141,34 @@ class MemorySettingsStore implements SettingsStore {
 
   @override
   Future<void> setWindowMaximized(bool value) async => _maximized = value;
+
+  @override
+  bool get sidePanelVisible => _panelVisible;
+
+  @override
+  Future<void> setSidePanelVisible(bool value) async => _panelVisible = value;
+
+  @override
+  double get sidePanelWidth => _panelWidth;
+
+  @override
+  Future<void> setSidePanelWidth(double value) async => _panelWidth = value;
+
+  @override
+  String? get playlistSort => _sort;
+
+  @override
+  bool get playlistDescending => _descending;
+
+  @override
+  Future<void> setPlaylistSort(String sort, bool descending) async {
+    _sort = sort;
+    _descending = descending;
+  }
+
+  @override
+  String? get endOfPlaybackMode => _endMode;
+
+  @override
+  Future<void> setEndOfPlaybackMode(String mode) async => _endMode = mode;
 }

@@ -10,10 +10,20 @@ import 'default_keymap.dart';
 
 /// Traduit un événement clavier en commande sur le bus.
 ///
-/// Ignoré si un champ de texte a le focus (recherche de la playlist, etc.).
+/// Quand un champ de saisie a le focus (recherche du panneau), les raccourcis
+/// se taisent : taper « pause » dans la recherche ne doit pas mettre le film en
+/// pause. `Échap` fait exception — elle rend le focus au lecteur, sans quoi
+/// l'utilisateur resterait piégé dans le champ, clavier inopérant.
 KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
   if (event is KeyUpEvent) return KeyEventResult.ignored;
-  if (_textFieldHasFocus()) return KeyEventResult.ignored;
+
+  if (textFieldHasFocus()) {
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   final keyboard = HardwareKeyboard.instance;
   for (final entry in defaultKeymap.entries) {
@@ -30,7 +40,8 @@ KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
     return KeyEventResult.handled;
   }
 
-  // Touches de vitesse par caractère (indépendant de la disposition).
+  // Touches de vitesse par caractère : `+`, `-` et `=` ne sont pas au même
+  // endroit en AZERTY et en QWERTY, on les reconnaît donc au caractère produit.
   final char = event.character;
   if (char != null && !keyboard.isControlPressed && !keyboard.isAltPressed) {
     final command = characterKeymap[char];
@@ -39,11 +50,17 @@ KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
       return KeyEventResult.handled;
     }
   }
+
+  // `Shift+Tab` n'est volontairement pas capturé : il reste le moyen clavier
+  // d'atteindre la recherche du panneau. Le piège classique — se retrouver
+  // dans un champ, tous les raccourcis muets — est levé par `Échap` ci-dessus.
   return KeyEventResult.ignored;
 }
 
-bool _textFieldHasFocus() {
+/// Vrai si le focus est dans un champ de texte.
+bool textFieldHasFocus() {
   final context = FocusManager.instance.primaryFocus?.context;
   if (context == null) return false;
-  return context.findAncestorWidgetOfExactType<EditableText>() != null;
+  return context.widget is EditableText ||
+      context.findAncestorWidgetOfExactType<EditableText>() != null;
 }

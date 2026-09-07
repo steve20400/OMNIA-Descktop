@@ -73,6 +73,32 @@ ThemeData buildOmniaTheme(Brightness brightness) {
       linearTrackColor: colors.seam,
       circularTrackColor: colors.seam,
     ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: colors.curtain,
+      surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: OmniaMetrics.overlayShadowAlpha),
+      textStyle: typography.body,
+      shape: RoundedRectangleBorder(
+        borderRadius: OmniaMetrics.controlRadius,
+        side: BorderSide(color: colors.seam),
+      ),
+      menuPadding: const EdgeInsets.symmetric(vertical: OmniaMetrics.space1),
+    ),
+    scrollbarTheme: ScrollbarThemeData(
+      thickness: const WidgetStatePropertyAll(6),
+      radius: const Radius.circular(3),
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.hovered)
+            ? colors.dust
+            : colors.seam,
+      ),
+    ),
+    textSelectionTheme: TextSelectionThemeData(
+      cursorColor: colors.projector,
+      selectionColor: colors.projector.withValues(alpha: 0.3),
+      selectionHandleColor: colors.projector,
+    ),
     extensions: [colors, typography],
   );
 }

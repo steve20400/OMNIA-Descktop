@@ -197,6 +197,7 @@ class _ErrorStage extends ConsumerWidget {
       PlaybackErrorCode.unsupportedFormat => l10n.errorUnsupported,
       PlaybackErrorCode.decodeFailed => l10n.errorDecode,
       PlaybackErrorCode.permissionDenied => l10n.errorPermission,
+      PlaybackErrorCode.emptyFolder => l10n.errorEmptyFolder,
       PlaybackErrorCode.unknown => l10n.errorUnknown,
     };
 

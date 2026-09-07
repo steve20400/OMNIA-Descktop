@@ -99,6 +99,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'OMNIA is not allowed to read this file or folder.';
 
   @override
+  String get errorEmptyFolder => 'This folder holds no file OMNIA can read.';
+
+  @override
   String get errorUnknown => 'An unexpected error occurred during playback.';
 
   @override
@@ -108,7 +111,122 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openAnotherFile => 'Open another file';
 
   @override
-  String shortcutHint(String shortcut) {
-    return '$shortcut';
+  String get panelShow => 'Show panel';
+
+  @override
+  String get panelHide => 'Hide panel';
+
+  @override
+  String get panelSearchPlaceholder => 'Search this folder';
+
+  @override
+  String get panelScanning => 'Scanning folder…';
+
+  @override
+  String get panelEmpty => 'No readable file in this folder';
+
+  @override
+  String panelNoResults(String query) {
+    return 'No result for “$query”';
   }
+
+  @override
+  String get panelNoFolder => 'Open a file to see its neighbours';
+
+  @override
+  String panelFileCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+      zero: 'no file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String panelFileCountFiltered(int visible, int total) {
+    return '$visible of $total';
+  }
+
+  @override
+  String get filterAll => 'All';
+
+  @override
+  String get filterVideo => 'Video';
+
+  @override
+  String get filterAudio => 'Audio';
+
+  @override
+  String get filterDocuments => 'Documents';
+
+  @override
+  String get sortLabel => 'Sort';
+
+  @override
+  String get sortName => 'Name';
+
+  @override
+  String get sortDate => 'Date';
+
+  @override
+  String get sortSize => 'Size';
+
+  @override
+  String get sortType => 'Type';
+
+  @override
+  String get sortAscending => 'Ascending';
+
+  @override
+  String get sortDescending => 'Descending';
+
+  @override
+  String get contextPlay => 'Play';
+
+  @override
+  String get contextRemove => 'Remove from list';
+
+  @override
+  String get contextReveal => 'Open file location';
+
+  @override
+  String get badgeWatched => 'Watched';
+
+  @override
+  String badgeResume(String time) {
+    return 'Resume at $time';
+  }
+
+  @override
+  String get nextFile => 'Next file';
+
+  @override
+  String get previousFile => 'Previous file';
+
+  @override
+  String get endModeLabel => 'When playback ends';
+
+  @override
+  String get endModeStop => 'Stop';
+
+  @override
+  String get endModeNext => 'Next file';
+
+  @override
+  String get endModeRepeatOne => 'Repeat file';
+
+  @override
+  String get endModeLoopFolder => 'Loop folder';
+
+  @override
+  String get endModeShuffle => 'Shuffle';
+
+  @override
+  String get clearSearch => 'Clear search';
+
+  @override
+  String get resizePanel => 'Resize panel';
 }

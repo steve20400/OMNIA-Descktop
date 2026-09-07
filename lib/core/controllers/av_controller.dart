@@ -9,6 +9,7 @@ import '../models/media_file.dart';
 import '../models/media_type.dart';
 import '../models/playback_state.dart';
 import '../models/playback_status.dart';
+import '../utils/os_errors.dart';
 import 'media_controller.dart';
 
 /// Contrôleur audio/vidéo basé sur media_kit (libmpv).
@@ -64,9 +65,19 @@ class AvController implements MediaController {
         _update((st) => st.copyWith(status: PlaybackStatus.ended));
       }),
       s.error.listen((message) {
+        // mpv émet aussi des erreurs non fatales en cours de lecture (une
+        // piste de sous-titres illisible, un paquet corrompu). Interrompre la
+        // lecture pour cela remplacerait une image qui s'affiche par un écran
+        // d'erreur. On ne bascule en erreur que si rien ne joue encore.
+        final st = _sink?.state;
+        final fatal = _opening ||
+            st == null ||
+            st.status == PlaybackStatus.loading ||
+            st.duration <= Duration.zero;
+        if (!fatal) return;
         _opening = false;
         _update(
-          (st) => st.copyWith(
+          (state) => state.copyWith(
             status: PlaybackStatus.error,
             error: PlaybackError(PlaybackErrorCode.decodeFailed, detail: message),
           ),
@@ -86,10 +97,16 @@ class AvController implements MediaController {
 
     if (!File(file.path).existsSync()) {
       _opening = false;
+      // Remettre position, durée et présence vidéo à zéro : sans cela, l'état
+      // garderait celles du fichier précédent, et la sauvegarde de position
+      // les attribuerait au nouveau fichier.
       sink.update(
         (st) => st.copyWith(
           file: file,
           status: PlaybackStatus.error,
+          position: Duration.zero,
+          duration: Duration.zero,
+          hasVideo: false,
           error: const PlaybackError(PlaybackErrorCode.fileNotFound),
         ),
       );
@@ -109,8 +126,10 @@ class AvController implements MediaController {
 
     try {
       await player.open(Media(file.path), play: true);
-      // La vitesse et le volume sont conservés d'un fichier à l'autre.
+      // Vitesse, volume et sourdine sont conservés d'un fichier à l'autre.
       await player.setRate(sink.state.speed);
+      await player.setVolume(sink.state.volume);
+      await _setMuted(sink.state.muted);
     } on Object catch (e) {
       _opening = false;
       sink.update(
@@ -123,11 +142,7 @@ class AvController implements MediaController {
   }
 
   PlaybackErrorCode _classify(Object error) {
-    if (error is FileSystemException) {
-      return error.osError?.errorCode == 13
-          ? PlaybackErrorCode.permissionDenied
-          : PlaybackErrorCode.fileNotFound;
-    }
+    if (error is FileSystemException) return classifyFileSystemError(error);
     return PlaybackErrorCode.decodeFailed;
   }
 

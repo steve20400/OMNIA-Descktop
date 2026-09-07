@@ -74,6 +74,15 @@ set_target_properties(${BINARY_NAME}
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# media_kit : remplacer l'allocateur par mimalloc.
+# media_kit_libs_linux compile mimalloc et publie son chemin dans MIMALLOC_LIB,
+# mais c'est à l'application de le lier ; sans cela, libmpv fuit de la mémoire à
+# chaque changement de fichier. La variable n'existe qu'après l'inclusion des
+# plugins ci-dessus, d'où la position de ce bloc.
+if(MIMALLOC_LIB)
+  target_link_libraries(${BINARY_NAME} PRIVATE ${MIMALLOC_LIB})
+endif()
+
 
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build

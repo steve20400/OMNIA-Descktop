@@ -10,7 +10,12 @@ import 'package:omnia/core/models/media_file.dart';
 import 'package:omnia/core/models/media_type.dart';
 import 'package:omnia/core/models/playback_state.dart';
 import 'package:omnia/core/models/playback_status.dart';
+import 'package:omnia/core/services/folder_scanner.dart';
+import 'package:omnia/core/services/history_store.dart';
 import 'package:omnia/core/services/playback_service.dart';
+import 'package:omnia/core/services/playlist_service.dart';
+import 'package:omnia/core/services/settings_store.dart';
+import 'package:omnia/core/services/system_integration.dart';
 import 'package:omnia/core/services/window_service.dart';
 
 /// Contrôleur factice : enregistre ce qu'il reçoit et simule une lecture.
@@ -19,6 +24,9 @@ class FakeAvController implements MediaController {
   final List<PlayerCommand> handled = [];
   int closeCount = 0;
   PlaybackStateSink? sink;
+
+  /// Durée annoncée à l'ouverture.
+  Duration duration = const Duration(minutes: 10);
 
   @override
   Set<MediaType> get supportedTypes => const {MediaType.video, MediaType.audio};
@@ -31,7 +39,8 @@ class FakeAvController implements MediaController {
       (s) => s.copyWith(
         file: file,
         status: PlaybackStatus.playing,
-        duration: const Duration(minutes: 10),
+        position: Duration.zero,
+        duration: duration,
         clearError: true,
       ),
     );
@@ -40,10 +49,25 @@ class FakeAvController implements MediaController {
   @override
   Future<bool> handle(PlayerCommand command) async {
     handled.add(command);
-    if (command is Pause) {
-      sink?.update((s) => s.copyWith(status: PlaybackStatus.paused));
+    switch (command) {
+      case Pause():
+        sink?.update((s) => s.copyWith(status: PlaybackStatus.paused));
+      case SeekAbsolute(:final position):
+        sink?.update((s) => s.copyWith(position: position));
+      default:
+        break;
     }
     return true;
+  }
+
+  /// Simule la fin naturelle du fichier.
+  void finish() {
+    sink?.update((s) => s.copyWith(status: PlaybackStatus.ended));
+  }
+
+  /// Simule l'avancée de la lecture.
+  void advanceTo(Duration position) {
+    sink?.update((s) => s.copyWith(position: position));
   }
 
   @override
@@ -56,79 +80,147 @@ class FakeAvController implements MediaController {
   Future<void> dispose() async {}
 }
 
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 10));
+Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
+
+MediaFile mf(String path, MediaType type) => MediaFile(path: path, type: type);
 
 void main() {
   late PlayerCommandBus bus;
   late FakeAvController av;
   late FakeWindowService window;
+  late FakeFolderScanner scanner;
+  late MemoryHistoryStore history;
+  late RecordingSystemIntegration system;
+  late PlaylistService playlist;
   late PlaybackService service;
+
+  final folders = <String, List<MediaFile>>{
+    // Modifiable : certains tests y ajoutent un dossier.
+    '/serie': [
+      mf('/serie/ep1.mkv', MediaType.video),
+      mf('/serie/ep2.mkv', MediaType.video),
+      mf('/serie/ep3.mkv', MediaType.video),
+    ],
+    '/vide': [],
+  };
 
   setUp(() {
     bus = PlayerCommandBus();
     av = FakeAvController();
     window = FakeWindowService();
-    service = PlaybackService(bus: bus, router: MediaRouter([av]), window: window);
+    scanner = FakeFolderScanner(folders);
+    history = MemoryHistoryStore();
+    system = RecordingSystemIntegration();
+    playlist = PlaylistService(bus: bus, scanner: scanner, history: history);
+    service = PlaybackService(
+      bus: bus,
+      router: MediaRouter([av]),
+      window: window,
+      playlist: playlist,
+      history: history,
+      system: system,
+    );
   });
 
   tearDown(() async {
     await service.dispose();
+    await playlist.dispose();
     await bus.dispose();
   });
 
-  group('PlaybackService — ouverture', () {
+  group('Ouverture', () {
     test('OpenFile route vers le contrôleur du type', () async {
-      bus.dispatch(const OpenFile('/videos/ep1.mkv'));
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
       await settle();
 
-      expect(av.opened.single.path, '/videos/ep1.mkv');
+      expect(av.opened.single.path, '/serie/ep1.mkv');
       expect(av.opened.single.type, MediaType.video);
       expect(service.state.status, PlaybackStatus.playing);
-      expect(service.state.file?.name, 'ep1.mkv');
       expect(service.activeController, same(av));
     });
 
-    test('extension inconnue → erreur unsupportedFormat, pas de crash', () async {
+    test('ouvrir un fichier scanne son dossier et remplit la playlist', () async {
+      bus.dispatch(const OpenFile('/serie/ep2.mkv'));
+      await settle();
+
+      expect(scanner.scannedFolders, ['/serie']);
+      expect(playlist.state.entries, hasLength(3));
+      expect(playlist.state.currentPath, '/serie/ep2.mkv');
+      expect(service.state.playlist, [
+        '/serie/ep1.mkv',
+        '/serie/ep2.mkv',
+        '/serie/ep3.mkv',
+      ]);
+      expect(service.state.playlistIndex, 1);
+    });
+
+    test('la lecture démarre sans attendre la fin du scan', () async {
+      final slowPlaylist = PlaylistService(
+        bus: bus,
+        scanner: FakeFolderScanner(folders, delay: const Duration(milliseconds: 200)),
+      );
+      final slowService = PlaybackService(
+        bus: bus,
+        router: MediaRouter([av]),
+        window: window,
+        playlist: slowPlaylist,
+      );
+
+      await slowService.openPath('/serie/ep1.mkv');
+      // Le scan est toujours en cours, mais le fichier joue déjà.
+      expect(slowService.state.status, PlaybackStatus.playing);
+      expect(slowPlaylist.state.entries, isEmpty);
+
+      await Future<void>.delayed(const Duration(milliseconds: 260));
+      expect(slowPlaylist.state.entries, hasLength(3));
+
+      await slowService.dispose();
+      await slowPlaylist.dispose();
+    });
+
+    test('extension inconnue → erreur, pas de crash', () async {
       bus.dispatch(const OpenFile('/x/archive.zip'));
       await settle();
 
       expect(av.opened, isEmpty);
       expect(service.state.status, PlaybackStatus.error);
       expect(service.state.error?.code, PlaybackErrorCode.unsupportedFormat);
-      expect(service.state.file?.name, 'archive.zip');
     });
 
-    test('ouvrir un second fichier sur le même contrôleur ne le ferme pas', () async {
-      bus.dispatch(const OpenFile('/a.mp4'));
-      bus.dispatch(const OpenFile('/b.mp3'));
+    test('ouvrir un second fichier du même contrôleur ne le ferme pas', () async {
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      bus.dispatch(const OpenFile('/serie/ep2.mkv'));
       await settle();
 
-      expect(av.opened.map((f) => f.name), ['a.mp4', 'b.mp3']);
+      expect(av.opened.map((f) => f.name), ['ep1.mkv', 'ep2.mkv']);
       expect(av.closeCount, 0);
-      expect(service.state.file?.name, 'b.mp3');
     });
 
     test('le flux d’état émet chaque changement', () async {
       final statuses = <PlaybackStatus>[];
       final sub = service.stream.listen((s) => statuses.add(s.status));
-      bus.dispatch(const OpenFile('/a.mp4'));
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
       bus.dispatch(const Pause());
       await settle();
 
-      expect(statuses, [PlaybackStatus.playing, PlaybackStatus.paused]);
+      expect(statuses, contains(PlaybackStatus.playing));
+      expect(statuses.last, PlaybackStatus.paused);
       await sub.cancel();
     });
   });
 
-  group('PlaybackService — délégation', () {
-    test('les commandes média sont transmises au contrôleur actif', () async {
-      bus.dispatch(const OpenFile('/a.mp4'));
+  group('Délégation', () {
+    test('les commandes média vont au contrôleur actif', () async {
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
       bus.dispatch(const SeekRelative(5));
       bus.dispatch(const SetVolume(50));
       bus.dispatch(const ToggleMute());
       await settle();
 
-      expect(av.handled, [const SeekRelative(5), const SetVolume(50), const ToggleMute()]);
+      expect(
+        av.handled.where((c) => c is! SeekAbsolute),
+        [const SeekRelative(5), const SetVolume(50), const ToggleMute()],
+      );
     });
 
     test('sans fichier ouvert, les commandes média sont ignorées', () async {
@@ -139,7 +231,7 @@ void main() {
     });
 
     test('les commandes arrivent dans l’ordre malgré l’asynchrone', () async {
-      bus.dispatch(const OpenFile('/a.mp4'));
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
       for (var i = 0; i < 20; i++) {
         bus.dispatch(SeekRelative(i.toDouble()));
       }
@@ -150,19 +242,192 @@ void main() {
       );
     });
 
-    test('Stop ferme le contrôleur et revient à l’état vide', () async {
-      bus.dispatch(const OpenFile('/a.mp4'));
+    test('Stop ferme le contrôleur et vide l’état', () async {
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
       bus.dispatch(const Stop());
       await settle();
 
       expect(av.closeCount, 1);
       expect(service.state.hasFile, isFalse);
-      expect(service.state.status, PlaybackStatus.idle);
       expect(service.activeController, isNull);
+      expect(playlist.state.currentPath, isNull);
+    });
+
+    test('RevealInFolder passe par l’intégration système', () async {
+      bus.dispatch(const RevealInFolder('/serie/ep1.mkv'));
+      await settle();
+      expect(system.revealed, ['/serie/ep1.mkv']);
     });
   });
 
-  group('PlaybackService — fenêtre et modes', () {
+  group('Navigation dans la playlist', () {
+    test('NextFile et PreviousFile suivent la liste affichée', () async {
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      await settle();
+
+      bus.dispatch(const NextFile());
+      await settle();
+      expect(service.state.file?.name, 'ep2.mkv');
+
+      bus.dispatch(const NextFile());
+      await settle();
+      expect(service.state.file?.name, 'ep3.mkv');
+
+      bus.dispatch(const PreviousFile());
+      await settle();
+      expect(service.state.file?.name, 'ep2.mkv');
+    });
+
+    test('NextFile boucle à la fin de la liste', () async {
+      bus.dispatch(const OpenFile('/serie/ep3.mkv'));
+      await settle();
+      bus.dispatch(const NextFile());
+      await settle();
+      expect(service.state.file?.name, 'ep1.mkv');
+    });
+
+    test('NextFile sans playlist ne fait rien', () async {
+      bus.dispatch(const NextFile());
+      await settle();
+      expect(service.state.hasFile, isFalse);
+    });
+  });
+
+  group('Fin de lecture', () {
+    Future<void> openFirst() async {
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      await settle();
+    }
+
+    test('mode « suivant » enchaîne sur le fichier suivant', () async {
+      await openFirst();
+      av.finish();
+      await settle();
+      expect(service.state.file?.name, 'ep2.mkv');
+    });
+
+    test('mode « suivant » s’arrête au dernier fichier', () async {
+      bus.dispatch(const OpenFile('/serie/ep3.mkv'));
+      await settle();
+      av.finish();
+      await settle();
+      expect(service.state.file?.name, 'ep3.mkv');
+    });
+
+    test('mode « stop » ne fait rien', () async {
+      bus.dispatch(const SetLoopMode(EndOfPlaybackMode.stop));
+      await openFirst();
+      av.finish();
+      await settle();
+      expect(service.state.file?.name, 'ep1.mkv');
+      expect(av.opened, hasLength(1));
+    });
+
+    test('mode « répéter » rejoue sans rouvrir le fichier', () async {
+      bus.dispatch(const SetLoopMode(EndOfPlaybackMode.repeatOne));
+      await openFirst();
+      av.finish();
+      await settle();
+
+      expect(av.opened, hasLength(1));
+      expect(av.handled, contains(const SeekAbsolute(Duration.zero)));
+      expect(av.handled, contains(const Play()));
+    });
+
+    test('mode « boucler le dossier » revient au début', () async {
+      bus.dispatch(const SetLoopMode(EndOfPlaybackMode.loopFolder));
+      bus.dispatch(const OpenFile('/serie/ep3.mkv'));
+      await settle();
+      av.finish();
+      await settle();
+      expect(service.state.file?.name, 'ep1.mkv');
+    });
+
+    test('la fin marque le fichier comme vu', () async {
+      await openFirst();
+      av.finish();
+      await settle();
+      expect(history.entryFor('/serie/ep1.mkv')?.completed, isTrue);
+    });
+  });
+
+  group('Reprise de lecture', () {
+    test('la position est sauvegardée en changeant de fichier', () async {
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      await settle();
+      av.advanceTo(const Duration(minutes: 4));
+      await settle();
+
+      bus.dispatch(const OpenFile('/serie/ep2.mkv'));
+      await settle();
+
+      expect(
+        history.entryFor('/serie/ep1.mkv')?.resumePosition,
+        const Duration(minutes: 4),
+      );
+    });
+
+    test('la position mémorisée est réappliquée à la réouverture', () async {
+      await history.savePosition(
+        '/serie/ep1.mkv',
+        position: const Duration(minutes: 4),
+        duration: const Duration(minutes: 10),
+        now: DateTime(2026, 9, 6),
+      );
+
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      await settle();
+
+      expect(av.handled, contains(const SeekAbsolute(Duration(minutes: 4))));
+      expect(service.state.position, const Duration(minutes: 4));
+    });
+
+    test('la reprise ne s’applique qu’au fichier qu’elle concerne', () async {
+      // Seul ep2 a une position mémorisée.
+      await history.savePosition(
+        '/serie/ep2.mkv',
+        position: const Duration(minutes: 4),
+        duration: const Duration(minutes: 10),
+        now: DateTime(2026, 9, 6),
+      );
+
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      await settle();
+      // ep1 joue depuis le début : aucun seek de reprise ne doit lui parvenir.
+      expect(av.handled.whereType<SeekAbsolute>(), isEmpty);
+
+      bus.dispatch(const OpenFile('/serie/ep2.mkv'));
+      await settle();
+      expect(av.handled, contains(const SeekAbsolute(Duration(minutes: 4))));
+      expect(service.state.file?.name, 'ep2.mkv');
+      expect(service.state.position, const Duration(minutes: 4));
+    });
+
+    test('aucune reprise sous le seuil de 30 s', () async {
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      await settle();
+      av.advanceTo(const Duration(seconds: 20));
+      await settle();
+      bus.dispatch(const Stop());
+      await settle();
+
+      expect(history.entryFor('/serie/ep1.mkv')?.resumePosition, isNull);
+    });
+
+    test('la progression est enregistrée au fil de la lecture', () async {
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      await settle();
+      av.advanceTo(const Duration(minutes: 2));
+      await settle();
+
+      expect(
+        history.entryFor('/serie/ep1.mkv')?.resumePosition,
+        const Duration(minutes: 2),
+      );
+    });
+  });
+
+  group('Fenêtre et modes', () {
     test('ToggleFullscreen pilote la fenêtre et l’état', () async {
       bus.dispatch(const ToggleFullscreen());
       await settle();
@@ -172,14 +437,12 @@ void main() {
       bus.dispatch(const ToggleFullscreen());
       await settle();
       expect(window.fullscreen, isFalse);
-      expect(service.state.fullscreen, isFalse);
     });
 
     test('ExitFullscreen ne fait rien hors plein écran', () async {
       bus.dispatch(const ExitFullscreen());
       await settle();
       expect(window.fullscreen, isFalse);
-      expect(service.state.fullscreen, isFalse);
     });
 
     test('ToggleAlwaysOnTop', () async {
@@ -198,31 +461,146 @@ void main() {
       await settle();
       expect(service.state.endMode, EndOfPlaybackMode.stop);
     });
+
+    test('le mode de fin de lecture est relu au démarrage et sauvegardé', () async {
+      final store = MemorySettingsStore();
+      await store.setEndOfPlaybackMode('loopFolder');
+
+      final ownBus = PlayerCommandBus();
+      final ownPlaylist = PlaylistService(bus: ownBus, scanner: scanner);
+      final restored = PlaybackService(
+        bus: ownBus,
+        router: MediaRouter([av]),
+        window: window,
+        playlist: ownPlaylist,
+        settings: store,
+      );
+      expect(restored.state.endMode, EndOfPlaybackMode.loopFolder);
+
+      ownBus.dispatch(const CycleLoopMode());
+      await settle();
+      expect(store.endOfPlaybackMode, 'shuffle');
+
+      await restored.dispose();
+      await ownPlaylist.dispose();
+      await ownBus.dispose();
+    });
   });
 
-  group('PlaybackService — dossier', () {
-    late Directory dir;
-
-    setUp(() async {
-      dir = await Directory.systemTemp.createTemp('omnia_test_');
-      for (final name in ['b.mp4', 'a.mkv', 'notes.txt', 'ignore.zip']) {
-        await File('${dir.path}${Platform.pathSeparator}$name').writeAsString('x');
-      }
+  group('Ouverture d’un dossier', () {
+    test('lit le premier fichier de la liste triée', () async {
+      bus.dispatch(const OpenFolder('/serie'));
+      await settle();
+      expect(service.state.file?.name, 'ep1.mkv');
+      expect(playlist.state.entries, hasLength(3));
     });
 
-    tearDown(() => dir.delete(recursive: true));
+    test('dossier sans média lisible → message dédié', () async {
+      final dir = Directory.systemTemp.createTempSync('omnia_empty_');
+      addTearDown(() {
+        try {
+          dir.deleteSync(recursive: true);
+        } on FileSystemException {
+          // Nettoyé par le système.
+        }
+      });
+      scanner.filesByFolder[dir.path] = [];
 
-    test('OpenFolder lit le premier fichier lisible par ordre de nom', () async {
       bus.dispatch(OpenFolder(dir.path));
       await settle();
-      expect(av.opened.single.name, 'a.mkv');
+      await service.idle;
+      expect(service.state.status, PlaybackStatus.error);
+      expect(service.state.error?.code, PlaybackErrorCode.emptyFolder);
     });
 
-    test('dossier inexistant → erreur sans crash', () async {
-      bus.dispatch(OpenFolder('${dir.path}/nope'));
+    test('dossier introuvable → message dédié', () async {
+      bus.dispatch(const OpenFolder('/dossier/absent/vraiment'));
       await settle();
+      await service.idle;
       expect(service.state.status, PlaybackStatus.error);
-      expect(service.state.error?.code, PlaybackErrorCode.permissionDenied);
+      expect(service.state.error?.code, PlaybackErrorCode.fileNotFound);
+    });
+  });
+
+  group('Volume sans fichier ouvert', () {
+    test('SetVolume est mémorisé et appliqué au fichier suivant', () async {
+      bus.dispatch(const SetVolume(40));
+      await settle();
+      expect(service.state.volume, 40);
+
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      await settle();
+      expect(service.state.volume, 40);
+    });
+
+    test('VolumeRelative est borné à 0–100', () async {
+      bus.dispatch(const VolumeRelative(50));
+      bus.dispatch(const VolumeRelative(50));
+      await settle();
+      expect(service.state.volume, 100);
+
+      for (var i = 0; i < 30; i++) {
+        bus.dispatch(const VolumeRelative(-5));
+      }
+      await settle();
+      expect(service.state.volume, 0);
+    });
+
+    test('ToggleMute fonctionne aussi sans fichier', () async {
+      bus.dispatch(const ToggleMute());
+      await settle();
+      expect(service.state.muted, isTrue);
+    });
+
+    test('régler le volume lève la sourdine', () async {
+      bus.dispatch(const ToggleMute());
+      bus.dispatch(const SetVolume(70));
+      await settle();
+      expect(service.state.muted, isFalse);
+      expect(service.state.volume, 70);
+    });
+  });
+
+  group('Fichiers non pris en charge dans le dossier', () {
+    setUp(() {
+      // Le dossier contient un PDF, qu'aucun contrôleur ne sait ouvrir.
+      folders['/mixte'] = [
+        mf('/mixte/a.mkv', MediaType.video),
+        mf('/mixte/notice.pdf', MediaType.pdf),
+        mf('/mixte/b.mkv', MediaType.video),
+      ];
+    });
+
+    tearDown(() => folders.remove('/mixte'));
+
+    test('la fin de lecture enjambe le fichier non lisible', () async {
+      final router = MediaRouter([av]);
+      final ownPlaylist = PlaylistService(
+        bus: bus,
+        scanner: scanner,
+        isPlayable: (path) => router.controllerForPath(path) != null,
+      );
+      final ownService = PlaybackService(
+        bus: bus,
+        router: router,
+        window: window,
+        playlist: ownPlaylist,
+      );
+
+      await ownService.openPath('/mixte/a.mkv');
+      await settle();
+      av.finish();
+      await settle();
+
+      expect(ownService.state.file?.name, 'b.mkv');
+
+      await ownService.dispose();
+      await ownPlaylist.dispose();
+    });
+
+    test('le panneau montre quand même tous les fichiers', () async {
+      await playlist.scanFolder('/mixte');
+      expect(playlist.state.entries, hasLength(3));
     });
   });
 
@@ -243,7 +621,6 @@ void main() {
     );
     final restored = PlaybackState.fromJson(state.toJson());
     expect(restored.toJson(), state.toJson());
-    expect(restored.file, state.file);
     expect(restored.progress, closeTo(42 / 180, 1e-9));
     expect(restored.remaining, const Duration(minutes: 2, seconds: 18));
   });

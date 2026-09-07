@@ -35,15 +35,75 @@
   "errorUnsupported": "This file type is not supported by OMNIA.",
   "errorDecode": "The file looks damaged, or its format cannot be decoded by the engine.",
   "errorPermission": "OMNIA is not allowed to read this file or folder.",
+  "errorEmptyFolder": "This folder holds no file OMNIA can read.",
   "errorUnknown": "An unexpected error occurred during playback.",
   "errorHint": "You can open another file, or drop one here.",
   "openAnotherFile": "Open another file",
-  "shortcutHint": "{shortcut}",
-  "@shortcutHint": {
+
+  "panelShow": "Show panel",
+  "panelHide": "Hide panel",
+  "panelSearchPlaceholder": "Search this folder",
+  "panelScanning": "Scanning folder…",
+  "panelEmpty": "No readable file in this folder",
+  "panelNoResults": "No result for “{query}”",
+  "@panelNoResults": {
     "placeholders": {
-      "shortcut": {
+      "query": {
         "type": "String"
       }
     }
-  }
+  },
+  "panelNoFolder": "Open a file to see its neighbours",
+  "panelFileCount": "{count, plural, =0{no file} =1{1 file} other{{count} files}}",
+  "@panelFileCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "panelFileCountFiltered": "{visible} of {total}",
+  "@panelFileCountFiltered": {
+    "placeholders": {
+      "visible": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "filterAll": "All",
+  "filterVideo": "Video",
+  "filterAudio": "Audio",
+  "filterDocuments": "Documents",
+  "sortLabel": "Sort",
+  "sortName": "Name",
+  "sortDate": "Date",
+  "sortSize": "Size",
+  "sortType": "Type",
+  "sortAscending": "Ascending",
+  "sortDescending": "Descending",
+  "contextPlay": "Play",
+  "contextRemove": "Remove from list",
+  "contextReveal": "Open file location",
+  "badgeWatched": "Watched",
+  "badgeResume": "Resume at {time}",
+  "@badgeResume": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "nextFile": "Next file",
+  "previousFile": "Previous file",
+  "endModeLabel": "When playback ends",
+  "endModeStop": "Stop",
+  "endModeNext": "Next file",
+  "endModeRepeatOne": "Repeat file",
+  "endModeLoopFolder": "Loop folder",
+  "endModeShuffle": "Shuffle",
+  "clearSearch": "Clear search",
+  "resizePanel": "Resize panel"
 }
