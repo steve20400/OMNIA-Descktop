@@ -11,6 +11,8 @@ class HistoryEntry {
     required this.lastOpened,
     this.completed = false,
     this.pageCount = 0,
+    this.page = 0,
+    this.scrollFraction = 0,
   });
 
   /// Sous ce seuil, la position n'est pas mémorisée : on vient à peine de
@@ -36,6 +38,26 @@ class HistoryEntry {
 
   /// Nombre de pages, pour les documents.
   final int pageCount;
+
+  /// Dernière page lue (1-based), 0 si inconnue. PDF.
+  final int page;
+
+  /// Dernière position de défilement, 0–1. Texte.
+  final double scrollFraction;
+
+  /// Page à rouvrir, `null` si l'on repart du début : première page, ou
+  /// document déjà lu jusqu'à la dernière page.
+  int? get resumePage {
+    if (page <= 1) return null;
+    if (pageCount > 0 && page >= pageCount) return null;
+    return page;
+  }
+
+  /// Position de défilement à rouvrir, `null` si négligeable ou à la fin.
+  double? get resumeScroll {
+    if (scrollFraction < 0.02 || scrollFraction > 0.98) return null;
+    return scrollFraction;
+  }
 
   /// Position à proposer à la réouverture, `null` s'il faut repartir du début.
   Duration? get resumePosition {
@@ -64,6 +86,8 @@ class HistoryEntry {
     DateTime? lastOpened,
     bool? completed,
     int? pageCount,
+    int? page,
+    double? scrollFraction,
   }) {
     return HistoryEntry(
       path: path,
@@ -72,6 +96,8 @@ class HistoryEntry {
       lastOpened: lastOpened ?? this.lastOpened,
       completed: completed ?? this.completed,
       pageCount: pageCount ?? this.pageCount,
+      page: page ?? this.page,
+      scrollFraction: scrollFraction ?? this.scrollFraction,
     );
   }
 
@@ -82,6 +108,8 @@ class HistoryEntry {
         'lastOpened': lastOpened.toIso8601String(),
         'completed': completed,
         'pageCount': pageCount,
+        'page': page,
+        'scrollFraction': scrollFraction,
       };
 
   factory HistoryEntry.fromJson(Map<String, Object?> json) => HistoryEntry(
@@ -93,6 +121,9 @@ class HistoryEntry {
                 DateTime.fromMillisecondsSinceEpoch(0),
         completed: json['completed'] as bool? ?? false,
         pageCount: (json['pageCount'] as num?)?.toInt() ?? 0,
+        page: (json['page'] as num?)?.toInt() ?? 0,
+        scrollFraction:
+            ((json['scrollFraction'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0),
       );
 
   @override

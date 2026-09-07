@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 
+import '../models/document_layout.dart';
 import '../models/end_of_playback_mode.dart';
 import '../models/playlist_sort.dart';
 
@@ -66,6 +67,14 @@ sealed class PlayerCommand {
       'rescanFolder' => const RescanFolder(),
       'revealInFolder' => RevealInFolder(_string(json, 'path')),
       'clearHistory' => const ClearHistory(),
+      'zoomRelative' => ZoomRelative(_num(json, 'factor').toDouble()),
+      'fitZoom' => FitZoom(FitMode.fromJson(json['mode'])),
+      'rotateDocument' => RotateDocument(_num(json, 'quarterTurns').toInt()),
+      'toggleReadingDarkMode' => const ToggleReadingDarkMode(),
+      'setDocumentLayout' =>
+        SetDocumentLayout(DocumentLayout.fromJson(json['layout'])),
+      'toggleDocumentLayout' => const ToggleDocumentLayout(),
+      'scrollTo' => ScrollTo(_num(json, 'fraction').toDouble()),
       _ => throw FormatException('Commande inconnue : $type'),
     };
   }
@@ -395,4 +404,71 @@ final class ClearHistory extends PlayerCommand {
   const ClearHistory();
   @override
   String get type => 'clearHistory';
+}
+
+// --- Documents -------------------------------------------------------------
+
+/// Multiplie le zoom par [factor] (`Ctrl+molette`).
+final class ZoomRelative extends PlayerCommand {
+  const ZoomRelative(this.factor);
+  final double factor;
+  @override
+  String get type => 'zoomRelative';
+  @override
+  Map<String, Object?> get arguments => {'factor': factor};
+}
+
+/// Ajuste le zoom à la largeur ou à la page (`Ctrl+0`).
+final class FitZoom extends PlayerCommand {
+  const FitZoom(this.mode);
+  final FitMode mode;
+  @override
+  String get type => 'fitZoom';
+  @override
+  Map<String, Object?> get arguments => {'mode': mode.name};
+}
+
+/// Tourne le document de [quarterTurns] quarts de tour (1 = 90° horaire).
+final class RotateDocument extends PlayerCommand {
+  const RotateDocument([this.quarterTurns = 1]);
+  final int quarterTurns;
+  @override
+  String get type => 'rotateDocument';
+  @override
+  Map<String, Object?> get arguments => {'quarterTurns': quarterTurns};
+}
+
+/// Mode sombre de lecture (inversion douce des couleurs du document).
+final class ToggleReadingDarkMode extends PlayerCommand {
+  const ToggleReadingDarkMode();
+  @override
+  String get type => 'toggleReadingDarkMode';
+}
+
+final class SetDocumentLayout extends PlayerCommand {
+  const SetDocumentLayout(this.layout);
+  final DocumentLayout layout;
+  @override
+  String get type => 'setDocumentLayout';
+  @override
+  Map<String, Object?> get arguments => {'layout': layout.name};
+}
+
+final class ToggleDocumentLayout extends PlayerCommand {
+  const ToggleDocumentLayout();
+  @override
+  String get type => 'toggleDocumentLayout';
+}
+
+/// Fait défiler un texte à [fraction] (0 = début, 1 = fin).
+///
+/// Émise par la vue quand l'utilisateur fait défiler (pour la mémorisation),
+/// et utilisable par une télécommande pour se déplacer dans le document.
+final class ScrollTo extends PlayerCommand {
+  const ScrollTo(this.fraction);
+  final double fraction;
+  @override
+  String get type => 'scrollTo';
+  @override
+  Map<String, Object?> get arguments => {'fraction': fraction};
 }

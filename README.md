@@ -6,11 +6,11 @@ Lecteur universel desktop : vidéo, audio, PDF et texte dans une seule applicati
 Flutter + media_kit (libmpv), architecture « bus de commandes » prête pour la future télécommande mobile
 ([OMNIA-Mobile](https://github.com/steve20400/OMNIA-Mobile)).
 
-> État : **Phase 3 — Confort de lecture** terminée.
+> État : **Phase 4 — Documents** terminée.
 > Phase 1 (fondations, thème, fenêtre, lecture audio/vidéo), Phase 2 (scan du dossier, panneau latéral,
-> navigation, modes de fin de lecture, reprise de lecture) et Phase 3 (OSD, fichiers récents, menu
-> contextuel, instance unique, aide `F1`, écran maintenu allumé) sont en place.
-> Voir `DESIGN.md` pour le plan design.
+> navigation, modes de fin de lecture, reprise de lecture), Phase 3 (OSD, fichiers récents, menu
+> contextuel, instance unique, aide `F1`, écran maintenu allumé) et Phase 4 (PDF, texte, Markdown)
+> sont en place. Voir `DESIGN.md` pour le plan design.
 
 ## Plateformes
 
@@ -94,7 +94,8 @@ lib/
   main.dart                 # initialisation (media_kit, Hive, fenêtre), ProviderScope
   core/                     # logique pure, sans widget
     commands/               # PlayerCommand (sealed, JSON) + PlayerCommandBus
-    controllers/            # MediaController, AvController (mpv), MediaRouter
+    controllers/            # MediaController, AvController (mpv), PdfController (pdfium),
+                            # TextController, MediaRouter
     models/                 # PlaybackState, PlaylistState, MediaFile, HistoryEntry…
     services/               # PlaybackService, PlaylistService, FolderScanner, HistoryStore,
                             # SettingsStore, WindowService, SystemIntegration, SingleInstance, ScreenWake
@@ -153,6 +154,22 @@ apparaissent dans le panneau de gauche.
 - **Aide `F1`** : récapitulatif des raccourcis.
 - **Veille** : l'écran reste allumé tant qu'une vidéo joue, et seulement là.
 
+## Documents (lecture seule)
+
+**PDF** (pdfium via `pdfrx`) : défilement continu ou page par page, zoom `Ctrl+molette`, ajuster à la
+largeur (`Ctrl+0`) ou à la page, aller à la page (`Ctrl+G`), recherche plein texte (`Ctrl+F`) avec
+surlignage et navigation, rotation (`Ctrl+R`), mode sombre de lecture (`Ctrl+D`), sommaire et vignettes
+dans le panneau latéral, dernière page lue mémorisée. Un PDF protégé par mot de passe affiche un message
+clair : OMNIA ne demande jamais de secret.
+
+**Texte** (`.txt`, `.log`) et **Markdown** (`.md`) : encodage détecté (UTF-8 avec ou sans BOM, UTF-16,
+Windows-1252 en repli), taille de police `Ctrl+molette`, thème de lecture clair par défaut (une page se
+lit sur du papier) ou sombre (`Ctrl+D`), recherche avec surlignage, position de défilement mémorisée.
+Les fichiers de plus de 32 Mo sont tronqués à l'affichage.
+
+Le panneau de dossier fonctionne à l'identique pour les documents : ouvrir un PDF montre les autres
+PDF, textes et médias du dossier.
+
 ## Raccourcis
 
 | Touche | Action |
@@ -169,6 +186,11 @@ apparaissent dans le panneau de gauche.
 | `Tab` | Afficher / masquer le panneau |
 | `Échap` | Quitter la recherche du panneau, fermer l'aide, quitter le plein écran |
 | `Ctrl+O` / `Ctrl+Shift+O` | Ouvrir un fichier / un dossier |
+| `PgUp` / `PgDn` | Document : page précédente / suivante |
+| `Ctrl+G` | Document : aller à la page |
+| `Ctrl+F` | Document : rechercher |
+| `Ctrl+molette` / `Ctrl+0` | Document : zoom / ajuster à la largeur |
+| `Ctrl+R` / `Ctrl+D` | Document : pivoter / mode sombre de lecture |
 | `F1` | Aide : récapitulatif des raccourcis |
 
 Molette sur la vidéo : volume. Clic simple : lecture/pause. Clic droit : menu contextuel.
@@ -191,9 +213,7 @@ update-desktop-database ~/.local/share/applications
 gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
 ```
 
-« Ouvrir avec → OMNIA » est ensuite proposé pour les formats audio et vidéo.
-Les types PDF et texte seront ajoutés au fichier `.desktop` en même temps que leurs contrôleurs (Phase 4) :
-les déclarer maintenant proposerait OMNIA pour des fichiers qu'il refuse encore d'ouvrir.
+« Ouvrir avec → OMNIA » est ensuite proposé pour les formats audio, vidéo, PDF et texte.
 
 ## Compromis documentés
 
@@ -205,3 +225,7 @@ les déclarer maintenant proposerait OMNIA pour des fichiers qu'il refuse encore
 - **Vue audio** : pochette et fond dérivé prévus en Phase 5 ; pour l'instant, nom du morceau et symbole.
 - **Instance unique** : le brief suggère un socket local ou D-Bus sous Linux. Ni l'un ni l'autre n'existe sous Windows, alors qu'OMNIA doit s'y installer aussi. La première instance écoute donc sur un port de la boucle locale (`127.0.0.1`, jamais exposé au réseau), noté avec un secret aléatoire dans `instance.json` du dossier de données ; une seconde instance lit ce fichier, transmet ses arguments et se termine. Un verrou périmé (instance tuée) est détecté par l'échec de connexion et réécrit.
 - **Reprise de lecture** : la position mémorisée est appliquée par un seek juste après le démarrage ; on peut apercevoir la première image un instant. Le réglage « reprendre automatiquement / proposer / jamais » arrive avec les paramètres (Phase 6).
+- **Version de `pdfrx`** : les versions ≥ 2.6 exigent Dart 3.13 (Flutter 3.47) ; le projet reste sur la dernière version compatible avec Flutter 3.44 (`>=2.4.0 <2.6.0`). À relever avec le SDK.
+- **Rotation d'un PDF en défilement continu** : `pdfrx` ne pivote pas sa vue continue ; OMNIA pivote la vue entière, le défilement suit donc l'axe des pages pivotées. En mode page par page, la rotation est native (`rotationOverride`).
+- **Mode sombre de lecture des PDF** : inversion des couleurs suivie d'une rotation de teinte de 180° (« inversion intelligente »). Le papier devient sombre, l'encre claire, et les images gardent des teintes proches des originales — sans être préservées exactement, ce qu'aucun filtre matriciel ne permet.
+- **Recherche en mode page par page** : le surlignage des occurrences n'est disponible qu'en défilement continu (il est rendu par la vue `pdfrx`) ; la barre de recherche fonctionne dans les deux modes.

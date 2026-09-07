@@ -173,6 +173,42 @@ void main() {
       expect(entry.lastOpened, later);
     });
 
+    test('document : page et nombre de pages, reprise proposée', () async {
+      await store.saveDocumentPosition('/doc.pdf', page: 12, pageCount: 40, now: t0);
+      final entry = store.entryFor('/doc.pdf')!;
+      expect(entry.page, 12);
+      expect(entry.pageCount, 40);
+      expect(entry.resumePage, 12);
+      expect(entry.completed, isFalse);
+    });
+
+    test('document : page 1 ou dernière page → pas de reprise', () async {
+      await store.saveDocumentPosition('/a.pdf', page: 1, pageCount: 40, now: t0);
+      expect(store.entryFor('/a.pdf')!.resumePage, isNull);
+
+      await store.saveDocumentPosition('/b.pdf', page: 40, pageCount: 40, now: t0);
+      expect(store.entryFor('/b.pdf')!.resumePage, isNull);
+      expect(store.entryFor('/b.pdf')!.completed, isTrue);
+    });
+
+    test('texte : défilement mémorisé, négligeable aux extrémités', () async {
+      await store.saveDocumentPosition('/n.txt', scrollFraction: 0.4, now: t0);
+      expect(store.entryFor('/n.txt')!.resumeScroll, 0.4);
+
+      await store.saveDocumentPosition('/n.txt', scrollFraction: 0.01, now: t0);
+      expect(store.entryFor('/n.txt')!.resumeScroll, isNull);
+
+      await store.saveDocumentPosition('/n.txt', scrollFraction: 0.99, now: t0);
+      expect(store.entryFor('/n.txt')!.resumeScroll, isNull);
+    });
+
+    test('document : la position survit au JSON', () async {
+      await store.saveDocumentPosition('/doc.pdf', page: 7, pageCount: 9, now: t0);
+      final restored = HistoryEntry.fromJson(store.entryFor('/doc.pdf')!.toJson());
+      expect(restored.page, 7);
+      expect(restored.pageCount, 9);
+    });
+
     test('oublier un fichier, puis tout effacer', () async {
       await store.savePosition('/a.mkv',
           position: const Duration(minutes: 5), duration: const Duration(minutes: 90), now: t0);

@@ -305,4 +305,115 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get helpLeaveSearch => 'Quitter la recherche';
+
+  @override
+  String get errorProtectedDocument =>
+      'Ce document est protégé par un mot de passe. OMNIA ne peut pas l\'ouvrir.';
+
+  @override
+  String get docPageLabel => 'Page';
+
+  @override
+  String docPageOf(int page, int total) {
+    return '$page / $total';
+  }
+
+  @override
+  String get docGoToPage => 'Aller à la page';
+
+  @override
+  String get docPreviousPage => 'Page précédente';
+
+  @override
+  String get docNextPage => 'Page suivante';
+
+  @override
+  String get docZoomIn => 'Agrandir';
+
+  @override
+  String get docZoomOut => 'Réduire';
+
+  @override
+  String docZoomValue(int percent) {
+    return '$percent %';
+  }
+
+  @override
+  String get docFitWidth => 'Ajuster à la largeur';
+
+  @override
+  String get docFitPage => 'Ajuster à la page';
+
+  @override
+  String get docRotate => 'Pivoter de 90°';
+
+  @override
+  String get docReadingDark => 'Mode sombre de lecture';
+
+  @override
+  String get docLayoutContinuous => 'Défilement continu';
+
+  @override
+  String get docLayoutPaged => 'Page par page';
+
+  @override
+  String get docFind => 'Rechercher';
+
+  @override
+  String get docFontSize => 'Taille du texte';
+
+  @override
+  String docEncoding(String encoding) {
+    return 'Encodage : $encoding';
+  }
+
+  @override
+  String docLines(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count lignes',
+      one: '1 ligne',
+      zero: 'aucune ligne',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get findPlaceholder => 'Rechercher dans le document';
+
+  @override
+  String findMatches(int index, int count) {
+    return '$index / $count';
+  }
+
+  @override
+  String get findNoMatch => 'Aucun résultat';
+
+  @override
+  String get findNext => 'Résultat suivant';
+
+  @override
+  String get findPrevious => 'Résultat précédent';
+
+  @override
+  String get findClose => 'Fermer la recherche';
+
+  @override
+  String get panelTabFolder => 'Dossier';
+
+  @override
+  String get panelTabOutline => 'Sommaire';
+
+  @override
+  String get panelTabPages => 'Pages';
+
+  @override
+  String get docNoOutline => 'Ce document n\'a pas de sommaire';
+
+  @override
+  String get docLoading => 'Chargement du document…';
+
+  @override
+  String get helpGroupDocuments => 'Documents';
 }

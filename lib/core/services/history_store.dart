@@ -27,6 +27,16 @@ abstract interface class HistoryStore {
   /// avant la première minute.
   Future<void> touch(String path, {DateTime? now});
 
+  /// Documents : mémorise la page courante et le nombre de pages (PDF), ou la
+  /// position de défilement (texte).
+  Future<void> saveDocumentPosition(
+    String path, {
+    int? page,
+    int? pageCount,
+    double? scrollFraction,
+    DateTime? now,
+  });
+
   /// Fichiers récemment ouverts, du plus récent au plus ancien.
   List<HistoryEntry> recent({int limit = 20});
 
@@ -136,6 +146,35 @@ class HiveHistoryStore implements HistoryStore {
   }
 
   @override
+  Future<void> saveDocumentPosition(
+    String path, {
+    int? page,
+    int? pageCount,
+    double? scrollFraction,
+    DateTime? now,
+  }) async {
+    final existing = entryFor(path) ??
+        HistoryEntry(
+          path: path,
+          position: Duration.zero,
+          duration: Duration.zero,
+          lastOpened: now ?? DateTime.now(),
+        );
+    await _put(
+      existing.copyWith(
+        page: page,
+        pageCount: pageCount,
+        scrollFraction: scrollFraction?.clamp(0.0, 1.0),
+        lastOpened: now ?? DateTime.now(),
+        // Lu jusqu'à la dernière page : on le note, comme pour un média.
+        completed: page != null && pageCount != null && pageCount > 0 && page >= pageCount
+            ? true
+            : existing.completed,
+      ),
+    );
+  }
+
+  @override
   List<HistoryEntry> recent({int limit = 20}) {
     final entries = <HistoryEntry>[];
     for (final key in _box.keys) {
@@ -216,6 +255,33 @@ class MemoryHistoryStore implements HistoryStore {
           duration: Duration.zero,
           lastOpened: stamp,
         );
+  }
+
+  @override
+  Future<void> saveDocumentPosition(
+    String path, {
+    int? page,
+    int? pageCount,
+    double? scrollFraction,
+    DateTime? now,
+  }) async {
+    final stamp = now ?? DateTime.now();
+    final existing = entries[path] ??
+        HistoryEntry(
+          path: path,
+          position: Duration.zero,
+          duration: Duration.zero,
+          lastOpened: stamp,
+        );
+    entries[path] = existing.copyWith(
+      page: page,
+      pageCount: pageCount,
+      scrollFraction: scrollFraction?.clamp(0.0, 1.0),
+      lastOpened: stamp,
+      completed: page != null && pageCount != null && pageCount > 0 && page >= pageCount
+          ? true
+          : existing.completed,
+    );
   }
 
   @override

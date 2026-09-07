@@ -82,6 +82,10 @@ class PlaybackService implements PlaybackStateSink {
   Duration? _pendingResume;
   String? _pendingResumePath;
 
+  /// Même chose pour les documents : page (PDF) ou défilement (texte).
+  int? _pendingResumePage;
+  double? _pendingResumeScroll;
+
   @override
   PlaybackState get state => _state;
 
@@ -123,9 +127,46 @@ class PlaybackService implements PlaybackStateSink {
       }
     }
 
+    // Documents : dès que le document est prêt, revenir à la dernière page ou
+    // position lue.
+    if (after.isDocument &&
+        after.status == PlaybackStatus.playing &&
+        after.file?.path == _pendingResumePath) {
+      final page = _pendingResumePage;
+      final scroll = _pendingResumeScroll;
+      _pendingResumePath = null;
+      _pendingResumePage = null;
+      _pendingResumeScroll = null;
+      if (page != null && after.totalPages > 0 && page <= after.totalPages) {
+        scheduleMicrotask(() => _active?.handle(GoToPage(page)));
+      } else if (scroll != null) {
+        scheduleMicrotask(() => _active?.handle(ScrollTo(scroll)));
+      }
+    }
+
+    // Documents : mémoriser page et défilement à chaque changement. Ce sont
+    // des événements rares (un tour de page, une fin de défilement), pas un
+    // battement continu.
+    if (after.isDocument &&
+        after.file != null &&
+        before.file?.path == after.file!.path &&
+        after.status == PlaybackStatus.playing &&
+        (before.currentPage != after.currentPage ||
+            before.scrollFraction != after.scrollFraction)) {
+      unawaited(
+        history?.saveDocumentPosition(
+          after.file!.path,
+          page: after.currentPage > 0 ? after.currentPage : null,
+          pageCount: after.totalPages > 0 ? after.totalPages : null,
+          scrollFraction: after.scrollFraction,
+        ),
+      );
+    }
+
     // Sauvegarder la progression au fil de la lecture, une fois par minute
     // entamée, pour ne pas écrire à chaque battement de position.
-    if (before.file?.path == after.file?.path &&
+    if (!after.isDocument &&
+        before.file?.path == after.file?.path &&
         after.file != null &&
         after.duration > Duration.zero &&
         before.position.inMinutes != after.position.inMinutes) {
@@ -297,8 +338,19 @@ class PlaybackService implements PlaybackStateSink {
       await _active!.close();
     }
     _active = controller;
-    _pendingResume = history?.entryFor(path)?.resumePosition;
-    _pendingResumePath = _pendingResume == null ? null : path;
+    final remembered = history?.entryFor(path);
+    if (type.isDocument) {
+      _pendingResume = null;
+      _pendingResumePage = remembered?.resumePage;
+      _pendingResumeScroll = remembered?.resumeScroll;
+      _pendingResumePath =
+          (_pendingResumePage ?? _pendingResumeScroll) == null ? null : path;
+    } else {
+      _pendingResumePage = null;
+      _pendingResumeScroll = null;
+      _pendingResume = remembered?.resumePosition;
+      _pendingResumePath = _pendingResume == null ? null : path;
+    }
     // Inscrit le fichier dans les récents dès maintenant, avant même que la
     // lecture ait commencé.
     await history?.touch(path);
@@ -370,6 +422,8 @@ class PlaybackService implements PlaybackStateSink {
     final file = _state.file;
     final store = history;
     if (file == null || store == null) return;
+    // Les documents sont mémorisés au fil des changements de page.
+    if (_state.isDocument) return;
     if (_state.status == PlaybackStatus.ended) return;
     if (_state.duration <= Duration.zero) return;
     await store.savePosition(
@@ -386,6 +440,8 @@ class PlaybackService implements PlaybackStateSink {
     _active = null;
     _pendingResume = null;
     _pendingResumePath = null;
+    _pendingResumePage = null;
+    _pendingResumeScroll = null;
     if (clearCurrent) playlist.setCurrent(null);
     if (active != null) {
       await active.close();

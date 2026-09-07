@@ -2,9 +2,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/commands/player_command.dart';
+import '../../core/models/document_layout.dart';
 
-/// Actions clavier qui ne sont pas des commandes du lecteur (dialogues, aide).
-enum UiAction { openFileDialog, openFolderDialog, toggleHelp }
+/// Actions clavier qui ne sont pas des commandes du lecteur (dialogues, aide,
+/// champs de saisie des documents).
+enum UiAction { openFileDialog, openFolderDialog, toggleHelp, goToPage, findInDocument }
 
 /// Table de raccourcis par défaut (§8 du cahier des charges).
 ///
@@ -48,6 +50,20 @@ final Map<ShortcutActivator, Object> defaultKeymap = {
       UiAction.openFileDialog,
   const SingleActivator(LogicalKeyboardKey.keyO, control: true, shift: true, includeRepeats: false):
       UiAction.openFolderDialog,
+
+  // Documents (Phase 4)
+  const SingleActivator(LogicalKeyboardKey.pageUp): const PreviousPage(),
+  const SingleActivator(LogicalKeyboardKey.pageDown): const NextPage(),
+  const SingleActivator(LogicalKeyboardKey.digit0, control: true, includeRepeats: false):
+      const FitZoom(FitMode.width),
+  const SingleActivator(LogicalKeyboardKey.keyG, control: true, includeRepeats: false):
+      UiAction.goToPage,
+  const SingleActivator(LogicalKeyboardKey.keyF, control: true, includeRepeats: false):
+      UiAction.findInDocument,
+  const SingleActivator(LogicalKeyboardKey.keyR, control: true, includeRepeats: false):
+      const RotateDocument(),
+  const SingleActivator(LogicalKeyboardKey.keyD, control: true, includeRepeats: false):
+      const ToggleReadingDarkMode(),
 
   // Aide
   const SingleActivator(LogicalKeyboardKey.f1, includeRepeats: false): UiAction.toggleHelp,

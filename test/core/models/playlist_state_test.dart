@@ -185,6 +185,26 @@ void main() {
       expect(e.progress, isNull);
     });
 
+    test('document PDF : progression par page', () {
+      const e = PlaylistEntry(
+        file: MediaFile(path: '/d/x.pdf', type: MediaType.pdf),
+        pageCount: 40,
+        resumePage: 10,
+      );
+      expect(e.hasProgressBadge, isTrue);
+      expect(e.progress, closeTo(0.25, 1e-9));
+      expect(PlaylistEntry.fromJson(e.toJson()).progress, closeTo(0.25, 1e-9));
+    });
+
+    test('texte : progression par défilement', () {
+      const e = PlaylistEntry(
+        file: MediaFile(path: '/d/x.txt', type: MediaType.text),
+        resumeScroll: 0.6,
+      );
+      expect(e.hasProgressBadge, isTrue);
+      expect(e.progress, closeTo(0.6, 1e-9));
+    });
+
     test('durée nulle ne provoque pas de division par zéro', () {
       final e = entry(
         'a.mkv',

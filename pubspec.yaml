@@ -43,6 +43,13 @@ dependencies:
   # Empêcher la mise en veille de l'écran pendant une vidéo
   wakelock_plus: ^1.8.0
 
+  # Documents : PDF (pdfium), Markdown, détection d'encodage texte
+  # pdfrx ≥ 2.6 exige Dart 3.13 (Flutter 3.47) ; on reste sur la dernière
+  # version compatible avec Flutter 3.44. À relever avec le SDK.
+  pdfrx: ">=2.4.0 <2.6.0"
+  flutter_markdown_plus: ^1.0.12
+  charset: ^2.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

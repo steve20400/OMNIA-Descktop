@@ -1,0 +1,304 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/commands/player_command.dart';
+import '../../core/controllers/text_controller.dart';
+import '../../core/providers.dart';
+import '../document_search.dart';
+import '../theme/omnia_theme.dart';
+
+/// Vue d'un fichier texte ou Markdown, en lecture seule.
+///
+/// Le thème de lecture est indépendant de celui de l'application : un texte
+/// se lit sur fond clair par défaut (comme une page), et bascule en sombre
+/// avec `Ctrl+D`. La taille de police suit le zoom (`Ctrl+molette`), la
+/// position de défilement est renvoyée au core pour être mémorisée.
+class TextView extends ConsumerStatefulWidget {
+  const TextView({super.key, required this.document, this.search});
+
+  final TextDocument document;
+
+  /// Recherche courante, pour surligner les occurrences (texte brut).
+  final PlainTextSearch? search;
+
+  @override
+  ConsumerState<TextView> createState() => _TextViewState();
+}
+
+class _TextViewState extends ConsumerState<TextView> {
+  final ScrollController _scroll = ScrollController();
+  Timer? _reportDebounce;
+  double? _pendingRestore;
+  int _lastMatch = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScrolled);
+    widget.search?.addListener(_onSearchChanged);
+  }
+
+  @override
+  void didUpdateWidget(TextView old) {
+    super.didUpdateWidget(old);
+    if (old.search != widget.search) {
+      old.search?.removeListener(_onSearchChanged);
+      widget.search?.addListener(_onSearchChanged);
+    }
+    if (old.document.path != widget.document.path) {
+      _lastMatch = -1;
+      if (_scroll.hasClients) _scroll.jumpTo(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _reportDebounce?.cancel();
+    _scroll.dispose();
+    widget.search?.removeListener(_onSearchChanged);
+    super.dispose();
+  }
+
+  void _onScrolled() {
+    if (!_scroll.hasClients) return;
+    final max = _scroll.position.maxScrollExtent;
+    if (max <= 0) return;
+    final fraction = (_scroll.offset / max).clamp(0.0, 1.0);
+    _reportDebounce?.cancel();
+    _reportDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) ref.dispatch(ScrollTo(fraction));
+    });
+  }
+
+  /// Amène l'occurrence courante à l'écran, approximativement : la position
+  /// est estimée par la proportion de texte qui précède.
+  void _onSearchChanged() {
+    final search = widget.search;
+    if (search == null || !_scroll.hasClients) return;
+    final match = search.state.currentMatch;
+    if (match == null || search.state.current == _lastMatch) {
+      setState(() {});
+      return;
+    }
+    _lastMatch = search.state.current;
+    final text = widget.document.text;
+    final fraction = text.isEmpty ? 0.0 : match.start / text.length;
+    final target = (_scroll.position.maxScrollExtent * fraction - 120)
+        .clamp(0.0, _scroll.position.maxScrollExtent);
+    _scroll.animateTo(target, duration: OmniaMotion.panel, curve: OmniaMotion.panelCurve);
+    setState(() {});
+  }
+
+  void _restoreIfNeeded(double fraction) {
+    if (fraction <= 0 || _pendingRestore == fraction) return;
+    _pendingRestore = fraction;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final max = _scroll.position.maxScrollExtent;
+      if (max > 0) _scroll.jumpTo(max * fraction);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = ref.watch(playbackStateProvider.select((s) => s.zoom));
+    final dark = ref.watch(playbackStateProvider.select((s) => s.readingDark));
+
+    // Le core demande une position (reprise, télécommande) : on s'y rend une
+    // fois, sans boucler avec les positions qu'on lui renvoie nous-mêmes.
+    ref.listen<double>(playbackStateProvider.select((s) => s.scrollFraction), (prev, next) {
+      if (!_scroll.hasClients) return;
+      final max = _scroll.position.maxScrollExtent;
+      if (max <= 0) return;
+      final currentFraction = _scroll.offset / max;
+      if ((currentFraction - next).abs() > 0.02) _scroll.jumpTo(max * next);
+    });
+
+    final reading = ReadingPalette.of(dark: dark);
+    final baseSize = 15.0 * scale;
+    final body = TextStyle(
+      fontFamily: OmniaFonts.ui,
+      fontSize: baseSize,
+      height: 1.6,
+      color: reading.ink,
+    );
+    final mono = TextStyle(
+      fontFamily: OmniaFonts.mono,
+      fontSize: baseSize * 0.92,
+      height: 1.55,
+      color: reading.ink,
+    );
+
+    final doc = widget.document;
+    _restoreIfNeeded(ref.read(playbackStateProvider).scrollFraction);
+
+    final Widget content;
+    if (doc.isMarkdown) {
+      content = Markdown(
+        data: doc.text,
+        controller: _scroll,
+        selectable: true,
+        padding: EdgeInsets.symmetric(
+          horizontal: OmniaMetrics.space8,
+          vertical: OmniaMetrics.space6,
+        ),
+        styleSheet: _markdownStyle(reading, body, mono, baseSize),
+      );
+    } else {
+      content = Scrollbar(
+        controller: _scroll,
+        child: SingleChildScrollView(
+          controller: _scroll,
+          padding: const EdgeInsets.symmetric(
+            horizontal: OmniaMetrics.space8,
+            vertical: OmniaMetrics.space6,
+          ),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: SelectableText.rich(
+                _highlighted(doc.text, widget.search?.state, mono, reading),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return AnimatedContainer(
+      duration: OmniaMotion.stage,
+      curve: OmniaMotion.stageCurve,
+      color: reading.paper,
+      child: content,
+    );
+  }
+
+  TextSpan _highlighted(String text, SearchState? search, TextStyle base, ReadingPalette reading) {
+    if (search == null || search.matches.isEmpty) return TextSpan(text: text, style: base);
+
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    for (var i = 0; i < search.matches.length; i++) {
+      final m = search.matches[i];
+      if (m.start > cursor) spans.add(TextSpan(text: text.substring(cursor, m.start)));
+      spans.add(
+        TextSpan(
+          text: text.substring(m.start, m.end),
+          style: TextStyle(
+            backgroundColor: i == search.current ? reading.highlightStrong : reading.highlight,
+            color: reading.ink,
+          ),
+        ),
+      );
+      cursor = m.end;
+    }
+    if (cursor < text.length) spans.add(TextSpan(text: text.substring(cursor)));
+    return TextSpan(style: base, children: spans);
+  }
+
+  MarkdownStyleSheet _markdownStyle(
+    ReadingPalette reading,
+    TextStyle body,
+    TextStyle mono,
+    double base,
+  ) {
+    TextStyle heading(double factor) => body.copyWith(
+          fontSize: base * factor,
+          fontWeight: FontWeight.w600,
+          height: 1.25,
+          letterSpacing: -0.2,
+        );
+    return MarkdownStyleSheet(
+      p: body,
+      h1: heading(2.0),
+      h2: heading(1.6),
+      h3: heading(1.3),
+      h4: heading(1.15),
+      h5: heading(1.05),
+      h6: heading(1.0),
+      em: body.copyWith(fontStyle: FontStyle.italic),
+      strong: body.copyWith(fontWeight: FontWeight.w600),
+      a: body.copyWith(color: reading.accent, decoration: TextDecoration.underline),
+      code: mono.copyWith(backgroundColor: reading.codeBackground),
+      codeblockDecoration: BoxDecoration(
+        color: reading.codeBackground,
+        borderRadius: OmniaMetrics.controlRadius,
+      ),
+      codeblockPadding: const EdgeInsets.all(OmniaMetrics.space3),
+      blockquote: body.copyWith(color: reading.inkMuted),
+      blockquoteDecoration: BoxDecoration(
+        border: Border(left: BorderSide(color: reading.accent, width: 3)),
+      ),
+      blockquotePadding: const EdgeInsets.symmetric(
+        horizontal: OmniaMetrics.space4,
+        vertical: OmniaMetrics.space1,
+      ),
+      listBullet: body,
+      tableHead: body.copyWith(fontWeight: FontWeight.w600),
+      tableBody: body,
+      tableBorder: TableBorder.all(color: reading.rule),
+      horizontalRuleDecoration: BoxDecoration(
+        border: Border(top: BorderSide(color: reading.rule)),
+      ),
+      blockSpacing: base * 0.9,
+      listIndent: base * 1.6,
+      h1Padding: EdgeInsets.only(top: base * 0.8),
+      h2Padding: EdgeInsets.only(top: base * 0.6),
+      h3Padding: EdgeInsets.only(top: base * 0.4),
+    );
+  }
+}
+
+/// Palette de lecture des documents, indépendante du thème de l'application.
+///
+/// Clair : papier chaud, encre presque noire. Sombre : même velours que la
+/// salle, encre douce pour ne pas éblouir. L'accent reste le projecteur.
+class ReadingPalette {
+  const ReadingPalette({
+    required this.paper,
+    required this.ink,
+    required this.inkMuted,
+    required this.rule,
+    required this.codeBackground,
+    required this.highlight,
+    required this.highlightStrong,
+    required this.accent,
+  });
+
+  final Color paper;
+  final Color ink;
+  final Color inkMuted;
+  final Color rule;
+  final Color codeBackground;
+  final Color highlight;
+  final Color highlightStrong;
+  final Color accent;
+
+  static ReadingPalette of({required bool dark}) => dark ? _dark : _light;
+
+  static const _light = ReadingPalette(
+    paper: Color(0xFFF7F3EB),
+    ink: Color(0xFF1B1720),
+    inkMuted: Color(0xFF6B6472),
+    rule: Color(0xFFDDD6CA),
+    codeBackground: Color(0xFFEDE7DC),
+    highlight: Color(0x66F2B441),
+    highlightStrong: Color(0xFFF2B441),
+    accent: Color(0xFFB07A17),
+  );
+
+  static const _dark = ReadingPalette(
+    paper: Color(0xFF15121A),
+    ink: Color(0xFFD9D3C7),
+    inkMuted: Color(0xFF8B8494),
+    rule: Color(0xFF2E2734),
+    codeBackground: Color(0xFF1E1A25),
+    highlight: Color(0x55F2B441),
+    highlightStrong: Color(0xCCF2B441),
+    accent: Color(0xFFF2B441),
+  );
+}

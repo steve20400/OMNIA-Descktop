@@ -637,6 +637,192 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Quitter la recherche'**
   String get helpLeaveSearch;
+
+  /// No description provided for @errorProtectedDocument.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce document est protégé par un mot de passe. OMNIA ne peut pas l\'ouvrir.'**
+  String get errorProtectedDocument;
+
+  /// No description provided for @docPageLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Page'**
+  String get docPageLabel;
+
+  /// No description provided for @docPageOf.
+  ///
+  /// In fr, this message translates to:
+  /// **'{page} / {total}'**
+  String docPageOf(int page, int total);
+
+  /// No description provided for @docGoToPage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aller à la page'**
+  String get docGoToPage;
+
+  /// No description provided for @docPreviousPage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Page précédente'**
+  String get docPreviousPage;
+
+  /// No description provided for @docNextPage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Page suivante'**
+  String get docNextPage;
+
+  /// No description provided for @docZoomIn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Agrandir'**
+  String get docZoomIn;
+
+  /// No description provided for @docZoomOut.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réduire'**
+  String get docZoomOut;
+
+  /// No description provided for @docZoomValue.
+  ///
+  /// In fr, this message translates to:
+  /// **'{percent} %'**
+  String docZoomValue(int percent);
+
+  /// No description provided for @docFitWidth.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajuster à la largeur'**
+  String get docFitWidth;
+
+  /// No description provided for @docFitPage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajuster à la page'**
+  String get docFitPage;
+
+  /// No description provided for @docRotate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pivoter de 90°'**
+  String get docRotate;
+
+  /// No description provided for @docReadingDark.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mode sombre de lecture'**
+  String get docReadingDark;
+
+  /// No description provided for @docLayoutContinuous.
+  ///
+  /// In fr, this message translates to:
+  /// **'Défilement continu'**
+  String get docLayoutContinuous;
+
+  /// No description provided for @docLayoutPaged.
+  ///
+  /// In fr, this message translates to:
+  /// **'Page par page'**
+  String get docLayoutPaged;
+
+  /// No description provided for @docFind.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher'**
+  String get docFind;
+
+  /// No description provided for @docFontSize.
+  ///
+  /// In fr, this message translates to:
+  /// **'Taille du texte'**
+  String get docFontSize;
+
+  /// No description provided for @docEncoding.
+  ///
+  /// In fr, this message translates to:
+  /// **'Encodage : {encoding}'**
+  String docEncoding(String encoding);
+
+  /// No description provided for @docLines.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, =0{aucune ligne} =1{1 ligne} other{{count} lignes}}'**
+  String docLines(int count);
+
+  /// No description provided for @findPlaceholder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher dans le document'**
+  String get findPlaceholder;
+
+  /// No description provided for @findMatches.
+  ///
+  /// In fr, this message translates to:
+  /// **'{index} / {count}'**
+  String findMatches(int index, int count);
+
+  /// No description provided for @findNoMatch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun résultat'**
+  String get findNoMatch;
+
+  /// No description provided for @findNext.
+  ///
+  /// In fr, this message translates to:
+  /// **'Résultat suivant'**
+  String get findNext;
+
+  /// No description provided for @findPrevious.
+  ///
+  /// In fr, this message translates to:
+  /// **'Résultat précédent'**
+  String get findPrevious;
+
+  /// No description provided for @findClose.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fermer la recherche'**
+  String get findClose;
+
+  /// No description provided for @panelTabFolder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossier'**
+  String get panelTabFolder;
+
+  /// No description provided for @panelTabOutline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sommaire'**
+  String get panelTabOutline;
+
+  /// No description provided for @panelTabPages.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pages'**
+  String get panelTabPages;
+
+  /// No description provided for @docNoOutline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce document n\'a pas de sommaire'**
+  String get docNoOutline;
+
+  /// No description provided for @docLoading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement du document…'**
+  String get docLoading;
+
+  /// No description provided for @helpGroupDocuments.
+  ///
+  /// In fr, this message translates to:
+  /// **'Documents'**
+  String get helpGroupDocuments;
 }
 
 class _AppLocalizationsDelegate

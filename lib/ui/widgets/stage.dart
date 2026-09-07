@@ -3,13 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/models/media_file.dart';
+import '../../core/models/media_type.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../document_search.dart';
+import '../document_search_provider.dart';
 import '../file_dialogs.dart';
 import '../theme/omnia_theme.dart';
 import 'omnia_button.dart';
+import 'pdf_stage.dart';
 import 'recent_files_menu.dart';
+import 'text_view.dart';
 
 /// La scène : la zone plein cadre où vit le contenu.
 ///
@@ -23,6 +28,8 @@ class Stage extends ConsumerWidget {
     final state = ref.watch(playbackStateProvider);
     final colors = context.colors;
 
+    final textDocument = ref.watch(textDocumentProvider);
+
     final Widget content;
     if (state.status == PlaybackStatus.error) {
       content = _ErrorStage(
@@ -32,6 +39,17 @@ class Stage extends ConsumerWidget {
       );
     } else if (!state.hasFile) {
       content = const _EmptyStage(key: ValueKey('empty'));
+    } else if (state.mediaType == MediaType.text && textDocument != null) {
+      content = TextView(
+        key: ValueKey('text:${textDocument.path}'),
+        document: textDocument,
+        search: ref.watch(documentSearchProvider) as PlainTextSearch?,
+      );
+    } else if (state.mediaType == MediaType.pdf) {
+      content = const PdfStage(key: ValueKey('pdf'));
+    } else if (state.isDocument) {
+      // Document en cours de chargement.
+      content = const SizedBox.shrink(key: ValueKey('doc-loading'));
     } else if (state.hasVideo) {
       content = const _VideoStage(key: ValueKey('video'));
     } else {
@@ -204,6 +222,7 @@ class _ErrorStage extends ConsumerWidget {
       PlaybackErrorCode.decodeFailed => l10n.errorDecode,
       PlaybackErrorCode.permissionDenied => l10n.errorPermission,
       PlaybackErrorCode.emptyFolder => l10n.errorEmptyFolder,
+      PlaybackErrorCode.protectedDocument => l10n.errorProtectedDocument,
       PlaybackErrorCode.unknown => l10n.errorUnknown,
     };
 

@@ -1,3 +1,4 @@
+import 'document_layout.dart';
 import 'end_of_playback_mode.dart';
 import 'media_file.dart';
 import 'media_type.dart';
@@ -22,6 +23,10 @@ class PlaybackState {
     this.currentPage = 0,
     this.totalPages = 0,
     this.zoom = 1.0,
+    this.rotation = 0,
+    this.readingDark = false,
+    this.documentLayout = DocumentLayout.continuous,
+    this.scrollFraction = 0,
     this.endMode = EndOfPlaybackMode.next,
     this.fullscreen = false,
     this.alwaysOnTop = false,
@@ -65,8 +70,25 @@ class PlaybackState {
   final int currentPage;
   final int totalPages;
 
-  /// Facteur de zoom (documents).
+  /// Facteur de zoom (documents : 1.0 = page ajustée à la largeur ; texte :
+  /// échelle de police).
   final double zoom;
+
+  /// Bornes de zoom des documents.
+  static const double minZoom = 0.25;
+  static const double maxZoom = 6.0;
+
+  /// Rotation du document, en quarts de tour (0–3).
+  final int rotation;
+
+  /// Mode sombre de lecture (inversion douce des couleurs du document).
+  final bool readingDark;
+
+  /// Défilement continu ou page par page.
+  final DocumentLayout documentLayout;
+
+  /// Position de défilement d'un texte, 0–1 (les PDF utilisent [currentPage]).
+  final double scrollFraction;
 
   /// Comportement en fin de fichier.
   final EndOfPlaybackMode endMode;
@@ -88,6 +110,9 @@ class PlaybackState {
 
   bool get hasFile => file != null;
   bool get isPlaying => status == PlaybackStatus.playing;
+
+  /// Un document (PDF ou texte) est affiché.
+  bool get isDocument => mediaType.isDocument;
 
   /// Progression 0–1, sûre même sans durée connue.
   double get progress {
@@ -114,6 +139,10 @@ class PlaybackState {
     int? currentPage,
     int? totalPages,
     double? zoom,
+    int? rotation,
+    bool? readingDark,
+    DocumentLayout? documentLayout,
+    double? scrollFraction,
     EndOfPlaybackMode? endMode,
     bool? fullscreen,
     bool? alwaysOnTop,
@@ -135,6 +164,10 @@ class PlaybackState {
       currentPage: currentPage ?? this.currentPage,
       totalPages: totalPages ?? this.totalPages,
       zoom: zoom ?? this.zoom,
+      rotation: rotation ?? this.rotation,
+      readingDark: readingDark ?? this.readingDark,
+      documentLayout: documentLayout ?? this.documentLayout,
+      scrollFraction: scrollFraction ?? this.scrollFraction,
       endMode: endMode ?? this.endMode,
       fullscreen: fullscreen ?? this.fullscreen,
       alwaysOnTop: alwaysOnTop ?? this.alwaysOnTop,
@@ -157,6 +190,10 @@ class PlaybackState {
         'currentPage': currentPage,
         'totalPages': totalPages,
         'zoom': zoom,
+        'rotation': rotation,
+        'readingDark': readingDark,
+        'documentLayout': documentLayout.name,
+        'scrollFraction': scrollFraction,
         'endMode': endMode.name,
         'fullscreen': fullscreen,
         'alwaysOnTop': alwaysOnTop,
@@ -183,6 +220,10 @@ class PlaybackState {
       currentPage: (json['currentPage'] as num?)?.toInt() ?? 0,
       totalPages: (json['totalPages'] as num?)?.toInt() ?? 0,
       zoom: (json['zoom'] as num?)?.toDouble() ?? 1.0,
+      rotation: ((json['rotation'] as num?)?.toInt() ?? 0) % 4,
+      readingDark: json['readingDark'] as bool? ?? false,
+      documentLayout: DocumentLayout.fromJson(json['documentLayout']),
+      scrollFraction: ((json['scrollFraction'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0),
       endMode: EndOfPlaybackMode.fromJson(json['endMode']),
       fullscreen: json['fullscreen'] as bool? ?? false,
       alwaysOnTop: json['alwaysOnTop'] as bool? ?? false,

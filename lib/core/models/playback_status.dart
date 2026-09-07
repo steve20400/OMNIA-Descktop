@@ -33,6 +33,9 @@ enum PlaybackErrorCode {
 
   /// Dossier ouvert mais ne contenant aucun fichier lisible.
   emptyFolder,
+
+  /// Document protégé par un mot de passe.
+  protectedDocument,
   unknown;
 
   static PlaybackErrorCode fromJson(Object? value) => values.firstWhere(

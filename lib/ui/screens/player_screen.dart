@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -16,10 +17,14 @@ import '../../core/services/screen_wake.dart';
 import '../../core/utils/launch_arguments.dart';
 import '../../core/utils/platform_session.dart';
 import '../../l10n/app_localizations.dart';
+import '../document_search_provider.dart';
+import '../document_ui_controller.dart';
 import '../panel_controller.dart';
 import '../shortcuts/shortcut_handler.dart';
 import '../theme/omnia_theme.dart';
 import '../widgets/control_bar.dart';
+import '../widgets/document_bar.dart';
+import '../widgets/find_bar.dart';
 import '../widgets/help_overlay.dart';
 import '../widgets/osd_overlay.dart';
 import '../widgets/side_panel.dart';
@@ -99,11 +104,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (first != null) ref.dispatch(OpenFile(first));
   }
 
-  // --- Molette : volume ----------------------------------------------------
+  // --- Molette : volume (média) ou zoom avec Ctrl (document) ----------------
 
   void _onPointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
-    if (!ref.read(playbackStateProvider).mediaType.isAv) return;
+    final state = ref.read(playbackStateProvider);
+    if (state.isDocument) {
+      if (!HardwareKeyboard.instance.isControlPressed) return;
+      // On consomme l'événement : la vue ne doit pas défiler en plus de zoomer.
+      GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+        ref.dispatch(ZoomRelative(event.scrollDelta.dy < 0 ? 1.1 : 1 / 1.1));
+      });
+      return;
+    }
+    if (!state.mediaType.isAv) return;
     final delta = event.scrollDelta.dy < 0 ? 5.0 : -5.0;
     ref.dispatch(VolumeRelative(delta));
   }
@@ -123,6 +137,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         (s) => s.hasFile && s.status != PlaybackStatus.error && s.mediaType.isAv,
       ),
     );
+    final isDocument = ref.watch(playbackStateProvider.select((s) => s.isDocument));
+    final findVisible = ref.watch(documentUiProvider.select((u) => u.findVisible));
+    final search = ref.watch(documentSearchProvider);
     final panelVisible = ref.watch(panelStateProvider.select((p) => p.visible));
 
     ref.listen<bool>(playbackStateProvider.select((s) => s.fullscreen), (_, fullscreen) {
@@ -187,6 +204,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 ),
                               ),
                               const OsdOverlay(),
+                              if (isDocument && findVisible && search != null)
+                                Positioned(
+                                  right: OmniaMetrics.space4,
+                                  top: OmniaMetrics.space4,
+                                  child: FindBar(search: search),
+                                ),
                               if (!showPanel && !fullscreen)
                                 const Positioned(
                                   left: OmniaMetrics.space3,
@@ -211,7 +234,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                           : const Offset(0, 0.12),
                                       duration: OmniaMotion.reveal,
                                       curve: OmniaMotion.revealCurve,
-                                      child: const ControlBar(),
+                                      child: isDocument
+                                          ? const DocumentBar()
+                                          : const ControlBar(),
                                     ),
                                   ),
                                 ),

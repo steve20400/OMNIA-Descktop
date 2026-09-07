@@ -87,6 +87,19 @@ class _HelpCard extends ConsumerWidget {
           (l10n.helpTitle, 'F1'),
         ],
       ),
+      (
+        l10n.helpGroupDocuments,
+        [
+          (l10n.docPreviousPage, 'PgUp'),
+          (l10n.docNextPage, 'PgDn'),
+          (l10n.docGoToPage, 'Ctrl + G'),
+          (l10n.docFind, 'Ctrl + F'),
+          (l10n.docZoomIn, 'Ctrl + molette'),
+          (l10n.docFitWidth, 'Ctrl + 0'),
+          (l10n.docRotate, 'Ctrl + R'),
+          (l10n.docReadingDark, 'Ctrl + D'),
+        ],
+      ),
     ];
 
     return ConstrainedBox(

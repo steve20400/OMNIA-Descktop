@@ -166,8 +166,14 @@ class _ProgressBadge extends StatelessWidget {
     }
 
     final resume = entry.resumePosition;
+    final page = entry.resumePage;
+    final label = resume != null
+        ? formatTimecode(resume)
+        : page != null
+            ? 'p. $page'
+            : '${((entry.resumeScroll ?? 0) * 100).round()} %';
     return Tooltip(
-      message: l10n.badgeResume(formatTimecode(resume ?? Duration.zero)),
+      message: l10n.badgeResume(label),
       child: SizedBox(
         width: 14,
         height: 14,

@@ -12,6 +12,8 @@ class PlaylistEntry {
     this.duration,
     this.pageCount,
     this.resumePosition,
+    this.resumePage,
+    this.resumeScroll,
     this.completed = false,
   });
 
@@ -26,21 +28,38 @@ class PlaylistEntry {
   /// Position mémorisée, si la lecture a été interrompue en cours de route.
   final Duration? resumePosition;
 
+  /// Page mémorisée (PDF), 1-based.
+  final int? resumePage;
+
+  /// Défilement mémorisé (texte), 0–1.
+  final double? resumeScroll;
+
   /// Le fichier a été lu jusqu'au bout.
   final bool completed;
 
   String get path => file.path;
 
   /// Vrai si le panneau doit afficher un repère « déjà lu / position mémorisée ».
-  bool get hasProgressBadge => completed || resumePosition != null;
+  bool get hasProgressBadge =>
+      completed || resumePosition != null || resumePage != null || resumeScroll != null;
 
   /// Progression connue, 0–1, pour la pastille du panneau.
   double? get progress {
     if (completed) return 1;
+
     final d = duration;
     final r = resumePosition;
-    if (d == null || r == null || d.inMilliseconds <= 0) return null;
-    return (r.inMilliseconds / d.inMilliseconds).clamp(0.0, 1.0);
+    if (d != null && r != null && d.inMilliseconds > 0) {
+      return (r.inMilliseconds / d.inMilliseconds).clamp(0.0, 1.0);
+    }
+
+    final page = resumePage;
+    final pages = pageCount;
+    if (page != null && pages != null && pages > 0) {
+      return (page / pages).clamp(0.0, 1.0);
+    }
+
+    return resumeScroll?.clamp(0.0, 1.0);
   }
 
   PlaylistEntry copyWith({
@@ -48,6 +67,8 @@ class PlaylistEntry {
     int? pageCount,
     Duration? resumePosition,
     bool clearResumePosition = false,
+    int? resumePage,
+    double? resumeScroll,
     bool? completed,
   }) {
     return PlaylistEntry(
@@ -56,6 +77,8 @@ class PlaylistEntry {
       pageCount: pageCount ?? this.pageCount,
       resumePosition:
           clearResumePosition ? null : (resumePosition ?? this.resumePosition),
+      resumePage: resumePage ?? this.resumePage,
+      resumeScroll: resumeScroll ?? this.resumeScroll,
       completed: completed ?? this.completed,
     );
   }
@@ -65,6 +88,8 @@ class PlaylistEntry {
         if (duration != null) 'durationMs': duration!.inMilliseconds,
         if (pageCount != null) 'pageCount': pageCount,
         if (resumePosition != null) 'resumeMs': resumePosition!.inMilliseconds,
+        if (resumePage != null) 'resumePage': resumePage,
+        if (resumeScroll != null) 'resumeScroll': resumeScroll,
         'completed': completed,
       };
 
@@ -77,6 +102,8 @@ class PlaylistEntry {
         resumePosition: json['resumeMs'] is num
             ? Duration(milliseconds: (json['resumeMs']! as num).toInt())
             : null,
+        resumePage: (json['resumePage'] as num?)?.toInt(),
+        resumeScroll: (json['resumeScroll'] as num?)?.toDouble(),
         completed: json['completed'] as bool? ?? false,
       );
 

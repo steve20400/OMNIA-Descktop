@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
 import '../../core/providers.dart';
+import '../document_ui_controller.dart';
 import '../file_dialogs.dart';
 import '../help_overlay_controller.dart';
 import 'default_keymap.dart';
@@ -51,6 +52,12 @@ KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
         pickAndOpenFolder(ref);
       case UiAction.toggleHelp:
         help.toggle();
+      case UiAction.goToPage:
+        if (!ref.read(playbackStateProvider).isDocument) return KeyEventResult.ignored;
+        ref.read(documentUiProvider.notifier).requestGoToPage();
+      case UiAction.findInDocument:
+        if (!ref.read(playbackStateProvider).isDocument) return KeyEventResult.ignored;
+        ref.read(documentUiProvider.notifier).showFind();
     }
     return KeyEventResult.handled;
   }

@@ -176,6 +176,8 @@ class PlaylistService {
       duration: entry != null && entry.duration > Duration.zero ? entry.duration : null,
       pageCount: entry != null && entry.pageCount > 0 ? entry.pageCount : null,
       resumePosition: entry?.resumePosition,
+      resumePage: entry?.resumePage,
+      resumeScroll: entry?.resumeScroll,
       completed: entry?.completed ?? false,
     );
   }

@@ -134,5 +134,77 @@
   "helpVolume": "Volume up / down",
   "helpSpeed": "Speed up / down",
   "helpPanelToggle": "Show / hide the panel",
-  "helpLeaveSearch": "Leave the search field"
+  "helpLeaveSearch": "Leave the search field",
+  "errorProtectedDocument": "This document is password-protected. OMNIA cannot open it.",
+  "docPageLabel": "Page",
+  "docPageOf": "{page} / {total}",
+  "@docPageOf": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "docGoToPage": "Go to page",
+  "docPreviousPage": "Previous page",
+  "docNextPage": "Next page",
+  "docZoomIn": "Zoom in",
+  "docZoomOut": "Zoom out",
+  "docZoomValue": "{percent} %",
+  "@docZoomValue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "docFitWidth": "Fit width",
+  "docFitPage": "Fit page",
+  "docRotate": "Rotate 90°",
+  "docReadingDark": "Reading dark mode",
+  "docLayoutContinuous": "Continuous scrolling",
+  "docLayoutPaged": "Page by page",
+  "docFind": "Find",
+  "docFontSize": "Text size",
+  "docEncoding": "Encoding: {encoding}",
+  "@docEncoding": {
+    "placeholders": {
+      "encoding": {
+        "type": "String"
+      }
+    }
+  },
+  "docLines": "{count, plural, =0{no line} =1{1 line} other{{count} lines}}",
+  "@docLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "findPlaceholder": "Find in document",
+  "findMatches": "{index} / {count}",
+  "@findMatches": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "findNoMatch": "No match",
+  "findNext": "Next match",
+  "findPrevious": "Previous match",
+  "findClose": "Close find",
+  "panelTabFolder": "Folder",
+  "panelTabOutline": "Outline",
+  "panelTabPages": "Pages",
+  "docNoOutline": "This document has no outline",
+  "docLoading": "Loading document…",
+  "helpGroupDocuments": "Documents"
 }

@@ -134,5 +134,77 @@
   "helpVolume": "Volume + / −",
   "helpSpeed": "Vitesse + / −",
   "helpPanelToggle": "Afficher / masquer le panneau",
-  "helpLeaveSearch": "Quitter la recherche"
+  "helpLeaveSearch": "Quitter la recherche",
+  "errorProtectedDocument": "Ce document est protégé par un mot de passe. OMNIA ne peut pas l'ouvrir.",
+  "docPageLabel": "Page",
+  "docPageOf": "{page} / {total}",
+  "@docPageOf": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "docGoToPage": "Aller à la page",
+  "docPreviousPage": "Page précédente",
+  "docNextPage": "Page suivante",
+  "docZoomIn": "Agrandir",
+  "docZoomOut": "Réduire",
+  "docZoomValue": "{percent} %",
+  "@docZoomValue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "docFitWidth": "Ajuster à la largeur",
+  "docFitPage": "Ajuster à la page",
+  "docRotate": "Pivoter de 90°",
+  "docReadingDark": "Mode sombre de lecture",
+  "docLayoutContinuous": "Défilement continu",
+  "docLayoutPaged": "Page par page",
+  "docFind": "Rechercher",
+  "docFontSize": "Taille du texte",
+  "docEncoding": "Encodage : {encoding}",
+  "@docEncoding": {
+    "placeholders": {
+      "encoding": {
+        "type": "String"
+      }
+    }
+  },
+  "docLines": "{count, plural, =0{aucune ligne} =1{1 ligne} other{{count} lignes}}",
+  "@docLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "findPlaceholder": "Rechercher dans le document",
+  "findMatches": "{index} / {count}",
+  "@findMatches": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "findNoMatch": "Aucun résultat",
+  "findNext": "Résultat suivant",
+  "findPrevious": "Résultat précédent",
+  "findClose": "Fermer la recherche",
+  "panelTabFolder": "Dossier",
+  "panelTabOutline": "Sommaire",
+  "panelTabPages": "Pages",
+  "docNoOutline": "Ce document n'a pas de sommaire",
+  "docLoading": "Chargement du document…",
+  "helpGroupDocuments": "Documents"
 }

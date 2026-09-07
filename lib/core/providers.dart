@@ -5,6 +5,8 @@ import 'commands/player_command.dart';
 import 'commands/player_command_bus.dart';
 import 'controllers/av_controller.dart';
 import 'controllers/media_router.dart';
+import 'controllers/pdf_controller.dart';
+import 'controllers/text_controller.dart';
 import 'models/playback_state.dart';
 import 'models/playlist_state.dart';
 import 'services/folder_scanner.dart';
@@ -64,8 +66,26 @@ final avControllerProvider = Provider<AvController>((ref) {
 final videoControllerProvider =
     Provider<VideoController>((ref) => ref.watch(avControllerProvider).videoController);
 
+/// Fichiers texte et Markdown.
+final textControllerProvider = Provider<TextController>((ref) {
+  final controller = TextController();
+  ref.onDispose(controller.dispose);
+  return controller;
+});
+
+/// Documents PDF (pdfium via pdfrx).
+final pdfControllerProvider = Provider<PdfController>((ref) {
+  final controller = PdfController();
+  ref.onDispose(controller.dispose);
+  return controller;
+});
+
 final mediaRouterProvider = Provider<MediaRouter>(
-  (ref) => MediaRouter([ref.watch(avControllerProvider)]),
+  (ref) => MediaRouter([
+    ref.watch(avControllerProvider),
+    ref.watch(textControllerProvider),
+    ref.watch(pdfControllerProvider),
+  ]),
 );
 
 final playlistServiceProvider = Provider<PlaylistService>((ref) {

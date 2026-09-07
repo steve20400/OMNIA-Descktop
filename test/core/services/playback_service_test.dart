@@ -80,6 +80,57 @@ class FakeAvController implements MediaController {
   Future<void> dispose() async {}
 }
 
+/// Contrôleur de documents factice : 40 pages, réagit aux commandes de page.
+class FakeDocController implements MediaController {
+  final List<PlayerCommand> handled = [];
+  PlaybackStateSink? sink;
+
+  @override
+  Set<MediaType> get supportedTypes => const {MediaType.pdf, MediaType.text};
+
+  @override
+  Future<void> open(MediaFile file, PlaybackStateSink sink) async {
+    this.sink = sink;
+    sink.update(
+      (s) => s.copyWith(
+        file: file,
+        status: PlaybackStatus.playing,
+        position: Duration.zero,
+        duration: Duration.zero,
+        hasVideo: false,
+        currentPage: file.type == MediaType.pdf ? 1 : 0,
+        totalPages: file.type == MediaType.pdf ? 40 : 0,
+        scrollFraction: 0,
+        clearError: true,
+      ),
+    );
+  }
+
+  @override
+  Future<bool> handle(PlayerCommand command) async {
+    handled.add(command);
+    switch (command) {
+      case GoToPage(:final page):
+        sink?.update((s) => s.copyWith(currentPage: page.clamp(1, 40)));
+      case NextPage():
+        sink?.update((s) => s.copyWith(currentPage: (s.currentPage + 1).clamp(1, 40)));
+      case ScrollTo(:final fraction):
+        sink?.update((s) => s.copyWith(scrollFraction: fraction));
+      default:
+        return false;
+    }
+    return true;
+  }
+
+  @override
+  Future<void> close() async {
+    sink?.update((s) => s.copyWith(clearFile: true, status: PlaybackStatus.idle));
+  }
+
+  @override
+  Future<void> dispose() async {}
+}
+
 Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
 
 MediaFile mf(String path, MediaType type) => MediaFile(path: path, type: type);
@@ -634,6 +685,78 @@ void main() {
     test('le panneau montre quand même tous les fichiers', () async {
       await playlist.scanFolder('/mixte');
       expect(playlist.state.entries, hasLength(3));
+    });
+  });
+
+  group('Documents', () {
+    late FakeDocController doc;
+    late PlaybackService docService;
+    late PlaylistService docPlaylist;
+
+    setUp(() {
+      doc = FakeDocController();
+      folders['/docs'] = [
+        mf('/docs/manuel.pdf', MediaType.pdf),
+        mf('/docs/notes.txt', MediaType.text),
+      ];
+      docPlaylist = PlaylistService(bus: bus, scanner: scanner, history: history);
+      docService = PlaybackService(
+        bus: bus,
+        router: MediaRouter([av, doc]),
+        window: window,
+        playlist: docPlaylist,
+        history: history,
+      );
+    });
+
+    tearDown(() async {
+      folders.remove('/docs');
+      await docService.dispose();
+      await docPlaylist.dispose();
+    });
+
+    test('un PDF s’ouvre via le contrôleur de documents', () async {
+      await docService.openPath('/docs/manuel.pdf');
+      expect(docService.state.isDocument, isTrue);
+      expect(docService.state.totalPages, 40);
+      expect(docService.state.currentPage, 1);
+    });
+
+    test('un changement de page est mémorisé', () async {
+      await docService.openPath('/docs/manuel.pdf');
+      await doc.handle(const GoToPage(12));
+      await settle();
+      final entry = history.entryFor('/docs/manuel.pdf')!;
+      expect(entry.page, 12);
+      expect(entry.pageCount, 40);
+    });
+
+    test('la dernière page lue est rouverte', () async {
+      await history.saveDocumentPosition('/docs/manuel.pdf', page: 12, pageCount: 40);
+      await docService.openPath('/docs/manuel.pdf');
+      await settle();
+      expect(doc.handled, contains(const GoToPage(12)));
+      expect(docService.state.currentPage, 12);
+    });
+
+    test('le défilement d’un texte est mémorisé puis restauré', () async {
+      await docService.openPath('/docs/notes.txt');
+      await doc.handle(const ScrollTo(0.4));
+      await settle();
+      expect(history.entryFor('/docs/notes.txt')!.scrollFraction, closeTo(0.4, 1e-9));
+
+      await docService.openPath('/docs/manuel.pdf');
+      await docService.openPath('/docs/notes.txt');
+      await settle();
+      expect(doc.handled.whereType<ScrollTo>().last.fraction, closeTo(0.4, 1e-9));
+    });
+
+    test('un document ne déclenche jamais la fin de lecture', () async {
+      await docService.openPath('/docs/manuel.pdf');
+      await doc.handle(const GoToPage(40));
+      await settle();
+      expect(docService.state.file?.name, 'manuel.pdf');
+      expect(history.entryFor('/docs/manuel.pdf')!.completed, isTrue);
     });
   });
 

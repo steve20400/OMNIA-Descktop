@@ -301,4 +301,115 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get helpLeaveSearch => 'Leave the search field';
+
+  @override
+  String get errorProtectedDocument =>
+      'This document is password-protected. OMNIA cannot open it.';
+
+  @override
+  String get docPageLabel => 'Page';
+
+  @override
+  String docPageOf(int page, int total) {
+    return '$page / $total';
+  }
+
+  @override
+  String get docGoToPage => 'Go to page';
+
+  @override
+  String get docPreviousPage => 'Previous page';
+
+  @override
+  String get docNextPage => 'Next page';
+
+  @override
+  String get docZoomIn => 'Zoom in';
+
+  @override
+  String get docZoomOut => 'Zoom out';
+
+  @override
+  String docZoomValue(int percent) {
+    return '$percent %';
+  }
+
+  @override
+  String get docFitWidth => 'Fit width';
+
+  @override
+  String get docFitPage => 'Fit page';
+
+  @override
+  String get docRotate => 'Rotate 90°';
+
+  @override
+  String get docReadingDark => 'Reading dark mode';
+
+  @override
+  String get docLayoutContinuous => 'Continuous scrolling';
+
+  @override
+  String get docLayoutPaged => 'Page by page';
+
+  @override
+  String get docFind => 'Find';
+
+  @override
+  String get docFontSize => 'Text size';
+
+  @override
+  String docEncoding(String encoding) {
+    return 'Encoding: $encoding';
+  }
+
+  @override
+  String docLines(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count lines',
+      one: '1 line',
+      zero: 'no line',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get findPlaceholder => 'Find in document';
+
+  @override
+  String findMatches(int index, int count) {
+    return '$index / $count';
+  }
+
+  @override
+  String get findNoMatch => 'No match';
+
+  @override
+  String get findNext => 'Next match';
+
+  @override
+  String get findPrevious => 'Previous match';
+
+  @override
+  String get findClose => 'Close find';
+
+  @override
+  String get panelTabFolder => 'Folder';
+
+  @override
+  String get panelTabOutline => 'Outline';
+
+  @override
+  String get panelTabPages => 'Pages';
+
+  @override
+  String get docNoOutline => 'This document has no outline';
+
+  @override
+  String get docLoading => 'Loading document…';
+
+  @override
+  String get helpGroupDocuments => 'Documents';
 }

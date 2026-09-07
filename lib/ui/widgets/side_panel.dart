@@ -8,9 +8,11 @@ import '../../core/models/playlist_sort.dart';
 import '../../core/models/playlist_state.dart';
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../document_search_provider.dart';
 import '../panel_controller.dart';
 import '../theme/omnia_theme.dart';
 import 'omnia_icon_button.dart';
+import 'pdf_panel_tabs.dart';
 import 'playlist_tile.dart';
 
 /// Le panneau de dossier : la fonctionnalité signature d'OMNIA.
@@ -32,6 +34,9 @@ class _SidePanelState extends ConsumerState<SidePanel> {
 
   /// Dernier index suivi, pour ne défiler que lorsqu'il change vraiment.
   int _followedIndex = -1;
+
+  /// Onglet affiché quand un PDF est ouvert (dossier, sommaire, pages).
+  PanelTab _tab = PanelTab.folder;
 
   @override
   void dispose() {
@@ -95,6 +100,9 @@ class _SidePanelState extends ConsumerState<SidePanel> {
     final colors = context.colors;
     final panel = ref.watch(panelStateProvider);
     final playlist = ref.watch(playlistStateProvider);
+    final pdf = ref.watch(pdfSessionProvider);
+    // Sans PDF, seul l'onglet « dossier » a un sens.
+    final tab = pdf == null ? PanelTab.folder : _tab;
 
     // Le core peut réinitialiser la recherche (changement de dossier) : le
     // champ doit suivre. On passe par `ref.listen`, dont le rappel s'exécute
@@ -137,19 +145,30 @@ class _SidePanelState extends ConsumerState<SidePanel> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _PanelHeader(playlist: playlist),
-                    _SearchField(
-                      controller: _search,
-                      focusNode: _searchFocus,
-                      onChanged: (value) => ref.dispatch(SetPlaylistQuery(value)),
-                    ),
-                    const _FilterRow(),
+                    if (pdf != null)
+                      PanelTabBar(
+                        selected: tab,
+                        onSelected: (t) => setState(() => _tab = t),
+                      ),
+                    if (tab == PanelTab.folder) ...[
+                      _SearchField(
+                        controller: _search,
+                        focusNode: _searchFocus,
+                        onChanged: (value) => ref.dispatch(SetPlaylistQuery(value)),
+                      ),
+                      const _FilterRow(),
+                    ],
                     Divider(height: 1, thickness: 1, color: colors.seam),
                     Expanded(
-                      child: _PanelBody(
-                        playlist: playlist,
-                        scroll: _scroll,
-                        onContextMenu: _openContextMenu,
-                      ),
+                      child: switch (tab) {
+                        PanelTab.folder => _PanelBody(
+                            playlist: playlist,
+                            scroll: _scroll,
+                            onContextMenu: _openContextMenu,
+                          ),
+                        PanelTab.outline => OutlinePanel(session: pdf!),
+                        PanelTab.pages => ThumbnailsPanel(session: pdf!),
+                      },
                     ),
                   ],
                 ),
