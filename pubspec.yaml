@@ -1,0 +1,64 @@
+name: omnia
+description: "OMNIA — lecteur universel desktop : vidéo, audio, PDF et texte dans une seule application."
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+
+  # État
+  flutter_riverpod: ^2.6.1
+
+  # Moteur audio/vidéo (libmpv)
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
+
+  # Fenêtre desktop (frameless, always-on-top, taille/position)
+  window_manager: ^0.5.2
+
+  # Glisser-déposer de fichiers et dossiers
+  desktop_drop: ^0.8.4
+
+  # Persistance locale (positions, historique, préférences)
+  hive_ce: ^2.19.3
+  hive_ce_flutter: ^2.3.4
+
+  # Dialogues d'ouverture de fichier / dossier
+  file_picker: ^12.2.0
+
+  # Utilitaires
+  path: ^1.9.1
+  collection: ^1.19.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  fonts:
+    # Police d'interface (variable : largeur + graisse). Voir DESIGN.md.
+    - family: InstrumentSans
+      fonts:
+        - asset: assets/fonts/InstrumentSans.ttf
+        - asset: assets/fonts/InstrumentSans-Italic.ttf
+          style: italic
+    # Monospace pour tous les timecodes et compteurs.
+    - family: IBMPlexMono
+      fonts:
+        - asset: assets/fonts/IBMPlexMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexMono-Medium.ttf
+          weight: 500

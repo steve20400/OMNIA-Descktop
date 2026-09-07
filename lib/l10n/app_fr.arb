@@ -1,0 +1,49 @@
+{
+  "@@locale": "fr",
+  "appTitle": "OMNIA",
+  "emptyStageHint": "Déposez un fichier ou un dossier ici",
+  "emptyStageSubtitle": "Vidéo, audio, PDF et texte — tout se lit ici.",
+  "openFile": "Ouvrir un fichier",
+  "openFolder": "Ouvrir un dossier",
+  "dropToPlay": "Déposer pour lire",
+  "play": "Lecture",
+  "pause": "Pause",
+  "mute": "Couper le son",
+  "unmute": "Rétablir le son",
+  "fullscreen": "Plein écran",
+  "exitFullscreen": "Quitter le plein écran",
+  "minimize": "Réduire",
+  "maximize": "Agrandir",
+  "restore": "Restaurer",
+  "closeWindow": "Fermer",
+  "alwaysOnTop": "Toujours au premier plan",
+  "loading": "Ouverture…",
+  "audioOnly": "Audio",
+  "speedValue": "{speed}×",
+  "@speedValue": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "resetSpeed": "Vitesse normale",
+  "showRemainingTime": "Afficher le temps restant",
+  "showTotalTime": "Afficher la durée totale",
+  "errorTitle": "Impossible de lire ce fichier",
+  "errorFileNotFound": "Le fichier est introuvable. Il a peut-être été déplacé ou supprimé.",
+  "errorUnsupported": "Ce type de fichier n'est pas pris en charge par OMNIA.",
+  "errorDecode": "Le fichier semble endommagé, ou son format n'est pas lisible par le moteur.",
+  "errorPermission": "OMNIA n'a pas l'autorisation de lire ce fichier ou ce dossier.",
+  "errorUnknown": "Une erreur inattendue s'est produite pendant la lecture.",
+  "errorHint": "Vous pouvez ouvrir un autre fichier, ou déposer un fichier ici.",
+  "openAnotherFile": "Ouvrir un autre fichier",
+  "shortcutHint": "{shortcut}",
+  "@shortcutHint": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  }
+}

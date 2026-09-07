@@ -1,0 +1,49 @@
+{
+  "@@locale": "en",
+  "appTitle": "OMNIA",
+  "emptyStageHint": "Drop a file or a folder here",
+  "emptyStageSubtitle": "Video, audio, PDF and text — everything plays here.",
+  "openFile": "Open a file",
+  "openFolder": "Open a folder",
+  "dropToPlay": "Drop to play",
+  "play": "Play",
+  "pause": "Pause",
+  "mute": "Mute",
+  "unmute": "Unmute",
+  "fullscreen": "Fullscreen",
+  "exitFullscreen": "Exit fullscreen",
+  "minimize": "Minimize",
+  "maximize": "Maximize",
+  "restore": "Restore",
+  "closeWindow": "Close",
+  "alwaysOnTop": "Always on top",
+  "loading": "Opening…",
+  "audioOnly": "Audio",
+  "speedValue": "{speed}×",
+  "@speedValue": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "resetSpeed": "Normal speed",
+  "showRemainingTime": "Show remaining time",
+  "showTotalTime": "Show total duration",
+  "errorTitle": "This file cannot be played",
+  "errorFileNotFound": "The file cannot be found. It may have been moved or deleted.",
+  "errorUnsupported": "This file type is not supported by OMNIA.",
+  "errorDecode": "The file looks damaged, or its format cannot be decoded by the engine.",
+  "errorPermission": "OMNIA is not allowed to read this file or folder.",
+  "errorUnknown": "An unexpected error occurred during playback.",
+  "errorHint": "You can open another file, or drop one here.",
+  "openAnotherFile": "Open another file",
+  "shortcutHint": "{shortcut}",
+  "@shortcutHint": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  }
+}

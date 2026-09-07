@@ -1,0 +1,27 @@
+import 'package:flutter/animation.dart';
+
+/// Durées et courbes d'animation (DESIGN.md §6).
+///
+/// Le motion répond toujours à une action de l'utilisateur ; aucune boucle
+/// décorative.
+abstract final class OmniaMotion {
+  /// Survol : couleur, épaisseur.
+  static const hover = Duration(milliseconds: 150);
+  static const hoverCurve = Curves.easeOut;
+
+  /// Apparition / disparition des contrôles et de l'OSD.
+  static const reveal = Duration(milliseconds: 200);
+  static const revealCurve = Curves.easeOutCubic;
+  static const concealCurve = Curves.easeIn;
+
+  /// Rétraction du panneau latéral.
+  static const panel = Duration(milliseconds: 240);
+  static const panelCurve = Curves.easeInOutCubic;
+
+  /// Transition entre types de média.
+  static const stage = Duration(milliseconds: 250);
+  static const stageCurve = Curves.easeOutCubic;
+
+  /// Délai d'inactivité avant masquage des contrôles en plein écran.
+  static const idleHide = Duration(seconds: 3);
+}

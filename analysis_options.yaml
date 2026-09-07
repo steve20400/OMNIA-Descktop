@@ -1,0 +1,16 @@
+# Analyse statique d'OMNIA. Objectif : `flutter analyze` sans aucun avertissement.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # Fichiers de localisation générés par `flutter gen-l10n`.
+    - lib/l10n/app_localizations*.dart
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    prefer_final_locals: true
+    unnecessary_lambdas: true
+    avoid_print: true
+    directives_ordering: true
+    sort_pub_dependencies: false

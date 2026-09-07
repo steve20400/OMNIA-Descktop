@@ -1,0 +1,16 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=OMNIA
+GenericName=Lecteur universel
+GenericName[en]=Universal player
+Comment=Vidéo, audio, PDF et texte dans une seule application
+Comment[en]=Video, audio, PDF and text in a single application
+Exec=omnia %f
+Icon=omnia
+Terminal=false
+Categories=AudioVideo;Audio;Video;Player;Viewer;
+Keywords=video;audio;pdf;lecteur;player;
+StartupNotify=true
+StartupWMClass=omnia
+MimeType=video/mp4;video/x-matroska;video/x-msvideo;video/webm;video/quicktime;video/x-flv;video/x-ms-wmv;video/mp2t;video/3gpp;video/mpeg;audio/mpeg;audio/flac;audio/x-flac;audio/wav;audio/x-wav;audio/ogg;audio/aac;audio/mp4;audio/x-m4a;audio/opus;audio/x-ms-wma;application/pdf;text/plain;text/markdown;text/x-log;
