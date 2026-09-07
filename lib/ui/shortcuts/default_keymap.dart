@@ -3,8 +3,8 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/commands/player_command.dart';
 
-/// Actions clavier qui ne sont pas des commandes du lecteur (dialogues).
-enum UiAction { openFileDialog, openFolderDialog }
+/// Actions clavier qui ne sont pas des commandes du lecteur (dialogues, aide).
+enum UiAction { openFileDialog, openFolderDialog, toggleHelp }
 
 /// Table de raccourcis par défaut (§8 du cahier des charges).
 ///
@@ -48,6 +48,9 @@ final Map<ShortcutActivator, Object> defaultKeymap = {
       UiAction.openFileDialog,
   const SingleActivator(LogicalKeyboardKey.keyO, control: true, shift: true, includeRepeats: false):
       UiAction.openFolderDialog,
+
+  // Aide
+  const SingleActivator(LogicalKeyboardKey.f1, includeRepeats: false): UiAction.toggleHelp,
 };
 
 /// Raccourcis saisis par caractère, indépendants de la disposition clavier

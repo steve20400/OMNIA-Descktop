@@ -11,6 +11,7 @@ import 'services/folder_scanner.dart';
 import 'services/history_store.dart';
 import 'services/playback_service.dart';
 import 'services/playlist_service.dart';
+import 'services/screen_wake.dart';
 import 'services/settings_store.dart';
 import 'services/system_integration.dart';
 import 'services/window_service.dart';
@@ -47,6 +48,9 @@ final systemIntegrationProvider =
 
 final folderScannerProvider =
     Provider<FolderScanner>((_) => const IsolateFolderScanner());
+
+/// Maintien de l'écran allumé pendant une vidéo.
+final screenWakeProvider = Provider<ScreenWake>((_) => const WakelockScreenWake());
 
 /// Moteur audio/vidéo. Ce provider possède le cycle de vie de mpv : il est le
 /// seul à le libérer.

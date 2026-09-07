@@ -39,7 +39,6 @@
   "errorUnknown": "An unexpected error occurred during playback.",
   "errorHint": "You can open another file, or drop one here.",
   "openAnotherFile": "Open another file",
-
   "panelShow": "Show panel",
   "panelHide": "Hide panel",
   "panelSearchPlaceholder": "Search this folder",
@@ -105,5 +104,35 @@
   "endModeLoopFolder": "Loop folder",
   "endModeShuffle": "Shuffle",
   "clearSearch": "Clear search",
-  "resizePanel": "Resize panel"
+  "resizePanel": "Resize panel",
+  "osdMuted": "Muted",
+  "osdVolume": "{volume}",
+  "@osdVolume": {
+    "placeholders": {
+      "volume": {
+        "type": "int"
+      }
+    }
+  },
+  "osdAlwaysOnTopOn": "Always on top",
+  "osdAlwaysOnTopOff": "Always on top off",
+  "menuSpeed": "Speed",
+  "recentFiles": "Recent files",
+  "clearRecent": "Clear recent files",
+  "noRecentFiles": "No recent file",
+  "recentMissing": "File not found",
+  "helpTitle": "Keyboard shortcuts",
+  "helpClose": "Close help",
+  "helpSubtitle": "Everything can be driven from the keyboard. These shortcuts will be customisable in Settings.",
+  "helpGroupPlayback": "Playback",
+  "helpGroupNavigation": "Navigation",
+  "helpGroupWindow": "Window",
+  "helpPlayPause": "Play / pause",
+  "helpSeekShort": "Back / forward 5 s",
+  "helpSeekMedium": "Back / forward 30 s",
+  "helpSeekLong": "Back / forward 60 s",
+  "helpVolume": "Volume up / down",
+  "helpSpeed": "Speed up / down",
+  "helpPanelToggle": "Show / hide the panel",
+  "helpLeaveSearch": "Leave the search field"
 }

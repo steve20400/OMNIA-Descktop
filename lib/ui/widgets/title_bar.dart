@@ -6,9 +6,8 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
-import '../file_dialogs.dart';
 import '../theme/omnia_theme.dart';
-import 'omnia_icon_button.dart';
+import 'recent_files_menu.dart';
 
 /// Barre de titre personnalisée (fenêtre sans cadre).
 ///
@@ -62,13 +61,7 @@ class TitleBar extends ConsumerWidget {
                 const SizedBox(width: OmniaMetrics.space4),
                 Text(l10n.appTitle, style: type.wordmark),
                 const SizedBox(width: OmniaMetrics.space3),
-                OmniaIconButton(
-                  icon: Icons.folder_open_rounded,
-                  iconSize: OmniaMetrics.iconSize - 2,
-                  size: OmniaMetrics.iconButtonSize - 4,
-                  tooltip: '${l10n.openFile}  ·  Ctrl+O',
-                  onPressed: () => pickAndOpenFile(ref),
-                ),
+                const OpenMenuButton(),
               ],
             ),
           ),

@@ -73,6 +73,46 @@ ThemeData buildOmniaTheme(Brightness brightness) {
       linearTrackColor: colors.seam,
       circularTrackColor: colors.seam,
     ),
+    // Menus MenuAnchor (contextuel, récents) : mêmes surfaces que les popups.
+    menuTheme: MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(colors.curtain),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        shadowColor: WidgetStatePropertyAll(
+          Colors.black.withValues(alpha: OmniaMetrics.overlayShadowAlpha),
+        ),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(vertical: OmniaMetrics.space1),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: OmniaMetrics.controlRadius,
+            side: BorderSide(color: colors.seam),
+          ),
+        ),
+      ),
+    ),
+    menuButtonTheme: MenuButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(
+          Size(OmniaMetrics.menuMinWidth, OmniaMetrics.menuItemHeight),
+        ),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: OmniaMetrics.space3),
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.hovered) ||
+                  states.contains(WidgetState.focused)
+              ? colors.hover
+              : Colors.transparent,
+        ),
+        foregroundColor: WidgetStatePropertyAll(colors.screen),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+        textStyle: WidgetStatePropertyAll(typography.body),
+      ),
+    ),
     popupMenuTheme: PopupMenuThemeData(
       color: colors.curtain,
       surfaceTintColor: Colors.transparent,

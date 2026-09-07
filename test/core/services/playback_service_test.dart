@@ -306,6 +306,16 @@ void main() {
       expect(service.state.file?.name, 'ep2.mkv');
     });
 
+    test('la fin d’un fichier n’avance que d’un cran, même si l’état bouge entre-temps', () async {
+      await openFirst();
+      av.finish();
+      await settle();
+      // Une mise à jour d'état pendant que le suivant se charge (statut encore
+      // « terminé ») ne doit pas relancer l'enchaînement.
+      expect(service.state.file?.name, 'ep2.mkv');
+      expect(av.opened.map((f) => f.name), ['ep1.mkv', 'ep2.mkv']);
+    });
+
     test('mode « suivant » s’arrête au dernier fichier', () async {
       bus.dispatch(const OpenFile('/serie/ep3.mkv'));
       await settle();
@@ -401,6 +411,29 @@ void main() {
       expect(av.handled, contains(const SeekAbsolute(Duration(minutes: 4))));
       expect(service.state.file?.name, 'ep2.mkv');
       expect(service.state.position, const Duration(minutes: 4));
+    });
+
+    test('ouvrir un fichier l’inscrit aussitôt dans les récents', () async {
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      await settle();
+      expect(history.recent().map((e) => e.path), ['/serie/ep1.mkv']);
+    });
+
+    test('ClearHistory vide les récents et les pastilles du panneau', () async {
+      await history.savePosition(
+        '/serie/ep2.mkv',
+        position: const Duration(minutes: 4),
+        duration: const Duration(minutes: 10),
+        now: DateTime(2026, 9, 6),
+      );
+      bus.dispatch(const OpenFile('/serie/ep1.mkv'));
+      await settle();
+      expect(playlist.state.entryFor('/serie/ep2.mkv')!.hasProgressBadge, isTrue);
+
+      bus.dispatch(const ClearHistory());
+      await settle();
+      expect(history.recent(), isEmpty);
+      expect(playlist.state.entryFor('/serie/ep2.mkv')!.hasProgressBadge, isFalse);
     });
 
     test('aucune reprise sous le seuil de 30 s', () async {

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -16,9 +18,14 @@ import 'package:path_provider/path_provider.dart';
 /// - macOS  : `~/Library/Application Support/dev.omnia.omnia/`
 Future<void> initialiseLocalStorage() async {
   if (_initialised) return;
-  final directory = await getApplicationSupportDirectory();
-  Hive.init(p.join(directory.path, 'data'));
+  Hive.init((await localStorageDirectory()).path);
   _initialised = true;
+}
+
+/// Dossier de données local d'OMNIA (boîtes Hive, verrou d'instance unique).
+Future<Directory> localStorageDirectory() async {
+  final support = await getApplicationSupportDirectory();
+  return Directory(p.join(support.path, 'data'));
 }
 
 bool _initialised = false;

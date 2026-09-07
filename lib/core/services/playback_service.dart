@@ -138,7 +138,13 @@ class PlaybackService implements PlaybackStateSink {
       );
     }
 
-    if (after.status == PlaybackStatus.ended && !_endHandled) {
+    // On réagit à la TRANSITION vers « terminé », pas à son niveau : tant que
+    // le fichier suivant n'a pas commencé, d'autres mises à jour d'état (la
+    // playlist qui change de fichier courant, par exemple) arrivent avec un
+    // statut encore « terminé », et ne doivent pas relancer l'enchaînement.
+    final justEnded = after.status == PlaybackStatus.ended &&
+        before.status != PlaybackStatus.ended;
+    if (justEnded && !_endHandled) {
       _endHandled = true;
       final path = after.file?.path;
       final store = history;
@@ -219,6 +225,12 @@ class PlaybackService implements PlaybackStateSink {
         unawaited(settings?.setEndOfPlaybackMode(mode.name));
       case RevealInFolder(:final path):
         await system.revealInFileManager(path);
+      case ClearHistory():
+        await history?.clear();
+        // Les pastilles du panneau reflètent l'historique : on les rafraîchit.
+        for (final entry in playlist.state.entries) {
+          playlist.refreshEntry(entry.path);
+        }
       case SetVolume() || VolumeRelative() || ToggleMute() when _active == null:
         // Le curseur de volume reste utilisable sans fichier ouvert : le
         // réglage est mémorisé et appliqué au prochain fichier.
@@ -285,9 +297,11 @@ class PlaybackService implements PlaybackStateSink {
       await _active!.close();
     }
     _active = controller;
-    _endHandled = false;
     _pendingResume = history?.entryFor(path)?.resumePosition;
     _pendingResumePath = _pendingResume == null ? null : path;
+    // Inscrit le fichier dans les récents dès maintenant, avant même que la
+    // lecture ait commencé.
+    await history?.touch(path);
 
     await controller.open(file, this);
   }

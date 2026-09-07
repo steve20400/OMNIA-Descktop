@@ -39,7 +39,6 @@
   "errorUnknown": "Une erreur inattendue s'est produite pendant la lecture.",
   "errorHint": "Vous pouvez ouvrir un autre fichier, ou déposer un fichier ici.",
   "openAnotherFile": "Ouvrir un autre fichier",
-
   "panelShow": "Afficher le panneau",
   "panelHide": "Masquer le panneau",
   "panelSearchPlaceholder": "Rechercher dans le dossier",
@@ -105,5 +104,35 @@
   "endModeLoopFolder": "Boucler le dossier",
   "endModeShuffle": "Lecture aléatoire",
   "clearSearch": "Effacer la recherche",
-  "resizePanel": "Redimensionner le panneau"
+  "resizePanel": "Redimensionner le panneau",
+  "osdMuted": "Muet",
+  "osdVolume": "{volume}",
+  "@osdVolume": {
+    "placeholders": {
+      "volume": {
+        "type": "int"
+      }
+    }
+  },
+  "osdAlwaysOnTopOn": "Toujours au premier plan",
+  "osdAlwaysOnTopOff": "Premier plan désactivé",
+  "menuSpeed": "Vitesse",
+  "recentFiles": "Fichiers récents",
+  "clearRecent": "Effacer les récents",
+  "noRecentFiles": "Aucun fichier récent",
+  "recentMissing": "Fichier introuvable",
+  "helpTitle": "Raccourcis clavier",
+  "helpClose": "Fermer l'aide",
+  "helpSubtitle": "Tout se pilote au clavier. Ces raccourcis seront personnalisables dans les paramètres.",
+  "helpGroupPlayback": "Lecture",
+  "helpGroupNavigation": "Navigation",
+  "helpGroupWindow": "Fenêtre",
+  "helpPlayPause": "Lecture / pause",
+  "helpSeekShort": "Reculer / avancer de 5 s",
+  "helpSeekMedium": "Reculer / avancer de 30 s",
+  "helpSeekLong": "Reculer / avancer de 60 s",
+  "helpVolume": "Volume + / −",
+  "helpSpeed": "Vitesse + / −",
+  "helpPanelToggle": "Afficher / masquer le panneau",
+  "helpLeaveSearch": "Quitter la recherche"
 }

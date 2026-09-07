@@ -499,6 +499,144 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Redimensionner le panneau'**
   String get resizePanel;
+
+  /// No description provided for @osdMuted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Muet'**
+  String get osdMuted;
+
+  /// No description provided for @osdVolume.
+  ///
+  /// In fr, this message translates to:
+  /// **'{volume}'**
+  String osdVolume(int volume);
+
+  /// No description provided for @osdAlwaysOnTopOn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Toujours au premier plan'**
+  String get osdAlwaysOnTopOn;
+
+  /// No description provided for @osdAlwaysOnTopOff.
+  ///
+  /// In fr, this message translates to:
+  /// **'Premier plan désactivé'**
+  String get osdAlwaysOnTopOff;
+
+  /// No description provided for @menuSpeed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vitesse'**
+  String get menuSpeed;
+
+  /// No description provided for @recentFiles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fichiers récents'**
+  String get recentFiles;
+
+  /// No description provided for @clearRecent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer les récents'**
+  String get clearRecent;
+
+  /// No description provided for @noRecentFiles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun fichier récent'**
+  String get noRecentFiles;
+
+  /// No description provided for @recentMissing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fichier introuvable'**
+  String get recentMissing;
+
+  /// No description provided for @helpTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Raccourcis clavier'**
+  String get helpTitle;
+
+  /// No description provided for @helpClose.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fermer l\'aide'**
+  String get helpClose;
+
+  /// No description provided for @helpSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout se pilote au clavier. Ces raccourcis seront personnalisables dans les paramètres.'**
+  String get helpSubtitle;
+
+  /// No description provided for @helpGroupPlayback.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecture'**
+  String get helpGroupPlayback;
+
+  /// No description provided for @helpGroupNavigation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Navigation'**
+  String get helpGroupNavigation;
+
+  /// No description provided for @helpGroupWindow.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fenêtre'**
+  String get helpGroupWindow;
+
+  /// No description provided for @helpPlayPause.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecture / pause'**
+  String get helpPlayPause;
+
+  /// No description provided for @helpSeekShort.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reculer / avancer de 5 s'**
+  String get helpSeekShort;
+
+  /// No description provided for @helpSeekMedium.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reculer / avancer de 30 s'**
+  String get helpSeekMedium;
+
+  /// No description provided for @helpSeekLong.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reculer / avancer de 60 s'**
+  String get helpSeekLong;
+
+  /// No description provided for @helpVolume.
+  ///
+  /// In fr, this message translates to:
+  /// **'Volume + / −'**
+  String get helpVolume;
+
+  /// No description provided for @helpSpeed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vitesse + / −'**
+  String get helpSpeed;
+
+  /// No description provided for @helpPanelToggle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Afficher / masquer le panneau'**
+  String get helpPanelToggle;
+
+  /// No description provided for @helpLeaveSearch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quitter la recherche'**
+  String get helpLeaveSearch;
 }
 
 class _AppLocalizationsDelegate

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +14,11 @@ import 'theme/omnia_theme.dart';
 ///
 /// Mémorise aussi la géométrie de fenêtre et met à jour le titre natif.
 class OmniaApp extends ConsumerStatefulWidget {
-  const OmniaApp({super.key});
+  const OmniaApp({super.key, this.onExit});
+
+  /// Appelé quand le système demande la fermeture de l'application : libère
+  /// ce qui doit l'être (verrou d'instance unique) avant de quitter.
+  final Future<void> Function()? onExit;
 
   @override
   ConsumerState<OmniaApp> createState() => _OmniaAppState();
@@ -22,6 +27,7 @@ class OmniaApp extends ConsumerStatefulWidget {
 class _OmniaAppState extends ConsumerState<OmniaApp> {
   StreamSubscription<void>? _geometrySub;
   Timer? _saveDebounce;
+  AppLifecycleListener? _lifecycle;
 
   @override
   void initState() {
@@ -31,6 +37,12 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
       _saveDebounce?.cancel();
       _saveDebounce = Timer(const Duration(milliseconds: 400), _saveGeometry);
     });
+    _lifecycle = AppLifecycleListener(
+      onExitRequested: () async {
+        await widget.onExit?.call();
+        return AppExitResponse.exit;
+      },
+    );
   }
 
   Future<void> _saveGeometry() async {
@@ -53,6 +65,7 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
 
   @override
   void dispose() {
+    _lifecycle?.dispose();
     _saveDebounce?.cancel();
     _geometrySub?.cancel();
     super.dispose();

@@ -54,6 +54,14 @@ abstract final class OmniaMetrics {
   static const double panelMinWidth = 220;
   static const double panelMaxWidth = 520;
 
+  // OSD (Phase 3).
+  static const double osdLevelWidth = 96;
+
+  // Menus (contextuel, récents).
+  static const double menuMinWidth = 220;
+  static const double menuMaxWidth = 380;
+  static const double menuItemHeight = 34;
+
   // Fenêtre.
   static const Size defaultWindowSize = Size(1200, 760);
   static const Size minimumWindowSize = Size(720, 460);

@@ -24,4 +24,7 @@ abstract final class OmniaMotion {
 
   /// Délai d'inactivité avant masquage des contrôles en plein écran.
   static const idleHide = Duration(seconds: 3);
+
+  /// Durée d'affichage d'un message OSD après la dernière action.
+  static const osdLinger = Duration(milliseconds: 1100);
 }

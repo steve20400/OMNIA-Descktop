@@ -9,6 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../file_dialogs.dart';
 import '../theme/omnia_theme.dart';
 import 'omnia_button.dart';
+import 'recent_files_menu.dart';
 
 /// La scène : la zone plein cadre où vit le contenu.
 ///
@@ -172,6 +173,11 @@ class _EmptyStage extends ConsumerWidget {
                   onPressed: () => pickAndOpenFolder(ref),
                 ),
               ],
+            ),
+            const SizedBox(height: OmniaMetrics.space8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: const RecentFilesList(),
             ),
           ],
         ),

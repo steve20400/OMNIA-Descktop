@@ -40,6 +40,9 @@ dependencies:
   collection: ^1.19.1
   path_provider: ^2.1.5
 
+  # Empêcher la mise en veille de l'écran pendant une vidéo
+  wakelock_plus: ^1.8.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -229,4 +229,76 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get resizePanel => 'Resize panel';
+
+  @override
+  String get osdMuted => 'Muted';
+
+  @override
+  String osdVolume(int volume) {
+    return '$volume';
+  }
+
+  @override
+  String get osdAlwaysOnTopOn => 'Always on top';
+
+  @override
+  String get osdAlwaysOnTopOff => 'Always on top off';
+
+  @override
+  String get menuSpeed => 'Speed';
+
+  @override
+  String get recentFiles => 'Recent files';
+
+  @override
+  String get clearRecent => 'Clear recent files';
+
+  @override
+  String get noRecentFiles => 'No recent file';
+
+  @override
+  String get recentMissing => 'File not found';
+
+  @override
+  String get helpTitle => 'Keyboard shortcuts';
+
+  @override
+  String get helpClose => 'Close help';
+
+  @override
+  String get helpSubtitle =>
+      'Everything can be driven from the keyboard. These shortcuts will be customisable in Settings.';
+
+  @override
+  String get helpGroupPlayback => 'Playback';
+
+  @override
+  String get helpGroupNavigation => 'Navigation';
+
+  @override
+  String get helpGroupWindow => 'Window';
+
+  @override
+  String get helpPlayPause => 'Play / pause';
+
+  @override
+  String get helpSeekShort => 'Back / forward 5 s';
+
+  @override
+  String get helpSeekMedium => 'Back / forward 30 s';
+
+  @override
+  String get helpSeekLong => 'Back / forward 60 s';
+
+  @override
+  String get helpVolume => 'Volume up / down';
+
+  @override
+  String get helpSpeed => 'Speed up / down';
+
+  @override
+  String get helpPanelToggle => 'Show / hide the panel';
+
+  @override
+  String get helpLeaveSearch => 'Leave the search field';
 }

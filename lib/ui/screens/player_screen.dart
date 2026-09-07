@@ -12,14 +12,19 @@ import '../../core/commands/player_command_bus.dart';
 import '../../core/controllers/media_router.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';
+import '../../core/services/screen_wake.dart';
+import '../../core/utils/launch_arguments.dart';
 import '../../core/utils/platform_session.dart';
 import '../../l10n/app_localizations.dart';
 import '../panel_controller.dart';
 import '../shortcuts/shortcut_handler.dart';
 import '../theme/omnia_theme.dart';
 import '../widgets/control_bar.dart';
+import '../widgets/help_overlay.dart';
+import '../widgets/osd_overlay.dart';
 import '../widgets/side_panel.dart';
 import '../widgets/stage.dart';
+import '../widgets/stage_context_menu.dart';
 import '../widgets/title_bar.dart';
 
 /// Écran unique d'OMNIA : barre de titre, panneau de dossier, scène,
@@ -45,15 +50,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     super.initState();
     // Argument en ligne de commande : `omnia /chemin/fichier.mkv`.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args = ref.read(launchArgumentsProvider);
-      final path = args.where((a) => !a.startsWith('-')).firstOrNull;
-      if (path == null) return;
-      final entity = FileSystemEntity.typeSync(path);
-      final command = switch (entity) {
-        FileSystemEntityType.directory => OpenFolder(path),
-        FileSystemEntityType.file => OpenFile(path),
-        _ => null,
-      };
+      final command = commandForLaunchArguments(ref.read(launchArgumentsProvider));
       if (command != null) ref.dispatch(command, source: CommandSource.cli);
     });
   }
@@ -137,6 +134,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
     });
 
+    // L'écran reste allumé tant qu'une vidéo joue, et seulement là.
+    ref.listen<bool>(
+      playbackStateProvider.select(
+        (s) => shouldKeepScreenAwake(playing: s.isPlaying, hasVideo: s.hasVideo),
+      ),
+      (_, keepAwake) => ref.read(screenWakeProvider).setKeepAwake(keepAwake),
+    );
+
     final hideCursor = fullscreen && !_chromeVisible;
     // En plein écran, la scène occupe tout : le panneau se retire.
     final showPanel = panelVisible && !fullscreen;
@@ -166,19 +171,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: canToggleByClick
-                                    ? () {
-                                        _focusNode.requestFocus();
-                                        ref.dispatch(const TogglePlay());
-                                      }
-                                    : _focusNode.requestFocus,
-                                onDoubleTap: hasFile
-                                    ? () => ref.dispatch(const ToggleFullscreen())
-                                    : null,
-                                child: const Stage(),
+                              StageContextMenu(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: canToggleByClick
+                                      ? () {
+                                          _focusNode.requestFocus();
+                                          ref.dispatch(const TogglePlay());
+                                        }
+                                      : _focusNode.requestFocus,
+                                  onDoubleTap: hasFile
+                                      ? () => ref.dispatch(const ToggleFullscreen())
+                                      : null,
+                                  child: const Stage(),
+                                ),
                               ),
+                              const OsdOverlay(),
                               if (!showPanel && !fullscreen)
                                 const Positioned(
                                   left: OmniaMetrics.space3,
@@ -246,7 +254,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       onDragEntered: (_) => setState(() => _dragging = true),
       onDragExited: (_) => setState(() => _dragging = false),
       onDragDone: _onDrop,
-      child: Stack(fit: StackFit.expand, children: [content, dropOverlay]),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [content, const HelpOverlay(), dropOverlay],
+      ),
     );
 
     // Sous Linux, masquer la barre de titre retire aussi les bordures de

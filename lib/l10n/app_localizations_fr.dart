@@ -233,4 +233,76 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get resizePanel => 'Redimensionner le panneau';
+
+  @override
+  String get osdMuted => 'Muet';
+
+  @override
+  String osdVolume(int volume) {
+    return '$volume';
+  }
+
+  @override
+  String get osdAlwaysOnTopOn => 'Toujours au premier plan';
+
+  @override
+  String get osdAlwaysOnTopOff => 'Premier plan désactivé';
+
+  @override
+  String get menuSpeed => 'Vitesse';
+
+  @override
+  String get recentFiles => 'Fichiers récents';
+
+  @override
+  String get clearRecent => 'Effacer les récents';
+
+  @override
+  String get noRecentFiles => 'Aucun fichier récent';
+
+  @override
+  String get recentMissing => 'Fichier introuvable';
+
+  @override
+  String get helpTitle => 'Raccourcis clavier';
+
+  @override
+  String get helpClose => 'Fermer l\'aide';
+
+  @override
+  String get helpSubtitle =>
+      'Tout se pilote au clavier. Ces raccourcis seront personnalisables dans les paramètres.';
+
+  @override
+  String get helpGroupPlayback => 'Lecture';
+
+  @override
+  String get helpGroupNavigation => 'Navigation';
+
+  @override
+  String get helpGroupWindow => 'Fenêtre';
+
+  @override
+  String get helpPlayPause => 'Lecture / pause';
+
+  @override
+  String get helpSeekShort => 'Reculer / avancer de 5 s';
+
+  @override
+  String get helpSeekMedium => 'Reculer / avancer de 30 s';
+
+  @override
+  String get helpSeekLong => 'Reculer / avancer de 60 s';
+
+  @override
+  String get helpVolume => 'Volume + / −';
+
+  @override
+  String get helpSpeed => 'Vitesse + / −';
+
+  @override
+  String get helpPanelToggle => 'Afficher / masquer le panneau';
+
+  @override
+  String get helpLeaveSearch => 'Quitter la recherche';
 }

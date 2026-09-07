@@ -21,6 +21,10 @@ abstract interface class WindowService {
   Future<Rect> getBounds();
   Future<void> setBounds(Rect bounds);
 
+  /// Ramène la fenêtre au premier plan (restaure si réduite), sans changer
+  /// sa géométrie. Utilisé quand une seconde instance nous confie un fichier.
+  Future<void> focus();
+
   /// Émet à chaque déplacement/redimensionnement/maximisation.
   Stream<void> get geometryChanges;
 }
@@ -76,6 +80,13 @@ class WindowManagerService with WindowListener implements WindowService {
   Future<void> setBounds(Rect bounds) => windowManager.setBounds(bounds);
 
   @override
+  Future<void> focus() async {
+    if (await windowManager.isMinimized()) await windowManager.restore();
+    await windowManager.show();
+    await windowManager.focus();
+  }
+
+  @override
   void onWindowMoved() => _geometry.add(null);
 
   @override
@@ -99,6 +110,7 @@ class FakeWindowService implements WindowService {
   bool alwaysOnTop = false;
   bool maximized = false;
   bool closed = false;
+  int focusCount = 0;
   String title = '';
   Rect bounds = const Rect.fromLTWH(0, 0, 1200, 760);
 
@@ -142,4 +154,7 @@ class FakeWindowService implements WindowService {
     bounds = value;
     _geometry.add(null);
   }
+
+  @override
+  Future<void> focus() async => focusCount++;
 }

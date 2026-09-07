@@ -20,6 +20,13 @@ abstract interface class HistoryStore {
   /// Marque le fichier comme vu en entier.
   Future<void> markCompleted(String path, {DateTime? now});
 
+  /// Note que le fichier vient d'être ouvert, sans toucher à sa position.
+  ///
+  /// C'est ce qui l'inscrit dans les récents dès l'ouverture : attendre la
+  /// première sauvegarde de position laisserait de côté un fichier fermé
+  /// avant la première minute.
+  Future<void> touch(String path, {DateTime? now});
+
   /// Fichiers récemment ouverts, du plus récent au plus ancien.
   List<HistoryEntry> recent({int limit = 20});
 
@@ -115,6 +122,20 @@ class HiveHistoryStore implements HistoryStore {
   Future<void> _put(HistoryEntry entry) => _box.put(entry.path, entry.toJson());
 
   @override
+  Future<void> touch(String path, {DateTime? now}) async {
+    final existing = entryFor(path);
+    await _put(
+      existing?.copyWith(lastOpened: now ?? DateTime.now()) ??
+          HistoryEntry(
+            path: path,
+            position: Duration.zero,
+            duration: Duration.zero,
+            lastOpened: now ?? DateTime.now(),
+          ),
+    );
+  }
+
+  @override
   List<HistoryEntry> recent({int limit = 20}) {
     final entries = <HistoryEntry>[];
     for (final key in _box.keys) {
@@ -183,6 +204,18 @@ class MemoryHistoryStore implements HistoryStore {
       completed: true,
       pageCount: existing?.pageCount ?? 0,
     );
+  }
+
+  @override
+  Future<void> touch(String path, {DateTime? now}) async {
+    final stamp = now ?? DateTime.now();
+    entries[path] = entries[path]?.copyWith(lastOpened: stamp) ??
+        HistoryEntry(
+          path: path,
+          position: Duration.zero,
+          duration: Duration.zero,
+          lastOpened: stamp,
+        );
   }
 
   @override

@@ -26,6 +26,8 @@ class OmniaTypography extends ThemeExtension<OmniaTypography> {
     required this.timecode,
     required this.timecodeLarge,
     required this.shortcut,
+    required this.osdValue,
+    required this.osdLabel,
   });
 
   final TextStyle caption;
@@ -46,6 +48,10 @@ class OmniaTypography extends ThemeExtension<OmniaTypography> {
   /// Étiquettes de raccourcis (`Ctrl+O`).
   final TextStyle shortcut;
 
+  /// OSD : la valeur (« +5 s », « 65 », « 1.25× ») en mono, et son libellé.
+  final TextStyle osdValue;
+  final TextStyle osdLabel;
+
   factory OmniaTypography.standard({required Color primary, required Color muted}) {
     const ui = OmniaFonts.ui;
     const mono = OmniaFonts.mono;
@@ -61,6 +67,8 @@ class OmniaTypography extends ThemeExtension<OmniaTypography> {
       timecode: TextStyle(fontFamily: mono, fontSize: 12.5, height: 1, color: primary, fontWeight: FontWeight.w500, letterSpacing: 0.4, fontFeatures: const [FontFeature.tabularFigures()]),
       timecodeLarge: TextStyle(fontFamily: mono, fontSize: 18, height: 1, color: primary, fontWeight: FontWeight.w500, letterSpacing: 0.6, fontFeatures: const [FontFeature.tabularFigures()]),
       shortcut: TextStyle(fontFamily: mono, fontSize: 11, height: 1, color: muted, fontWeight: FontWeight.w500, letterSpacing: 0.3),
+      osdValue: TextStyle(fontFamily: mono, fontSize: 15, height: 1, color: primary, fontWeight: FontWeight.w600, letterSpacing: 0.4, fontFeatures: const [FontFeature.tabularFigures()]),
+      osdLabel: TextStyle(fontFamily: ui, fontSize: 14, height: 1, color: primary, fontWeight: FontWeight.w500),
     );
   }
 
@@ -77,6 +85,8 @@ class OmniaTypography extends ThemeExtension<OmniaTypography> {
     TextStyle? timecode,
     TextStyle? timecodeLarge,
     TextStyle? shortcut,
+    TextStyle? osdValue,
+    TextStyle? osdLabel,
   }) {
     return OmniaTypography(
       caption: caption ?? this.caption,
@@ -90,6 +100,8 @@ class OmniaTypography extends ThemeExtension<OmniaTypography> {
       timecode: timecode ?? this.timecode,
       timecodeLarge: timecodeLarge ?? this.timecodeLarge,
       shortcut: shortcut ?? this.shortcut,
+      osdValue: osdValue ?? this.osdValue,
+      osdLabel: osdLabel ?? this.osdLabel,
     );
   }
 
@@ -108,6 +120,8 @@ class OmniaTypography extends ThemeExtension<OmniaTypography> {
       timecode: TextStyle.lerp(timecode, other.timecode, t)!,
       timecodeLarge: TextStyle.lerp(timecodeLarge, other.timecodeLarge, t)!,
       shortcut: TextStyle.lerp(shortcut, other.shortcut, t)!,
+      osdValue: TextStyle.lerp(osdValue, other.osdValue, t)!,
+      osdLabel: TextStyle.lerp(osdLabel, other.osdLabel, t)!,
     );
   }
 }

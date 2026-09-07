@@ -6,6 +6,7 @@ import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
 import '../../core/providers.dart';
 import '../file_dialogs.dart';
+import '../help_overlay_controller.dart';
 import 'default_keymap.dart';
 
 /// Traduit un événement clavier en commande sur le bus.
@@ -16,6 +17,18 @@ import 'default_keymap.dart';
 /// l'utilisateur resterait piégé dans le champ, clavier inopérant.
 KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
   if (event is KeyUpEvent) return KeyEventResult.ignored;
+
+  // Le panneau d'aide ouvert capte Échap et F1 pour se fermer, et rien
+  // d'autre : on ne pilote pas la lecture à l'aveugle derrière un voile.
+  final help = ref.read(helpVisibleProvider.notifier);
+  if (ref.read(helpVisibleProvider)) {
+    if (event.logicalKey == LogicalKeyboardKey.escape ||
+        event.logicalKey == LogicalKeyboardKey.f1) {
+      help.hide();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   if (textFieldHasFocus()) {
     if (event.logicalKey == LogicalKeyboardKey.escape) {
@@ -36,6 +49,8 @@ KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
         pickAndOpenFile(ref);
       case UiAction.openFolderDialog:
         pickAndOpenFolder(ref);
+      case UiAction.toggleHelp:
+        help.toggle();
     }
     return KeyEventResult.handled;
   }

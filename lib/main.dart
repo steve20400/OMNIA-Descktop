@@ -1,11 +1,18 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'core/commands/player_command_bus.dart';
 import 'core/providers.dart';
 import 'core/services/history_store.dart';
+import 'core/services/local_storage.dart';
 import 'core/services/settings_store.dart';
+import 'core/services/single_instance.dart';
+import 'core/utils/launch_arguments.dart';
 import 'core/utils/platform_session.dart';
 import 'ui/app.dart';
 import 'ui/startup_failure_app.dart';
@@ -15,6 +22,20 @@ import 'ui/theme/omnia_theme.dart';
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
+
+  // Instance unique : si OMNIA tourne déjà, on lui confie le fichier et on
+  // se retire, plutôt que d'ouvrir une seconde fenêtre.
+  final SingleInstanceService instance;
+  try {
+    instance = SingleInstanceService(directory: await localStorageDirectory());
+    if (await instance.delegateToExisting(args)) {
+      exit(0);
+    }
+  } on Object catch (error) {
+    await _showWindow(bounds: null, maximized: false);
+    runApp(StartupFailureApp(detail: error.toString()));
+    return;
+  }
 
   // Le stockage local peut échouer (dossier de données inaccessible, disque
   // plein). Plutôt que de mourir sans fenêtre, OMNIA affiche l'erreur.
@@ -29,19 +50,38 @@ Future<void> main(List<String> args) async {
     return;
   }
 
+  final container = ProviderContainer(
+    overrides: [
+      settingsStoreProvider.overrideWithValue(settings),
+      historyStoreProvider.overrideWithValue(history),
+      launchArgumentsProvider.overrideWithValue(args),
+    ],
+  );
+
+  // Devenir la première instance : les suivantes nous enverront leurs
+  // arguments, qu'on traite comme une ouverture depuis le système.
+  try {
+    await instance.serve((remoteArgs) {
+      final command = commandForLaunchArguments(remoteArgs);
+      unawaited(container.read(windowServiceProvider).focus());
+      if (command != null) {
+        container.read(commandBusProvider).dispatch(command, source: CommandSource.system);
+      }
+    });
+  } on Object {
+    // Port local indisponible : on fonctionne sans instance unique, ce qui
+    // vaut mieux que de ne pas démarrer.
+  }
+
   await _showWindow(
     bounds: settings.windowBounds,
     maximized: settings.windowMaximized,
   );
 
   runApp(
-    ProviderScope(
-      overrides: [
-        settingsStoreProvider.overrideWithValue(settings),
-        historyStoreProvider.overrideWithValue(history),
-        launchArgumentsProvider.overrideWithValue(args),
-      ],
-      child: const OmniaApp(),
+    UncontrolledProviderScope(
+      container: container,
+      child: OmniaApp(onExit: instance.dispose),
     ),
   );
 }

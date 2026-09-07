@@ -151,6 +151,28 @@ void main() {
       expect(store.recent(limit: 10).first.path, '/f29.mkv');
     });
 
+    test('touch inscrit un fichier dans les récents sans position', () async {
+      await store.touch(film, now: t0);
+      final entry = store.entryFor(film)!;
+      expect(entry.lastOpened, t0);
+      expect(entry.resumePosition, isNull);
+      expect(store.recent().map((e) => e.path), [film]);
+    });
+
+    test('touch conserve la position mémorisée et met à jour la date', () async {
+      await store.savePosition(
+        film,
+        position: const Duration(minutes: 12),
+        duration: const Duration(minutes: 90),
+        now: t0,
+      );
+      final later = t0.add(const Duration(days: 1));
+      await store.touch(film, now: later);
+      final entry = store.entryFor(film)!;
+      expect(entry.resumePosition, const Duration(minutes: 12));
+      expect(entry.lastOpened, later);
+    });
+
     test('oublier un fichier, puis tout effacer', () async {
       await store.savePosition('/a.mkv',
           position: const Duration(minutes: 5), duration: const Duration(minutes: 90), now: t0);

@@ -65,6 +65,7 @@ sealed class PlayerCommand {
       'removeFromPlaylist' => RemoveFromPlaylist(_string(json, 'path')),
       'rescanFolder' => const RescanFolder(),
       'revealInFolder' => RevealInFolder(_string(json, 'path')),
+      'clearHistory' => const ClearHistory(),
       _ => throw FormatException('Commande inconnue : $type'),
     };
   }
@@ -387,4 +388,11 @@ final class RevealInFolder extends PlayerCommand {
   String get type => 'revealInFolder';
   @override
   Map<String, Object?> get arguments => {'path': path};
+}
+
+/// Efface l'historique : fichiers récents et positions mémorisées.
+final class ClearHistory extends PlayerCommand {
+  const ClearHistory();
+  @override
+  String get type => 'clearHistory';
 }

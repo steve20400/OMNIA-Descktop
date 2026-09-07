@@ -6,9 +6,10 @@ Lecteur universel desktop : vidéo, audio, PDF et texte dans une seule applicati
 Flutter + media_kit (libmpv), architecture « bus de commandes » prête pour la future télécommande mobile
 ([OMNIA-Mobile](https://github.com/steve20400/OMNIA-Mobile)).
 
-> État : **Phase 2 — Playlist du dossier** terminée.
-> Phase 1 (fondations, thème, fenêtre, lecture audio/vidéo) et Phase 2 (scan du dossier, panneau latéral,
-> navigation, modes de fin de lecture, reprise de lecture) sont en place.
+> État : **Phase 3 — Confort de lecture** terminée.
+> Phase 1 (fondations, thème, fenêtre, lecture audio/vidéo), Phase 2 (scan du dossier, panneau latéral,
+> navigation, modes de fin de lecture, reprise de lecture) et Phase 3 (OSD, fichiers récents, menu
+> contextuel, instance unique, aide `F1`, écran maintenu allumé) sont en place.
 > Voir `DESIGN.md` pour le plan design.
 
 ## Plateformes
@@ -95,17 +96,20 @@ lib/
     commands/               # PlayerCommand (sealed, JSON) + PlayerCommandBus
     controllers/            # MediaController, AvController (mpv), MediaRouter
     models/                 # PlaybackState, PlaylistState, MediaFile, HistoryEntry…
-    services/               # PlaybackService, PlaylistService, FolderScanner,
-                            # HistoryStore, SettingsStore, WindowService, SystemIntegration
-    utils/                  # timecodes, tri naturel, codes d'erreur OS, session Wayland
+    services/               # PlaybackService, PlaylistService, FolderScanner, HistoryStore,
+                            # SettingsStore, WindowService, SystemIntegration, SingleInstance, ScreenWake
+    utils/                  # timecodes, tri naturel, codes d'erreur OS, session Wayland, arguments CLI
     providers.dart          # câblage Riverpod
   ui/
     app.dart                # MaterialApp, thème, i18n, mémorisation de la fenêtre
     screens/player_screen.dart
-    widgets/                # barre de titre, contrôles, faisceau, scène, panneau, tuiles
+    widgets/                # barre de titre, contrôles, faisceau, scène, panneau, tuiles,
+                            # OSD, menus (contextuel, récents), aide
+    osd/                    # modèle et contrôleur de l'affichage à l'écran
     shortcuts/              # table de raccourcis par défaut + handler
     theme/                  # OmniaColors, OmniaTypography, OmniaMotion, OmniaMetrics
     panel_controller.dart   # état d'affichage du panneau (largeur, repli)
+    recent_files.dart       # fichiers récents (avec existence vérifiée)
   l10n/                     # app_fr.arb (défaut), app_en.arb
 assets/fonts/               # Instrument Sans, IBM Plex Mono (embarquées)
 linux/                      # dev.omnia.omnia.desktop, dev.omnia.omnia.svg, CMake (mimalloc)
@@ -134,6 +138,21 @@ apparaissent dans le panneau de gauche.
 - Clic simple pour lire, clic droit pour le menu contextuel (lire, ouvrir l'emplacement, retirer).
 - Panneau repliable (`Tab`) et redimensionnable à la souris ; largeur et état mémorisés.
 
+## Confort de lecture
+
+- **OSD** : chaque action au clavier (avance, volume, vitesse, muet, fichier suivant, mode de fin…)
+  affiche un retour bref en haut de la scène, puis s'efface. Les actions à la souris n'en déclenchent
+  qu'en plein écran, quand la barre de contrôles peut être masquée.
+- **Fichiers récents** : menu sous le bouton « Ouvrir » de la barre de titre, et liste sur l'écran
+  d'accueil. Un fichier est inscrit dès son ouverture ; un fichier déplacé reste listé, grisé.
+- **Menu contextuel** (clic droit sur la scène) : lecture, fichier suivant/précédent, vitesse, fin de
+  lecture, plein écran, premier plan, panneau, ouverture, emplacement du fichier. Sous-titres, pistes
+  audio, image et capture s'y ajouteront en Phase 5.
+- **Instance unique** : « Ouvrir avec → OMNIA » alors qu'OMNIA tourne déjà réutilise la fenêtre
+  existante et remplace la lecture en cours. Voir « Compromis » pour le mécanisme.
+- **Aide `F1`** : récapitulatif des raccourcis.
+- **Veille** : l'écran reste allumé tant qu'une vidéo joue, et seulement là.
+
 ## Raccourcis
 
 | Touche | Action |
@@ -148,9 +167,11 @@ apparaissent dans le panneau de gauche.
 | `L` | Mode de fin de lecture (cycle) |
 | `T` | Toujours au premier plan |
 | `Tab` | Afficher / masquer le panneau |
+| `Échap` | Quitter la recherche du panneau, fermer l'aide, quitter le plein écran |
 | `Ctrl+O` / `Ctrl+Shift+O` | Ouvrir un fichier / un dossier |
+| `F1` | Aide : récapitulatif des raccourcis |
 
-Molette sur la vidéo : volume. Clic simple : lecture/pause.
+Molette sur la vidéo : volume. Clic simple : lecture/pause. Clic droit : menu contextuel.
 
 ## Installation sur Ubuntu
 
@@ -182,3 +203,5 @@ les déclarer maintenant proposerait OMNIA pour des fichiers qu'il refuse encore
 - **Bordures de fenêtre sous Linux** : masquer la barre de titre retire toutes les décorations GTK. OMNIA redessine donc ses propres bords de redimensionnement (`DragToResizeArea`), inutiles sur Windows et macOS qui gardent leur cadre natif.
 - **`N` en fin de liste** : la touche « fichier suivant » reboucle au premier fichier, alors que la lecture automatique en mode « suivant » s'arrête. Une action explicite ne doit pas être sans effet ; un enchaînement automatique ne doit pas tourner en rond sans qu'on l'ait demandé (mode « boucler le dossier » pour cela).
 - **Vue audio** : pochette et fond dérivé prévus en Phase 5 ; pour l'instant, nom du morceau et symbole.
+- **Instance unique** : le brief suggère un socket local ou D-Bus sous Linux. Ni l'un ni l'autre n'existe sous Windows, alors qu'OMNIA doit s'y installer aussi. La première instance écoute donc sur un port de la boucle locale (`127.0.0.1`, jamais exposé au réseau), noté avec un secret aléatoire dans `instance.json` du dossier de données ; une seconde instance lit ce fichier, transmet ses arguments et se termine. Un verrou périmé (instance tuée) est détecté par l'échec de connexion et réécrit.
+- **Reprise de lecture** : la position mémorisée est appliquée par un seek juste après le démarrage ; on peut apercevoir la première image un instant. Le réglage « reprendre automatiquement / proposer / jamais » arrive avec les paramètres (Phase 6).
