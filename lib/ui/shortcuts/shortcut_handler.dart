@@ -8,6 +8,8 @@ import '../../core/providers.dart';
 import '../document_ui_controller.dart';
 import '../file_dialogs.dart';
 import '../help_overlay_controller.dart';
+import '../player_focus.dart';
+import '../settings/settings_controller.dart';
 import 'default_keymap.dart';
 import 'keymap_provider.dart';
 
@@ -35,7 +37,20 @@ KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
 
   if (textFieldHasFocus()) {
     if (event.logicalKey == LogicalKeyboardKey.escape) {
-      FocusManager.instance.primaryFocus?.unfocus();
+      // Rendre le focus au lecteur lui-même : un simple `unfocus()` le
+      // donnerait à la portée englobante, et les raccourcis resteraient muets.
+      ref.read(playerFocusProvider).restore();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  // Paramètres ouverts : leur feuille garde normalement le focus et gère
+  // Échap elle-même. Garde-fou si le focus est resté au lecteur : on ne
+  // pilote pas la lecture derrière la feuille.
+  if (ref.read(settingsUiProvider).visible) {
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      ref.read(settingsUiProvider.notifier).hide();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -67,6 +82,10 @@ KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
       pickAndOpenFolder(ref);
     case UiAction.toggleHelp:
       help.toggle();
+    case UiAction.toggleSettings:
+      // Pas de paramètres dans la fenêtre compacte du mini-lecteur.
+      if (ref.read(playbackStateProvider).miniPlayer) return KeyEventResult.ignored;
+      ref.read(settingsUiProvider.notifier).toggle();
     case UiAction.goToPage:
       if (!ref.read(playbackStateProvider).isDocument) return KeyEventResult.ignored;
       ref.read(documentUiProvider.notifier).requestGoToPage();

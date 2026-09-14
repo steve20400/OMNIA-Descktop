@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../document_search.dart';
 import '../document_ui_controller.dart';
+import '../player_focus.dart';
 import '../theme/omnia_theme.dart';
 import 'floating_surface.dart';
 import 'omnia_icon_button.dart';
@@ -60,6 +61,8 @@ class _FindBarState extends ConsumerState<FindBar> {
   void _close() {
     widget.search.clear();
     ref.read(documentUiProvider.notifier).hideFind();
+    // La barre emporte son champ, et le focus avec : on le rend au lecteur.
+    ref.read(playerFocusProvider).restore();
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -143,21 +146,21 @@ class _FindBarState extends ConsumerState<FindBar> {
             icon: Icons.keyboard_arrow_up_rounded,
             size: OmniaMetrics.iconButtonSize - 6,
             iconSize: OmniaMetrics.iconSize - 2,
-            tooltip: '${l10n.findPrevious}  ·  Maj+Entrée',
+            tooltip: '${l10n.findPrevious}  ·  ${l10n.keyShift}+${l10n.keyEnter}',
             onPressed: state.count > 0 ? widget.search.previous : null,
           ),
           OmniaIconButton(
             icon: Icons.keyboard_arrow_down_rounded,
             size: OmniaMetrics.iconButtonSize - 6,
             iconSize: OmniaMetrics.iconSize - 2,
-            tooltip: '${l10n.findNext}  ·  Entrée',
+            tooltip: '${l10n.findNext}  ·  ${l10n.keyEnter}',
             onPressed: state.count > 0 ? widget.search.next : null,
           ),
           OmniaIconButton(
             icon: Icons.close_rounded,
             size: OmniaMetrics.iconButtonSize - 6,
             iconSize: OmniaMetrics.iconSize - 4,
-            tooltip: '${l10n.findClose}  ·  Échap',
+            tooltip: '${l10n.findClose}  ·  ${l10n.keyEscape}',
             onPressed: _close,
           ),
         ],

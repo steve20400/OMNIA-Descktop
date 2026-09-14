@@ -1,16 +1,26 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../help_overlay_controller.dart';
+import '../player_focus.dart';
+import '../settings/settings_controller.dart';
+import '../shortcuts/keymap_provider.dart';
+import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'floating_surface.dart';
+import 'key_cap.dart';
+import 'omnia_button.dart';
 import 'omnia_icon_button.dart';
 
 /// Récapitulatif des raccourcis (`F1`).
 ///
-/// Un voile sur la scène, une surface flottante, deux colonnes. Les touches
-/// sont en mono, dans une petite capsule, pour se lire comme sur un clavier.
+/// Lu dans la table de l'utilisateur, pas dans une liste figée : un raccourci
+/// réaffecté dans les paramètres apparaît ici tel quel, dans la langue de
+/// l'interface.
 class HelpOverlay extends ConsumerWidget {
   const HelpOverlay({super.key});
 
@@ -18,6 +28,10 @@ class HelpOverlay extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = ref.watch(helpVisibleProvider);
     final colors = context.colors;
+
+    ref.listen<bool>(helpVisibleProvider, (previous, next) {
+      if (previous == true && !next) ref.read(playerFocusProvider).restore();
+    });
 
     return IgnorePointer(
       ignoring: !visible,
@@ -34,7 +48,7 @@ class HelpOverlay extends ConsumerWidget {
               child: GestureDetector(
                 // Un clic dans la carte ne doit pas la fermer.
                 onTap: () {},
-                child: const _HelpCard(),
+                child: visible ? const _HelpCard() : const SizedBox.shrink(),
               ),
             ),
           ),
@@ -51,63 +65,13 @@ class _HelpCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final type = context.type;
     final l10n = AppLocalizations.of(context);
-
-    final groups = <(String, List<(String, String)>)>[
-      (
-        l10n.helpGroupPlayback,
-        [
-          (l10n.helpPlayPause, 'Espace'),
-          (l10n.helpSeekShort, '← →'),
-          (l10n.helpSeekMedium, 'Maj + ← →'),
-          (l10n.helpSeekLong, 'Ctrl + ← →'),
-          (l10n.helpVolume, '↑ ↓'),
-          (l10n.mute, 'M'),
-          (l10n.helpSpeed, '+  −'),
-          (l10n.resetSpeed, '='),
-          (l10n.abLoop, 'A'),
-          (l10n.subtitles, 'V'),
-          (l10n.screenshot, 'S'),
-        ],
-      ),
-      (
-        l10n.helpGroupNavigation,
-        [
-          (l10n.nextFile, 'N'),
-          (l10n.previousFile, 'P'),
-          (l10n.endModeLabel, 'L'),
-          (l10n.helpPanelToggle, 'Tab'),
-          (l10n.helpLeaveSearch, 'Échap'),
-        ],
-      ),
-      (
-        l10n.helpGroupWindow,
-        [
-          (l10n.fullscreen, 'F  ·  double-clic'),
-          (l10n.exitFullscreen, 'Échap'),
-          (l10n.alwaysOnTop, 'T'),
-          (l10n.miniPlayer, 'Ctrl + Maj + M'),
-          (l10n.openFile, 'Ctrl + O'),
-          (l10n.openFolder, 'Ctrl + Maj + O'),
-          (l10n.helpTitle, 'F1'),
-        ],
-      ),
-      (
-        l10n.helpGroupDocuments,
-        [
-          (l10n.docPreviousPage, 'PgUp'),
-          (l10n.docNextPage, 'PgDn'),
-          (l10n.docGoToPage, 'Ctrl + G'),
-          (l10n.docFind, 'Ctrl + F'),
-          (l10n.docZoomIn, 'Ctrl + molette'),
-          (l10n.docFitWidth, 'Ctrl + 0'),
-          (l10n.docRotate, 'Ctrl + R'),
-          (l10n.docReadingDark, 'Ctrl + D'),
-        ],
-      ),
-    ];
+    final size = MediaQuery.sizeOf(context);
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 720),
+      constraints: BoxConstraints(
+        maxWidth: 760,
+        maxHeight: math.max(240, size.height - 2 * OmniaMetrics.space5),
+      ),
       child: FloatingSurface(
         padding: const EdgeInsets.all(OmniaMetrics.space5),
         child: Column(
@@ -117,26 +81,45 @@ class _HelpCard extends ConsumerWidget {
             Row(
               children: [
                 Expanded(child: Text(l10n.helpTitle, style: type.viewTitle)),
+                OmniaButton(
+                  label: l10n.settingsSectionShortcuts,
+                  icon: Icons.keyboard_outlined,
+                  onPressed: () {
+                    ref.read(helpVisibleProvider.notifier).hide();
+                    ref.read(settingsUiProvider.notifier).show(SettingsSection.shortcuts);
+                  },
+                ),
+                const SizedBox(width: OmniaMetrics.space2),
                 OmniaIconButton(
                   icon: Icons.close_rounded,
-                  tooltip: '${l10n.helpClose}  ·  Échap',
+                  tooltip: '${l10n.helpClose}  ·  ${l10n.keyEscape}',
                   onPressed: () => ref.read(helpVisibleProvider.notifier).hide(),
                 ),
               ],
             ),
             const SizedBox(height: OmniaMetrics.space2),
             Text(l10n.helpSubtitle, style: type.secondary),
-            const SizedBox(height: OmniaMetrics.space5),
-            Wrap(
-              spacing: OmniaMetrics.space6,
-              runSpacing: OmniaMetrics.space5,
-              children: [
-                for (final (title, rows) in groups)
-                  SizedBox(
-                    width: 300,
-                    child: _HelpGroup(title: title, rows: rows),
-                  ),
-              ],
+            const SizedBox(height: OmniaMetrics.space4),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: OmniaMetrics.space6,
+                  runSpacing: OmniaMetrics.space5,
+                  children: [
+                    for (final group in ShortcutGroup.values)
+                      SizedBox(width: 320, child: _HelpGroup(group: group)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: OmniaMetrics.space4),
+            Text(
+              [
+                '${l10n.keyDoubleClick} : ${l10n.fullscreen}',
+                '${l10n.keyWheel} : ${l10n.helpVolume}',
+                '${l10n.keyCtrlWheel} : ${l10n.docZoomIn}',
+              ].join('   ·   '),
+              style: type.caption,
             ),
           ],
         ),
@@ -145,21 +128,24 @@ class _HelpCard extends ConsumerWidget {
   }
 }
 
-class _HelpGroup extends StatelessWidget {
-  const _HelpGroup({required this.title, required this.rows});
+class _HelpGroup extends ConsumerWidget {
+  const _HelpGroup({required this.group});
 
-  final String title;
-  final List<(String, String)> rows;
+  final ShortcutGroup group;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final type = context.type;
+    final l10n = AppLocalizations.of(context);
+    final keymap = ref.watch(keymapProvider);
+    final prefs = ref.watch(preferencesProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          title.toUpperCase(),
+          group.label(l10n).toUpperCase(),
           style: type.caption.copyWith(
             color: colors.projector,
             letterSpacing: 1.2,
@@ -167,42 +153,27 @@ class _HelpGroup extends StatelessWidget {
           ),
         ),
         const SizedBox(height: OmniaMetrics.space2),
-        for (final (label, keys) in rows)
+        for (final action in group.actions)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 3),
             child: Row(
               children: [
-                Expanded(child: Text(label, style: type.body)),
+                Expanded(child: Text(actionLabel(action, l10n, prefs), style: type.body)),
                 const SizedBox(width: OmniaMetrics.space3),
-                _KeyCap(keys),
+                if (keymap.combosFor(action).isEmpty)
+                  KeyCap(l10n.shortcutsNone, muted: true)
+                else
+                  Wrap(
+                    spacing: OmniaMetrics.space1,
+                    children: [
+                      for (final combo in keymap.combosFor(action))
+                        KeyCap(comboLabel(combo, l10n)),
+                    ],
+                  ),
               ],
             ),
           ),
       ],
-    );
-  }
-}
-
-class _KeyCap extends StatelessWidget {
-  const _KeyCap(this.keys);
-
-  final String keys;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final type = context.type;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: OmniaMetrics.space2,
-        vertical: 2,
-      ),
-      decoration: BoxDecoration(
-        color: colors.velvet,
-        borderRadius: const BorderRadius.all(Radius.circular(OmniaMetrics.radiusSmall)),
-        border: Border.all(color: colors.seam),
-      ),
-      child: Text(keys, style: type.timecode.copyWith(fontSize: 12)),
     );
   }
 }

@@ -123,7 +123,7 @@
   "recentMissing": "Fichier introuvable",
   "helpTitle": "Raccourcis clavier",
   "helpClose": "Fermer l'aide",
-  "helpSubtitle": "Tout se pilote au clavier. Ces raccourcis seront personnalisables dans les paramètres.",
+  "helpSubtitle": "Tout se pilote au clavier. Ces raccourcis se personnalisent dans les paramètres.",
   "helpGroupPlayback": "Lecture",
   "helpGroupNavigation": "Navigation",
   "helpGroupWindow": "Fenêtre",
@@ -280,5 +280,162 @@
   "unknownArtist": "Artiste inconnu",
   "closePanel": "Fermer",
   "screenshotFailed": "Capture impossible",
-  "screenshotFailedHint": "Le dossier des captures est inaccessible. Choisissez-en un autre dans les paramètres."
+  "screenshotFailedHint": "Le dossier des captures est inaccessible. Choisissez-en un autre dans les paramètres.",
+  "keyCtrl": "Ctrl",
+  "keyShift": "Maj",
+  "keyAlt": "Alt",
+  "keySpace": "Espace",
+  "keyEscape": "Échap",
+  "keyTab": "Tab",
+  "keyEnter": "Entrée",
+  "keyBackspace": "Retour arrière",
+  "keyDelete": "Suppr",
+  "keyInsert": "Inser",
+  "keyHome": "Début",
+  "keyEnd": "Fin",
+  "keyPageUp": "Pg préc.",
+  "keyPageDown": "Pg suiv.",
+  "keyMediaPlayPause": "Lecture/Pause",
+  "keyNumpad": "Pavé {key}",
+  "@keyNumpad": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      }
+    }
+  },
+  "keyCtrlWheel": "Ctrl+molette",
+  "keyDoubleClick": "double-clic",
+  "scSeekBackward": "Reculer de {seconds} s",
+  "@scSeekBackward": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "scSeekForward": "Avancer de {seconds} s",
+  "@scSeekForward": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "scVolumeUp": "Volume +",
+  "scVolumeDown": "Volume −",
+  "scToggleMute": "Couper / rétablir le son",
+  "scSpeedUp": "Accélérer",
+  "scSpeedDown": "Ralentir",
+  "scToggleSubtitles": "Afficher / masquer les sous-titres",
+  "settingsTitle": "Paramètres",
+  "settingsClose": "Fermer les paramètres",
+  "settingsSectionGeneral": "Général",
+  "settingsSectionPlayback": "Lecture",
+  "settingsSectionSubtitles": "Sous-titres",
+  "settingsSectionAudio": "Audio",
+  "settingsSectionDocuments": "Documents",
+  "settingsSectionShortcuts": "Raccourcis",
+  "settingsSectionScreenshots": "Captures",
+  "settingsSectionHistory": "Historique",
+  "settingsLanguage": "Langue",
+  "languageSystem": "Système",
+  "languageFrench": "Français",
+  "languageEnglish": "English",
+  "settingsTheme": "Thème",
+  "themeDark": "Sombre",
+  "themeLight": "Clair",
+  "themeSystem": "Système",
+  "settingsEndModeHint": "Ce qu'OMNIA fait quand un fichier se termine. Touche L pour changer pendant la lecture.",
+  "settingsResume": "Reprise de lecture",
+  "settingsResumeHint": "Quand vous rouvrez un fichier interrompu en cours de route.",
+  "resumeAuto": "Automatique",
+  "resumeAsk": "Demander",
+  "resumeNever": "Jamais",
+  "settingsSingleInstance": "Une seule fenêtre",
+  "settingsSingleInstanceHint": "Ouvrir un fichier depuis le système réutilise la fenêtre déjà ouverte. Pris en compte au prochain démarrage.",
+  "settingsSeekStep": "Pas d'avance et de recul",
+  "settingsSeekStepHint": "Touches ← et →. Avec Maj : 30 s ; avec Ctrl : 60 s.",
+  "settingsSeconds": "{seconds} s",
+  "@settingsSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsDefaultSpeed": "Vitesse au démarrage",
+  "settingsStartupVolume": "Volume au démarrage",
+  "startupVolumeLast": "Dernier utilisé",
+  "startupVolumeFixed": "Fixe",
+  "settingsFixedVolume": "Volume fixe",
+  "settingsSubtitleAutoLoad": "Chargement automatique",
+  "settingsSubtitleAutoLoadHint": "Les sous-titres portant le même nom que la vidéo sont chargés à l'ouverture.",
+  "settingsSubtitleDelay": "Décalage par défaut",
+  "settingsSubtitleDelayHint": "Appliqué à chaque vidéo ouverte. Se corrige ensuite par pas de 0,5 s.",
+  "settingsEqualizerHint": "Les curseurs se règlent pendant la lecture, dans le panneau Égaliseur.",
+  "settingsPdfLayout": "Défilement des PDF",
+  "settingsReadingDarkHint": "Inverse doucement les couleurs des documents, pour lire dans le noir.",
+  "settingsTextSizeHint": "Taille des fichiers texte et Markdown. Ctrl+molette pendant la lecture.",
+  "settingsScreenshotFolder": "Dossier des captures",
+  "settingsScreenshotFolderDefault": "Dossier par défaut",
+  "settingsChooseFolder": "Choisir…",
+  "settingsResetFolder": "Par défaut",
+  "settingsScreenshotPattern": "Nom des fichiers",
+  "tokenName": "nom du média",
+  "tokenDate": "date",
+  "tokenTime": "heure de la capture",
+  "tokenPosition": "position dans le média",
+  "settingsScreenshotPreview": "Exemple : {example}",
+  "@settingsScreenshotPreview": {
+    "placeholders": {
+      "example": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsRecentHint": "Les fichiers ouverts récemment, avec leur dossier.",
+  "settingsClearPositions": "Effacer les positions",
+  "settingsClearPositionsHint": "OMNIA oublie où vous vous étiez arrêté dans chaque fichier. La liste des récents est conservée.",
+  "settingsClearAll": "Tout effacer",
+  "settingsClearAllHint": "Récents et positions.",
+  "settingsDone": "Effacé",
+  "shortcutsHint": "Cliquez sur un raccourci pour le changer, puis appuyez sur la nouvelle combinaison.",
+  "shortcutsPress": "Appuyez sur la combinaison…",
+  "shortcutsConflict": "Déjà utilisé par « {action} ».",
+  "@shortcutsConflict": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "shortcutsReplace": "Remplacer",
+  "shortcutsCancel": "Annuler",
+  "shortcutsReset": "Rétablir",
+  "shortcutsResetAll": "Tout rétablir",
+  "shortcutsNone": "Aucun",
+  "shortcutsChange": "Changer le raccourci",
+  "resumePromptPosition": "Reprendre à {time} ?",
+  "@resumePromptPosition": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "resumePromptPage": "Reprendre à la page {page} ?",
+  "@resumePromptPage": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
+  "resumePromptScroll": "Reprendre là où vous en étiez ?",
+  "resumeAccept": "Reprendre",
+  "resumeDecline": "Depuis le début",
+  "keyWheel": "Molette",
+  "startupFailureTitle": "OMNIA n’a pas pu préparer ses données",
+  "startupFailureBody": "Le dossier de données de l’application est inaccessible. Vérifiez l’espace disque et les droits sur votre dossier personnel, puis relancez OMNIA."
 }

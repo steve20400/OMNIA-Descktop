@@ -875,6 +875,24 @@ void main() {
       expect(window.fullscreen, isFalse);
       expect(service.state.miniPlayer, isTrue);
     });
+
+    test('un document déposé sur le mini-lecteur rend la fenêtre entière', () async {
+      window.bounds = const Rect.fromLTWH(100, 80, 1200, 760);
+      await service.openPath('/serie/ep1.mkv');
+      bus.dispatch(const ToggleMiniPlayer());
+      await settle();
+      expect(service.state.miniPlayer, isTrue);
+
+      // Une autre vidéo : le mini-lecteur sait l'afficher, il reste.
+      await service.openPath('/serie/ep2.mkv');
+      expect(service.state.miniPlayer, isTrue);
+
+      // Un PDF : il faut la fenêtre entière pour le lire.
+      await service.openPath('/serie/notes.pdf');
+      expect(service.state.miniPlayer, isFalse);
+      expect(window.bounds, const Rect.fromLTWH(100, 80, 1200, 760));
+      expect(window.minimumSize, PlaybackService.mainMinimumSize);
+    });
   });
 
   test('PlaybackState — aller-retour JSON', () {
@@ -1056,7 +1074,7 @@ void main() {
         equalizerGains: Equalizer.presets['rock'],
       );
 
-      ownBus.dispatch(UpdatePreferences(next));
+      ownBus.dispatch(UpdatePreferences.between(s.preferences, next));
       await drain(s);
 
       expect(store.preferences, next);
@@ -1072,6 +1090,16 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 650));
       expect(store.preferences, next);
       await sub.cancel();
+    });
+
+    test('deux changements rapprochés ne s’écrasent pas', () async {
+      final s = build();
+      // Les deux commandes partent avant que la première soit traitée.
+      ownBus.dispatch(const UpdatePreferences({'seekStepSeconds': 30}));
+      ownBus.dispatch(const UpdatePreferences({'themeMode': 'light'}));
+      await drain(s);
+      expect(store.preferences.seekStepSeconds, 30);
+      expect(store.preferences.themeMode, AppThemeMode.light);
     });
 
     test('SetScreenshotFolder passe par le bus', () async {

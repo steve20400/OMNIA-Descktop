@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/commands/player_command.dart';
-import 'package:omnia/core/models/app_preferences.dart';
 import 'package:omnia/core/models/document_layout.dart';
 import 'package:omnia/core/models/end_of_playback_mode.dart';
 import 'package:omnia/core/models/equalizer.dart';
@@ -82,7 +81,7 @@ void main() {
       ClearResumePositions(),
       AcceptResume(),
       DeclineResume(),
-      UpdatePreferences(AppPreferences(seekStepSeconds: 10, equalizerGains: Equalizer.flat)),
+      UpdatePreferences({'seekStepSeconds': 10, 'equalizerGains': Equalizer.flat}),
       SetScreenshotFolder('/captures'),
       SetScreenshotFolder(null),
     ];

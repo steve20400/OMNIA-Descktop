@@ -62,6 +62,20 @@ abstract final class OmniaMetrics {
   static const double menuMaxWidth = 380;
   static const double menuItemHeight = 34;
 
+  // Écran Paramètres (Phase 6).
+  static const double settingsMaxWidth = 940;
+  static const double settingsMaxHeight = 680;
+  static const double settingsNavWidth = 208;
+  static const double settingsRowBreakpoint = 520;
+  static const double settingsSliderWidth = 160;
+  static const double settingsValueWidth = 64;
+  static const double switchWidth = 38;
+  static const double switchHeight = 22;
+  static const double keyCapMinWidth = 28;
+
+  /// Invite de reprise : au-dessus de la barre de contrôles.
+  static const double resumePromptBottom = 128;
+
   // Fenêtre.
   static const Size defaultWindowSize = Size(1200, 760);
   static const Size minimumWindowSize = Size(720, 460);

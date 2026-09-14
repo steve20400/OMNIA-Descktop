@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omnia/core/services/foreground_permission.dart';
 import 'package:omnia/core/services/single_instance.dart';
 
 void main() {
@@ -55,12 +56,60 @@ void main() {
       expect(first.lockFile.existsSync(), isTrue);
 
       final second = SingleInstanceService(directory: dir);
-      final delegated = await second.delegateToExisting(['/films/a.mkv']);
+      // Marge large : la suite de tests charge la machine, et ce test porte
+      // sur l'échange, pas sur sa vitesse.
+      final delegated = await second.delegateToExisting(
+        ['/films/a.mkv'],
+        timeout: const Duration(seconds: 10),
+      );
 
       expect(delegated, isTrue);
       expect(await received.future, ['/films/a.mkv']);
 
       await first.dispose();
+    });
+
+    test('la première instance reçoit le droit de passer au premier plan', () async {
+      final first = SingleInstanceService(directory: dir);
+      await first.serve((_) {});
+
+      final granted = <int>[];
+      final second = SingleInstanceService(
+        directory: dir,
+        grantForeground: (owner) {
+          granted.add(owner);
+          return true;
+        },
+      );
+      final delegated = await second.delegateToExisting(
+        ['/films/a.mkv'],
+        timeout: const Duration(seconds: 10),
+      );
+
+      expect(delegated, isTrue);
+      // Même processus ici : la « première instance » est ce test.
+      expect(granted, [pid]);
+      await first.dispose();
+    });
+
+    test('aucun droit cédé au propriétaire d’un verrou périmé', () async {
+      await File('${dir.path}/${SingleInstanceService.lockFileName}')
+          .writeAsString('{"port": 1, "token": "x", "pid": 4242}');
+      final granted = <int>[];
+      final second = SingleInstanceService(
+        directory: dir,
+        grantForeground: (owner) {
+          granted.add(owner);
+          return true;
+        },
+      );
+      expect(await second.delegateToExisting(['/a.mkv']), isFalse);
+      expect(granted, isEmpty);
+    });
+
+    test('céder le premier plan ne lève jamais d’exception', () {
+      expect(() => allowForegroundWindow(pid), returnsNormally);
+      if (!Platform.isWindows) expect(allowForegroundWindow(pid), isFalse);
     });
 
     test('un verrou périmé (port fermé) ne bloque pas le démarrage', () async {

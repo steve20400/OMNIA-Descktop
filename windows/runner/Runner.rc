@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "dev.omnia" "\0"
-            VALUE "FileDescription", "omnia" "\0"
+            VALUE "CompanyName", "OMNIA" "\0"
+            VALUE "FileDescription", "OMNIA - lecteur universel" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "omnia" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 dev.omnia. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 OMNIA" "\0"
             VALUE "OriginalFilename", "omnia.exe" "\0"
-            VALUE "ProductName", "omnia" "\0"
+            VALUE "ProductName", "OMNIA" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

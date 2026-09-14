@@ -3,6 +3,10 @@
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
       <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+      <!-- Chemins de plus de 260 caractères (bibliothèques profondes, noms de
+           série à rallonge). Effectif si la stratégie système LongPathsEnabled
+           est active ; sans elle, rien ne change. -->
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
     </windowsSettings>
   </application>
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">

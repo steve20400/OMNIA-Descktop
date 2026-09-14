@@ -109,6 +109,35 @@ void main() {
     });
   });
 
+  group('changements partiels', () {
+    test('preferencesDiff ne garde que ce qui change', () {
+      final a = AppPreferences.defaults;
+      final b = a.copyWith(seekStepSeconds: 30, equalizerGains: Equalizer.presets['rock']);
+      final diff = preferencesDiff(a, b);
+      expect(diff.keys, unorderedEquals(['seekStepSeconds', 'equalizerGains']));
+      expect(preferencesDiff(a, a), isEmpty);
+    });
+
+    test('merge applique un changement partiel et ignore l’inconnu', () {
+      final merged = AppPreferences.defaults.merge(const {
+        'seekStepSeconds': 60,
+        'cléInconnue': 1,
+      });
+      expect(merged.seekStepSeconds, 60);
+      expect(merged.copyWith(seekStepSeconds: 5), AppPreferences.defaults);
+    });
+
+    test('merge borne les valeurs comme la relecture', () {
+      expect(AppPreferences.defaults.merge(const {'fixedVolume': 500}).fixedVolume, 100);
+    });
+
+    test('diff puis merge redonne l’état visé', () {
+      final a = AppPreferences.defaults;
+      final b = a.copyWith(language: AppLanguage.en, readingDark: true, textScale: 1.5);
+      expect(a.merge(preferencesDiff(a, b)), b);
+    });
+  });
+
   test('les énumérations tolèrent une valeur inconnue', () {
     expect(AppLanguage.fromJson('klingon'), AppLanguage.system);
     expect(AppThemeMode.fromJson(null), AppThemeMode.dark);

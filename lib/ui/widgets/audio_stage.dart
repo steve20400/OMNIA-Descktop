@@ -36,17 +36,27 @@ class AudioStage extends ConsumerWidget {
       fit: StackFit.expand,
       children: [
         // Fond : la pochette, très floutée, sous un voile qui garde la salle
-        // sombre et le texte lisible.
-        AnimatedSwitcher(
-          duration: OmniaMotion.stage,
-          switchInCurve: OmniaMotion.stageCurve,
-          child: cover == null
-              ? ColoredBox(key: const ValueKey('bg-none'), color: colors.velvet)
-              : ImageFiltered(
-                  key: ValueKey('bg:${file.path}'),
-                  imageFilter: ui.ImageFilter.blur(sigmaX: 48, sigmaY: 48, tileMode: TileMode.mirror),
-                  child: Image.memory(cover, fit: BoxFit.cover, gaplessPlayback: true),
-                ),
+        // sombre et le texte lisible. Rogné : un flou déborde d'environ trois
+        // sigma autour de l'image, et passerait sinon sur la barre de titre.
+        ClipRect(
+          child: AnimatedSwitcher(
+            duration: OmniaMotion.stage,
+            switchInCurve: OmniaMotion.stageCurve,
+            // Pile étirée : par défaut, AnimatedSwitcher centre son enfant sans
+            // l'agrandir, et la pochette garderait sa taille naturelle au lieu
+            // de couvrir toute la scène.
+            layoutBuilder: (current, previous) => Stack(
+              fit: StackFit.expand,
+              children: [...previous, ?current],
+            ),
+            child: cover == null
+                ? ColoredBox(key: const ValueKey('bg-none'), color: colors.velvet)
+                : ImageFiltered(
+                    key: ValueKey('bg:${file.path}'),
+                    imageFilter: ui.ImageFilter.blur(sigmaX: 48, sigmaY: 48, tileMode: TileMode.mirror),
+                    child: Image.memory(cover, fit: BoxFit.cover, gaplessPlayback: true),
+                  ),
+          ),
         ),
         ColoredBox(color: colors.velvet.withValues(alpha: cover == null ? 0 : 0.72)),
         Center(

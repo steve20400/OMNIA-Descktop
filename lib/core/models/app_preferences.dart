@@ -242,6 +242,11 @@ class AppPreferences {
     );
   }
 
+  /// Applique des changements partiels (format de [toJson]) ; les clés
+  /// inconnues sont ignorées, les valeurs bornées comme à la relecture.
+  AppPreferences merge(Map<String, Object?> changes) =>
+      AppPreferences.fromJson({...toJson(), ...changes});
+
   @override
   bool operator ==(Object other) =>
       other is AppPreferences && _mapEquals(other.toJson(), toJson());
@@ -252,17 +257,30 @@ class AppPreferences {
   static bool _mapEquals(Map<String, Object?> a, Map<String, Object?> b) {
     if (a.length != b.length) return false;
     for (final key in a.keys) {
-      final va = a[key];
-      final vb = b[key];
-      if (va is List && vb is List) {
-        if (va.length != vb.length) return false;
-        for (var i = 0; i < va.length; i++) {
-          if (va[i] != vb[i]) return false;
-        }
-      } else if (va != vb) {
-        return false;
-      }
+      if (!_valueEquals(a[key], b[key])) return false;
     }
     return true;
   }
+
+  static bool _valueEquals(Object? va, Object? vb) {
+    if (va is List && vb is List) {
+      if (va.length != vb.length) return false;
+      for (var i = 0; i < va.length; i++) {
+        if (va[i] != vb[i]) return false;
+      }
+      return true;
+    }
+    return va == vb;
+  }
+}
+
+/// Réglages qui diffèrent entre [before] et [after], au format de
+/// [AppPreferences.toJson].
+Map<String, Object?> preferencesDiff(AppPreferences before, AppPreferences after) {
+  final a = before.toJson();
+  final b = after.toJson();
+  return {
+    for (final key in b.keys)
+      if (!AppPreferences._valueEquals(a[key], b[key])) key: b[key],
+  };
 }

@@ -267,7 +267,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get helpSubtitle =>
-      'Everything can be driven from the keyboard. These shortcuts will be customisable in Settings.';
+      'Everything can be driven from the keyboard. Customise these shortcuts in Settings.';
 
   @override
   String get helpGroupPlayback => 'Playback';
@@ -578,4 +578,335 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get screenshotFailedHint =>
       'The screenshot folder cannot be written to. Pick another one in Settings.';
+
+  @override
+  String get keyCtrl => 'Ctrl';
+
+  @override
+  String get keyShift => 'Shift';
+
+  @override
+  String get keyAlt => 'Alt';
+
+  @override
+  String get keySpace => 'Space';
+
+  @override
+  String get keyEscape => 'Esc';
+
+  @override
+  String get keyTab => 'Tab';
+
+  @override
+  String get keyEnter => 'Enter';
+
+  @override
+  String get keyBackspace => 'Backspace';
+
+  @override
+  String get keyDelete => 'Del';
+
+  @override
+  String get keyInsert => 'Ins';
+
+  @override
+  String get keyHome => 'Home';
+
+  @override
+  String get keyEnd => 'End';
+
+  @override
+  String get keyPageUp => 'PgUp';
+
+  @override
+  String get keyPageDown => 'PgDn';
+
+  @override
+  String get keyMediaPlayPause => 'Play/Pause';
+
+  @override
+  String keyNumpad(String key) {
+    return 'Num $key';
+  }
+
+  @override
+  String get keyCtrlWheel => 'Ctrl+wheel';
+
+  @override
+  String get keyDoubleClick => 'double-click';
+
+  @override
+  String scSeekBackward(int seconds) {
+    return 'Back $seconds s';
+  }
+
+  @override
+  String scSeekForward(int seconds) {
+    return 'Forward $seconds s';
+  }
+
+  @override
+  String get scVolumeUp => 'Volume up';
+
+  @override
+  String get scVolumeDown => 'Volume down';
+
+  @override
+  String get scToggleMute => 'Mute / unmute';
+
+  @override
+  String get scSpeedUp => 'Speed up';
+
+  @override
+  String get scSpeedDown => 'Slow down';
+
+  @override
+  String get scToggleSubtitles => 'Show / hide subtitles';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsClose => 'Close settings';
+
+  @override
+  String get settingsSectionGeneral => 'General';
+
+  @override
+  String get settingsSectionPlayback => 'Playback';
+
+  @override
+  String get settingsSectionSubtitles => 'Subtitles';
+
+  @override
+  String get settingsSectionAudio => 'Audio';
+
+  @override
+  String get settingsSectionDocuments => 'Documents';
+
+  @override
+  String get settingsSectionShortcuts => 'Shortcuts';
+
+  @override
+  String get settingsSectionScreenshots => 'Screenshots';
+
+  @override
+  String get settingsSectionHistory => 'History';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get languageSystem => 'System';
+
+  @override
+  String get languageFrench => 'Français';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get settingsTheme => 'Theme';
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeSystem => 'System';
+
+  @override
+  String get settingsEndModeHint =>
+      'What OMNIA does when a file ends. Press L to change it while playing.';
+
+  @override
+  String get settingsResume => 'Resume playback';
+
+  @override
+  String get settingsResumeHint =>
+      'When you reopen a file you stopped part-way through.';
+
+  @override
+  String get resumeAuto => 'Automatic';
+
+  @override
+  String get resumeAsk => 'Ask';
+
+  @override
+  String get resumeNever => 'Never';
+
+  @override
+  String get settingsSingleInstance => 'Single window';
+
+  @override
+  String get settingsSingleInstanceHint =>
+      'Opening a file from the system reuses the open window. Applies at next launch.';
+
+  @override
+  String get settingsSeekStep => 'Seek step';
+
+  @override
+  String get settingsSeekStepHint =>
+      '← and → keys. With Shift: 30 s; with Ctrl: 60 s.';
+
+  @override
+  String settingsSeconds(int seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String get settingsDefaultSpeed => 'Speed at launch';
+
+  @override
+  String get settingsStartupVolume => 'Volume at launch';
+
+  @override
+  String get startupVolumeLast => 'Last used';
+
+  @override
+  String get startupVolumeFixed => 'Fixed';
+
+  @override
+  String get settingsFixedVolume => 'Fixed volume';
+
+  @override
+  String get settingsSubtitleAutoLoad => 'Load automatically';
+
+  @override
+  String get settingsSubtitleAutoLoadHint =>
+      'Subtitle files with the same name as the video are loaded when it opens.';
+
+  @override
+  String get settingsSubtitleDelay => 'Default delay';
+
+  @override
+  String get settingsSubtitleDelayHint =>
+      'Applied to every video you open. Fine-tune it in 0.5 s steps.';
+
+  @override
+  String get settingsEqualizerHint =>
+      'Fine-tune the bands during playback, in the Equalizer panel.';
+
+  @override
+  String get settingsPdfLayout => 'PDF scrolling';
+
+  @override
+  String get settingsReadingDarkHint =>
+      'Gently inverts document colours, for reading in the dark.';
+
+  @override
+  String get settingsTextSizeHint =>
+      'Size of text and Markdown files. Ctrl+wheel while reading.';
+
+  @override
+  String get settingsScreenshotFolder => 'Screenshot folder';
+
+  @override
+  String get settingsScreenshotFolderDefault => 'Default folder';
+
+  @override
+  String get settingsChooseFolder => 'Choose…';
+
+  @override
+  String get settingsResetFolder => 'Default';
+
+  @override
+  String get settingsScreenshotPattern => 'File names';
+
+  @override
+  String get tokenName => 'media name';
+
+  @override
+  String get tokenDate => 'date';
+
+  @override
+  String get tokenTime => 'capture time';
+
+  @override
+  String get tokenPosition => 'position in the media';
+
+  @override
+  String settingsScreenshotPreview(String example) {
+    return 'Example: $example';
+  }
+
+  @override
+  String get settingsRecentHint => 'Recently opened files, with their folder.';
+
+  @override
+  String get settingsClearPositions => 'Clear positions';
+
+  @override
+  String get settingsClearPositionsHint =>
+      'OMNIA forgets where you stopped in each file. The recent list is kept.';
+
+  @override
+  String get settingsClearAll => 'Clear everything';
+
+  @override
+  String get settingsClearAllHint => 'Recent files and positions.';
+
+  @override
+  String get settingsDone => 'Cleared';
+
+  @override
+  String get shortcutsHint =>
+      'Click a shortcut to change it, then press the new key combination.';
+
+  @override
+  String get shortcutsPress => 'Press the key combination…';
+
+  @override
+  String shortcutsConflict(String action) {
+    return 'Already used by “$action”.';
+  }
+
+  @override
+  String get shortcutsReplace => 'Replace';
+
+  @override
+  String get shortcutsCancel => 'Cancel';
+
+  @override
+  String get shortcutsReset => 'Restore';
+
+  @override
+  String get shortcutsResetAll => 'Restore all';
+
+  @override
+  String get shortcutsNone => 'None';
+
+  @override
+  String get shortcutsChange => 'Change shortcut';
+
+  @override
+  String resumePromptPosition(String time) {
+    return 'Resume at $time?';
+  }
+
+  @override
+  String resumePromptPage(int page) {
+    return 'Resume at page $page?';
+  }
+
+  @override
+  String get resumePromptScroll => 'Resume where you left off?';
+
+  @override
+  String get resumeAccept => 'Resume';
+
+  @override
+  String get resumeDecline => 'From the start';
+
+  @override
+  String get keyWheel => 'Wheel';
+
+  @override
+  String get startupFailureTitle => 'OMNIA could not prepare its data';
+
+  @override
+  String get startupFailureBody =>
+      'The application data folder cannot be accessed. Check the free disk space and the permissions on your home folder, then start OMNIA again.';
 }

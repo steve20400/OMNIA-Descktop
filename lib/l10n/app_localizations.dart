@@ -569,7 +569,7 @@ abstract class AppLocalizations {
   /// No description provided for @helpSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Tout se pilote au clavier. Ces raccourcis seront personnalisables dans les paramètres.'**
+  /// **'Tout se pilote au clavier. Ces raccourcis se personnalisent dans les paramètres.'**
   String get helpSubtitle;
 
   /// No description provided for @helpGroupPlayback.
@@ -1141,6 +1141,612 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Le dossier des captures est inaccessible. Choisissez-en un autre dans les paramètres.'**
   String get screenshotFailedHint;
+
+  /// No description provided for @keyCtrl.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ctrl'**
+  String get keyCtrl;
+
+  /// No description provided for @keyShift.
+  ///
+  /// In fr, this message translates to:
+  /// **'Maj'**
+  String get keyShift;
+
+  /// No description provided for @keyAlt.
+  ///
+  /// In fr, this message translates to:
+  /// **'Alt'**
+  String get keyAlt;
+
+  /// No description provided for @keySpace.
+  ///
+  /// In fr, this message translates to:
+  /// **'Espace'**
+  String get keySpace;
+
+  /// No description provided for @keyEscape.
+  ///
+  /// In fr, this message translates to:
+  /// **'Échap'**
+  String get keyEscape;
+
+  /// No description provided for @keyTab.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tab'**
+  String get keyTab;
+
+  /// No description provided for @keyEnter.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrée'**
+  String get keyEnter;
+
+  /// No description provided for @keyBackspace.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retour arrière'**
+  String get keyBackspace;
+
+  /// No description provided for @keyDelete.
+  ///
+  /// In fr, this message translates to:
+  /// **'Suppr'**
+  String get keyDelete;
+
+  /// No description provided for @keyInsert.
+  ///
+  /// In fr, this message translates to:
+  /// **'Inser'**
+  String get keyInsert;
+
+  /// No description provided for @keyHome.
+  ///
+  /// In fr, this message translates to:
+  /// **'Début'**
+  String get keyHome;
+
+  /// No description provided for @keyEnd.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fin'**
+  String get keyEnd;
+
+  /// No description provided for @keyPageUp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pg préc.'**
+  String get keyPageUp;
+
+  /// No description provided for @keyPageDown.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pg suiv.'**
+  String get keyPageDown;
+
+  /// No description provided for @keyMediaPlayPause.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecture/Pause'**
+  String get keyMediaPlayPause;
+
+  /// No description provided for @keyNumpad.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pavé {key}'**
+  String keyNumpad(String key);
+
+  /// No description provided for @keyCtrlWheel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ctrl+molette'**
+  String get keyCtrlWheel;
+
+  /// No description provided for @keyDoubleClick.
+  ///
+  /// In fr, this message translates to:
+  /// **'double-clic'**
+  String get keyDoubleClick;
+
+  /// No description provided for @scSeekBackward.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reculer de {seconds} s'**
+  String scSeekBackward(int seconds);
+
+  /// No description provided for @scSeekForward.
+  ///
+  /// In fr, this message translates to:
+  /// **'Avancer de {seconds} s'**
+  String scSeekForward(int seconds);
+
+  /// No description provided for @scVolumeUp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Volume +'**
+  String get scVolumeUp;
+
+  /// No description provided for @scVolumeDown.
+  ///
+  /// In fr, this message translates to:
+  /// **'Volume −'**
+  String get scVolumeDown;
+
+  /// No description provided for @scToggleMute.
+  ///
+  /// In fr, this message translates to:
+  /// **'Couper / rétablir le son'**
+  String get scToggleMute;
+
+  /// No description provided for @scSpeedUp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accélérer'**
+  String get scSpeedUp;
+
+  /// No description provided for @scSpeedDown.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ralentir'**
+  String get scSpeedDown;
+
+  /// No description provided for @scToggleSubtitles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Afficher / masquer les sous-titres'**
+  String get scToggleSubtitles;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Paramètres'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsClose.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fermer les paramètres'**
+  String get settingsClose;
+
+  /// No description provided for @settingsSectionGeneral.
+  ///
+  /// In fr, this message translates to:
+  /// **'Général'**
+  String get settingsSectionGeneral;
+
+  /// No description provided for @settingsSectionPlayback.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecture'**
+  String get settingsSectionPlayback;
+
+  /// No description provided for @settingsSectionSubtitles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titres'**
+  String get settingsSectionSubtitles;
+
+  /// No description provided for @settingsSectionAudio.
+  ///
+  /// In fr, this message translates to:
+  /// **'Audio'**
+  String get settingsSectionAudio;
+
+  /// No description provided for @settingsSectionDocuments.
+  ///
+  /// In fr, this message translates to:
+  /// **'Documents'**
+  String get settingsSectionDocuments;
+
+  /// No description provided for @settingsSectionShortcuts.
+  ///
+  /// In fr, this message translates to:
+  /// **'Raccourcis'**
+  String get settingsSectionShortcuts;
+
+  /// No description provided for @settingsSectionScreenshots.
+  ///
+  /// In fr, this message translates to:
+  /// **'Captures'**
+  String get settingsSectionScreenshots;
+
+  /// No description provided for @settingsSectionHistory.
+  ///
+  /// In fr, this message translates to:
+  /// **'Historique'**
+  String get settingsSectionHistory;
+
+  /// No description provided for @settingsLanguage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Langue'**
+  String get settingsLanguage;
+
+  /// No description provided for @languageSystem.
+  ///
+  /// In fr, this message translates to:
+  /// **'Système'**
+  String get languageSystem;
+
+  /// No description provided for @languageFrench.
+  ///
+  /// In fr, this message translates to:
+  /// **'Français'**
+  String get languageFrench;
+
+  /// No description provided for @languageEnglish.
+  ///
+  /// In fr, this message translates to:
+  /// **'English'**
+  String get languageEnglish;
+
+  /// No description provided for @settingsTheme.
+  ///
+  /// In fr, this message translates to:
+  /// **'Thème'**
+  String get settingsTheme;
+
+  /// No description provided for @themeDark.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sombre'**
+  String get themeDark;
+
+  /// No description provided for @themeLight.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clair'**
+  String get themeLight;
+
+  /// No description provided for @themeSystem.
+  ///
+  /// In fr, this message translates to:
+  /// **'Système'**
+  String get themeSystem;
+
+  /// No description provided for @settingsEndModeHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce qu\'OMNIA fait quand un fichier se termine. Touche L pour changer pendant la lecture.'**
+  String get settingsEndModeHint;
+
+  /// No description provided for @settingsResume.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reprise de lecture'**
+  String get settingsResume;
+
+  /// No description provided for @settingsResumeHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quand vous rouvrez un fichier interrompu en cours de route.'**
+  String get settingsResumeHint;
+
+  /// No description provided for @resumeAuto.
+  ///
+  /// In fr, this message translates to:
+  /// **'Automatique'**
+  String get resumeAuto;
+
+  /// No description provided for @resumeAsk.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demander'**
+  String get resumeAsk;
+
+  /// No description provided for @resumeNever.
+  ///
+  /// In fr, this message translates to:
+  /// **'Jamais'**
+  String get resumeNever;
+
+  /// No description provided for @settingsSingleInstance.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une seule fenêtre'**
+  String get settingsSingleInstance;
+
+  /// No description provided for @settingsSingleInstanceHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ouvrir un fichier depuis le système réutilise la fenêtre déjà ouverte. Pris en compte au prochain démarrage.'**
+  String get settingsSingleInstanceHint;
+
+  /// No description provided for @settingsSeekStep.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pas d\'avance et de recul'**
+  String get settingsSeekStep;
+
+  /// No description provided for @settingsSeekStepHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Touches ← et →. Avec Maj : 30 s ; avec Ctrl : 60 s.'**
+  String get settingsSeekStepHint;
+
+  /// No description provided for @settingsSeconds.
+  ///
+  /// In fr, this message translates to:
+  /// **'{seconds} s'**
+  String settingsSeconds(int seconds);
+
+  /// No description provided for @settingsDefaultSpeed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vitesse au démarrage'**
+  String get settingsDefaultSpeed;
+
+  /// No description provided for @settingsStartupVolume.
+  ///
+  /// In fr, this message translates to:
+  /// **'Volume au démarrage'**
+  String get settingsStartupVolume;
+
+  /// No description provided for @startupVolumeLast.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dernier utilisé'**
+  String get startupVolumeLast;
+
+  /// No description provided for @startupVolumeFixed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fixe'**
+  String get startupVolumeFixed;
+
+  /// No description provided for @settingsFixedVolume.
+  ///
+  /// In fr, this message translates to:
+  /// **'Volume fixe'**
+  String get settingsFixedVolume;
+
+  /// No description provided for @settingsSubtitleAutoLoad.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement automatique'**
+  String get settingsSubtitleAutoLoad;
+
+  /// No description provided for @settingsSubtitleAutoLoadHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les sous-titres portant le même nom que la vidéo sont chargés à l\'ouverture.'**
+  String get settingsSubtitleAutoLoadHint;
+
+  /// No description provided for @settingsSubtitleDelay.
+  ///
+  /// In fr, this message translates to:
+  /// **'Décalage par défaut'**
+  String get settingsSubtitleDelay;
+
+  /// No description provided for @settingsSubtitleDelayHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appliqué à chaque vidéo ouverte. Se corrige ensuite par pas de 0,5 s.'**
+  String get settingsSubtitleDelayHint;
+
+  /// No description provided for @settingsEqualizerHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les curseurs se règlent pendant la lecture, dans le panneau Égaliseur.'**
+  String get settingsEqualizerHint;
+
+  /// No description provided for @settingsPdfLayout.
+  ///
+  /// In fr, this message translates to:
+  /// **'Défilement des PDF'**
+  String get settingsPdfLayout;
+
+  /// No description provided for @settingsReadingDarkHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Inverse doucement les couleurs des documents, pour lire dans le noir.'**
+  String get settingsReadingDarkHint;
+
+  /// No description provided for @settingsTextSizeHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Taille des fichiers texte et Markdown. Ctrl+molette pendant la lecture.'**
+  String get settingsTextSizeHint;
+
+  /// No description provided for @settingsScreenshotFolder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossier des captures'**
+  String get settingsScreenshotFolder;
+
+  /// No description provided for @settingsScreenshotFolderDefault.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossier par défaut'**
+  String get settingsScreenshotFolderDefault;
+
+  /// No description provided for @settingsChooseFolder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisir…'**
+  String get settingsChooseFolder;
+
+  /// No description provided for @settingsResetFolder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Par défaut'**
+  String get settingsResetFolder;
+
+  /// No description provided for @settingsScreenshotPattern.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nom des fichiers'**
+  String get settingsScreenshotPattern;
+
+  /// No description provided for @tokenName.
+  ///
+  /// In fr, this message translates to:
+  /// **'nom du média'**
+  String get tokenName;
+
+  /// No description provided for @tokenDate.
+  ///
+  /// In fr, this message translates to:
+  /// **'date'**
+  String get tokenDate;
+
+  /// No description provided for @tokenTime.
+  ///
+  /// In fr, this message translates to:
+  /// **'heure de la capture'**
+  String get tokenTime;
+
+  /// No description provided for @tokenPosition.
+  ///
+  /// In fr, this message translates to:
+  /// **'position dans le média'**
+  String get tokenPosition;
+
+  /// No description provided for @settingsScreenshotPreview.
+  ///
+  /// In fr, this message translates to:
+  /// **'Exemple : {example}'**
+  String settingsScreenshotPreview(String example);
+
+  /// No description provided for @settingsRecentHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les fichiers ouverts récemment, avec leur dossier.'**
+  String get settingsRecentHint;
+
+  /// No description provided for @settingsClearPositions.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer les positions'**
+  String get settingsClearPositions;
+
+  /// No description provided for @settingsClearPositionsHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'OMNIA oublie où vous vous étiez arrêté dans chaque fichier. La liste des récents est conservée.'**
+  String get settingsClearPositionsHint;
+
+  /// No description provided for @settingsClearAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout effacer'**
+  String get settingsClearAll;
+
+  /// No description provided for @settingsClearAllHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Récents et positions.'**
+  String get settingsClearAllHint;
+
+  /// No description provided for @settingsDone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacé'**
+  String get settingsDone;
+
+  /// No description provided for @shortcutsHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cliquez sur un raccourci pour le changer, puis appuyez sur la nouvelle combinaison.'**
+  String get shortcutsHint;
+
+  /// No description provided for @shortcutsPress.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appuyez sur la combinaison…'**
+  String get shortcutsPress;
+
+  /// No description provided for @shortcutsConflict.
+  ///
+  /// In fr, this message translates to:
+  /// **'Déjà utilisé par « {action} ».'**
+  String shortcutsConflict(String action);
+
+  /// No description provided for @shortcutsReplace.
+  ///
+  /// In fr, this message translates to:
+  /// **'Remplacer'**
+  String get shortcutsReplace;
+
+  /// No description provided for @shortcutsCancel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annuler'**
+  String get shortcutsCancel;
+
+  /// No description provided for @shortcutsReset.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rétablir'**
+  String get shortcutsReset;
+
+  /// No description provided for @shortcutsResetAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout rétablir'**
+  String get shortcutsResetAll;
+
+  /// No description provided for @shortcutsNone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun'**
+  String get shortcutsNone;
+
+  /// No description provided for @shortcutsChange.
+  ///
+  /// In fr, this message translates to:
+  /// **'Changer le raccourci'**
+  String get shortcutsChange;
+
+  /// No description provided for @resumePromptPosition.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reprendre à {time} ?'**
+  String resumePromptPosition(String time);
+
+  /// No description provided for @resumePromptPage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reprendre à la page {page} ?'**
+  String resumePromptPage(int page);
+
+  /// No description provided for @resumePromptScroll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reprendre là où vous en étiez ?'**
+  String get resumePromptScroll;
+
+  /// No description provided for @resumeAccept.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reprendre'**
+  String get resumeAccept;
+
+  /// No description provided for @resumeDecline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Depuis le début'**
+  String get resumeDecline;
+
+  /// No description provided for @keyWheel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Molette'**
+  String get keyWheel;
+
+  /// No description provided for @startupFailureTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'OMNIA n’a pas pu préparer ses données'**
+  String get startupFailureTitle;
+
+  /// No description provided for @startupFailureBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le dossier de données de l’application est inaccessible. Vérifiez l’espace disque et les droits sur votre dossier personnel, puis relancez OMNIA.'**
+  String get startupFailureBody;
 }
 
 class _AppLocalizationsDelegate

@@ -7,6 +7,8 @@ import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../file_dialogs.dart';
 import '../recent_files.dart';
+import '../shortcuts/default_keymap.dart';
+import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'omnia_icon_button.dart';
 import 'omnia_menu.dart';
@@ -27,13 +29,13 @@ class OpenMenuButton extends ConsumerWidget {
         OmniaMenuItem(
           icon: Icons.insert_drive_file_outlined,
           label: l10n.openFile,
-          trailing: 'Ctrl+O',
+          trailing: ref.shortcutOf(ShortcutAction.openFile, l10n),
           onPressed: () => pickAndOpenFile(ref),
         ),
         OmniaMenuItem(
           icon: Icons.folder_outlined,
           label: l10n.openFolder,
-          trailing: 'Ctrl+Maj+O',
+          trailing: ref.shortcutOf(ShortcutAction.openFolder, l10n),
           onPressed: () => pickAndOpenFolder(ref),
         ),
         const OmniaMenuDivider(),
@@ -63,7 +65,7 @@ class OpenMenuButton extends ConsumerWidget {
         icon: Icons.folder_open_rounded,
         iconSize: OmniaMetrics.iconSize - 2,
         size: OmniaMetrics.iconButtonSize - 4,
-        tooltip: '${l10n.openFile}  ·  Ctrl+O',
+        tooltip: ref.tooltipWith(l10n.openFile, ShortcutAction.openFile, l10n),
         onPressed: () => controller.isOpen ? controller.close() : controller.open(),
       ),
     );
@@ -76,11 +78,18 @@ class OpenMenuButton extends ConsumerWidget {
   }
 }
 
-/// Liste compacte des récents pour l'état vide de la scène.
+/// Liste compacte des récents : état vide de la scène, section Historique des
+/// paramètres.
 class RecentFilesList extends ConsumerWidget {
-  const RecentFilesList({super.key, this.limit = 5});
+  const RecentFilesList({super.key, this.limit = 5, this.showTitle = true, this.onOpened});
 
   final int limit;
+
+  /// Affiche l'intitulé « Fichiers récents » au-dessus de la liste.
+  final bool showTitle;
+
+  /// Appelé après l'ouverture d'un fichier de la liste.
+  final VoidCallback? onOpened;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -95,17 +104,25 @@ class RecentFilesList extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          l10n.recentFiles.toUpperCase(),
-          style: type.caption.copyWith(
-            color: colors.dust,
-            letterSpacing: 1.2,
-            fontWeight: FontWeight.w600,
+        if (showTitle) ...[
+          Text(
+            l10n.recentFiles.toUpperCase(),
+            style: type.caption.copyWith(
+              color: colors.dust,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        const SizedBox(height: OmniaMetrics.space2),
+          const SizedBox(height: OmniaMetrics.space2),
+        ],
         for (final recent in recents)
-          _RecentRow(recent: recent, onTap: () => ref.dispatch(OpenFile(recent.path))),
+          _RecentRow(
+            recent: recent,
+            onTap: () {
+              ref.dispatch(OpenFile(recent.path));
+              onOpened?.call();
+            },
+          ),
       ],
     );
   }

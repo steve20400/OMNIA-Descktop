@@ -74,11 +74,9 @@ sealed class PlayerCommand {
       'acceptResume' => const AcceptResume(),
       'declineResume' => const DeclineResume(),
       'updatePreferences' => UpdatePreferences(
-          AppPreferences.fromJson(
-            Map<String, Object?>.from(
-              json['preferences'] as Map? ??
-                  (throw const FormatException('Argument manquant : preferences')),
-            ),
+          Map<String, Object?>.from(
+            json['changes'] as Map? ??
+                (throw const FormatException('Argument manquant : changes')),
           ),
         ),
       'setScreenshotFolder' => SetScreenshotFolder(json['path'] as String?),
@@ -474,16 +472,27 @@ final class DeclineResume extends PlayerCommand {
 
 // --- Paramètres --------------------------------------------------------------
 
-/// Remplace les préférences. L'écran Paramètres passe par le bus comme le
+/// Modifie des préférences. L'écran Paramètres passe par le bus comme le
 /// reste : le service de lecture enregistre, et aligne ce qui est en cours
 /// (taille des sous-titres, égaliseur, mode sombre de lecture…).
+///
+/// [changes] ne contient que les réglages modifiés, au format JSON de
+/// [AppPreferences] (`{'seekStepSeconds': 10}`) : deux changements rapprochés
+/// ne peuvent pas s'écraser l'un l'autre, et une télécommande n'a pas besoin
+/// de connaître tous les réglages pour en changer un.
 final class UpdatePreferences extends PlayerCommand {
-  const UpdatePreferences(this.preferences);
-  final AppPreferences preferences;
+  const UpdatePreferences(this.changes);
+
+  /// Construit la commande à partir de deux états : seules les différences
+  /// sont transmises.
+  factory UpdatePreferences.between(AppPreferences before, AppPreferences after) =>
+      UpdatePreferences(preferencesDiff(before, after));
+
+  final Map<String, Object?> changes;
   @override
   String get type => 'updatePreferences';
   @override
-  Map<String, Object?> get arguments => {'preferences': preferences.toJson()};
+  Map<String, Object?> get arguments => {'changes': changes};
 }
 
 /// Dossier des captures d'écran ; `null` revient au dossier par défaut.

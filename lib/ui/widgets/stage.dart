@@ -10,6 +10,8 @@ import '../../l10n/app_localizations.dart';
 import '../document_search.dart';
 import '../document_search_provider.dart';
 import '../file_dialogs.dart';
+import '../shortcuts/default_keymap.dart';
+import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'audio_stage.dart';
 import 'omnia_button.dart';
@@ -133,14 +135,14 @@ class _EmptyStage extends ConsumerWidget {
                 OmniaButton(
                   label: l10n.openFile,
                   icon: Icons.insert_drive_file_outlined,
-                  shortcut: 'Ctrl+O',
+                  shortcut: ref.shortcutOf(ShortcutAction.openFile, l10n),
                   primary: true,
                   onPressed: () => pickAndOpenFile(ref),
                 ),
                 OmniaButton(
                   label: l10n.openFolder,
                   icon: Icons.folder_outlined,
-                  shortcut: 'Ctrl+Shift+O',
+                  shortcut: ref.shortcutOf(ShortcutAction.openFolder, l10n),
                   onPressed: () => pickAndOpenFolder(ref),
                 ),
               ],

@@ -5,6 +5,8 @@ import 'dart:math';
 
 import 'package:path/path.dart' as p;
 
+import 'foreground_permission.dart';
+
 /// Nom du fichier marqueur : sa présence désactive l'instance unique.
 ///
 /// Le réglage « instance unique » doit être connu avant l'ouverture de la base
@@ -79,13 +81,22 @@ class InstanceMessage {
 /// ils n'existent pas sous Windows ; la boucle locale TCP, elle, existe
 /// partout et ne s'expose pas au réseau.
 class SingleInstanceService {
-  SingleInstanceService({required this.directory, this.clock});
+  SingleInstanceService({
+    required this.directory,
+    this.clock,
+    this.grantForeground = allowForegroundWindow,
+  });
 
   /// Dossier de données de l'application, où vit le fichier de verrou.
   final Directory directory;
 
   /// Surchargeable dans les tests.
   final DateTime Function()? clock;
+
+  /// Cède le premier plan à la première instance, avant de lui confier des
+  /// fichiers : elle doit pouvoir passer devant les autres fenêtres.
+  /// Surchargeable dans les tests.
+  final bool Function(int pid) grantForeground;
 
   static const lockFileName = 'instance.json';
   static const _acknowledgement = 'OK';
@@ -101,9 +112,15 @@ class SingleInstanceService {
   /// alors se terminer. Retourne `false` dans tous les autres cas — pas de
   /// verrou, verrou périmé (l'instance précédente a été tuée), pas de
   /// réponse — et l'appelant devient la première instance.
+  ///
+  /// Le délai ne pèse que si une instance tient le port sans répondre : sans
+  /// instance, la connexion est refusée aussitôt. Il est large (2 s) parce
+  /// qu'une première instance occupée — ou une machine chargée — peut mettre
+  /// plus d'une demi-seconde à répondre, et qu'un délai trop court ouvrirait
+  /// une seconde fenêtre.
   Future<bool> delegateToExisting(
     List<String> args, {
-    Duration timeout = const Duration(milliseconds: 800),
+    Duration timeout = const Duration(seconds: 2),
   }) async {
     final lock = _readLock();
     if (lock == null) return false;
@@ -115,6 +132,10 @@ class SingleInstanceService {
         lock.port,
         timeout: timeout,
       );
+      // Une instance écoute bien sur ce port : c'est elle qui ouvrira le
+      // fichier, c'est donc elle qui doit pouvoir passer au premier plan.
+      final firstPid = lock.pid;
+      if (firstPid != null) grantForeground(firstPid);
       socket.write(InstanceMessage(token: lock.token, args: args).encode());
       await socket.flush();
 
@@ -201,17 +222,18 @@ class SingleInstanceService {
     }
   }
 
-  ({int port, String token})? _readLock() {
+  ({int port, String token, int? pid})? _readLock() {
     try {
       if (!lockFile.existsSync()) return null;
       final json = jsonDecode(lockFile.readAsStringSync());
       if (json is! Map) return null;
       final port = json['port'];
       final token = json['token'];
+      final owner = json['pid'];
       if (port is! int || token is! String || port <= 0 || port > 65535) {
         return null;
       }
-      return (port: port, token: token);
+      return (port: port, token: token, pid: owner is int && owner > 0 ? owner : null);
     } on Object {
       return null;
     }

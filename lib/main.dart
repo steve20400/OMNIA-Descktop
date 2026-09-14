@@ -77,7 +77,13 @@ Future<void> main(List<String> args) async {
   if (single) {
     try {
       await instance.serve((remoteArgs) {
-        final command = commandForLaunchArguments(remoteArgs);
+        // Fichier déposé sur l'icône, « Ouvrir avec » : même règle qu'un dépôt
+        // sur la fenêtre, sous-titre sur la vidéo en cours compris.
+        final state = container.read(playbackStateProvider);
+        final command = commandForLaunchArguments(
+          remoteArgs,
+          videoPlaying: state.hasFile && state.hasVideo,
+        );
         unawaited(container.read(windowServiceProvider).focus());
         if (command != null) {
           container.read(commandBusProvider).dispatch(command, source: CommandSource.system);

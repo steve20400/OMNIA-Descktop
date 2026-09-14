@@ -9,7 +9,11 @@ import '../../core/providers.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
 import '../file_dialogs.dart';
+import '../help_overlay_controller.dart';
 import '../panel_controller.dart';
+import '../settings/settings_controller.dart';
+import '../shortcuts/default_keymap.dart';
+import '../shortcuts/shortcut_labels.dart';
 import '../tool_panel_controller.dart';
 import 'omnia_menu.dart';
 import 'track_menus.dart';
@@ -66,21 +70,21 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
         OmniaMenuItem(
           icon: state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
           label: state.isPlaying ? l10n.pause : l10n.play,
-          trailing: 'Espace',
+          trailing: ref.shortcutOf(ShortcutAction.togglePlay, l10n),
           enabled: hasMedia,
           onPressed: () => ref.dispatch(const TogglePlay()),
         ),
         OmniaMenuItem(
           icon: Icons.skip_previous_rounded,
           label: l10n.previousFile,
-          trailing: 'P',
+          trailing: ref.shortcutOf(ShortcutAction.previousFile, l10n),
           enabled: hasPlaylist,
           onPressed: () => ref.dispatch(const PreviousFile()),
         ),
         OmniaMenuItem(
           icon: Icons.skip_next_rounded,
           label: l10n.nextFile,
-          trailing: 'N',
+          trailing: ref.shortcutOf(ShortcutAction.nextFile, l10n),
           enabled: hasPlaylist,
           onPressed: () => ref.dispatch(const NextFile()),
         ),
@@ -176,7 +180,7 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
           OmniaMenuItem(
             icon: Icons.photo_camera_outlined,
             label: l10n.screenshot,
-            trailing: 'S',
+            trailing: ref.shortcutOf(ShortcutAction.screenshot, l10n),
             onPressed: () => ref.dispatch(const TakeScreenshot()),
           ),
         ],
@@ -184,7 +188,7 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
           OmniaMenuItem(
             icon: Icons.repeat_rounded,
             label: l10n.abLoop,
-            trailing: 'A',
+            trailing: ref.shortcutOf(ShortcutAction.abLoop, l10n),
             active: state.loopA != null,
             onPressed: () => ref.dispatch(const CycleAbLoop()),
           ),
@@ -199,40 +203,40 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
         OmniaMenuItem(
           icon: state.fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
           label: state.fullscreen ? l10n.exitFullscreen : l10n.fullscreen,
-          trailing: 'F',
+          trailing: ref.shortcutOf(ShortcutAction.toggleFullscreen, l10n),
           onPressed: () => ref.dispatch(const ToggleFullscreen()),
         ),
         if (hasMedia)
           OmniaMenuItem(
             icon: Icons.picture_in_picture_alt_outlined,
             label: l10n.miniPlayer,
-            trailing: 'Ctrl+Maj+M',
+            trailing: ref.shortcutOf(ShortcutAction.miniPlayer, l10n),
             onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
           ),
         OmniaMenuItem(
           icon: Icons.push_pin_outlined,
           label: l10n.alwaysOnTop,
-          trailing: 'T',
+          trailing: ref.shortcutOf(ShortcutAction.alwaysOnTop, l10n),
           active: state.alwaysOnTop,
           onPressed: () => ref.dispatch(const ToggleAlwaysOnTop()),
         ),
         OmniaMenuItem(
           icon: Icons.view_sidebar_outlined,
           label: panelVisible ? l10n.panelHide : l10n.panelShow,
-          trailing: 'Tab',
+          trailing: ref.shortcutOf(ShortcutAction.toggleSidePanel, l10n),
           onPressed: () => ref.dispatch(const ToggleSidePanel()),
         ),
         const OmniaMenuDivider(),
         OmniaMenuItem(
           icon: Icons.insert_drive_file_outlined,
           label: l10n.openFile,
-          trailing: 'Ctrl+O',
+          trailing: ref.shortcutOf(ShortcutAction.openFile, l10n),
           onPressed: () => pickAndOpenFile(ref),
         ),
         OmniaMenuItem(
           icon: Icons.folder_outlined,
           label: l10n.openFolder,
-          trailing: 'Ctrl+Maj+O',
+          trailing: ref.shortcutOf(ShortcutAction.openFolder, l10n),
           onPressed: () => pickAndOpenFolder(ref),
         ),
         if (path != null)
@@ -241,6 +245,19 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
             label: l10n.contextReveal,
             onPressed: () => ref.dispatch(RevealInFolder(path)),
           ),
+        const OmniaMenuDivider(),
+        OmniaMenuItem(
+          icon: Icons.settings_outlined,
+          label: l10n.settingsTitle,
+          trailing: ref.shortcutOf(ShortcutAction.settings, l10n),
+          onPressed: () => ref.read(settingsUiProvider.notifier).show(),
+        ),
+        OmniaMenuItem(
+          icon: Icons.keyboard_outlined,
+          label: l10n.helpTitle,
+          trailing: ref.shortcutOf(ShortcutAction.help, l10n),
+          onPressed: () => ref.read(helpVisibleProvider.notifier).toggle(),
+        ),
       ],
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,

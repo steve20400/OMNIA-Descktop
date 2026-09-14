@@ -6,6 +6,8 @@ import '../../core/commands/player_command.dart';
 import '../../core/models/playback_state.dart';
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../shortcuts/default_keymap.dart';
+import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'omnia_icon_button.dart';
 import 'omnia_menu.dart';
@@ -44,7 +46,7 @@ List<Widget> subtitleMenuItems(BuildContext context, WidgetRef ref, PlaybackStat
     OmniaMenuItem(
       icon: state.subtitlesVisible ? Icons.subtitles_rounded : Icons.subtitles_off_rounded,
       label: state.subtitlesVisible ? l10n.subtitlesOff : l10n.subtitles,
-      trailing: 'V',
+      trailing: ref.shortcutOf(ShortcutAction.toggleSubtitles, l10n),
       onPressed: () => ref.dispatch(const ToggleSubtitles()),
     ),
     const OmniaMenuDivider(),
@@ -144,7 +146,7 @@ class SubtitleMenuButton extends ConsumerWidget {
       builder: (context, controller, _) => OmniaIconButton(
         icon: active ? Icons.subtitles_rounded : Icons.subtitles_outlined,
         active: active,
-        tooltip: '${l10n.subtitles}  ·  V',
+        tooltip: ref.tooltipWith(l10n.subtitles, ShortcutAction.toggleSubtitles, l10n),
         onPressed: enabled ? () => controller.isOpen ? controller.close() : controller.open() : null,
       ),
     );

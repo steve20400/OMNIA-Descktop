@@ -271,7 +271,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get helpSubtitle =>
-      'Tout se pilote au clavier. Ces raccourcis seront personnalisables dans les paramètres.';
+      'Tout se pilote au clavier. Ces raccourcis se personnalisent dans les paramètres.';
 
   @override
   String get helpGroupPlayback => 'Lecture';
@@ -582,4 +582,336 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get screenshotFailedHint =>
       'Le dossier des captures est inaccessible. Choisissez-en un autre dans les paramètres.';
+
+  @override
+  String get keyCtrl => 'Ctrl';
+
+  @override
+  String get keyShift => 'Maj';
+
+  @override
+  String get keyAlt => 'Alt';
+
+  @override
+  String get keySpace => 'Espace';
+
+  @override
+  String get keyEscape => 'Échap';
+
+  @override
+  String get keyTab => 'Tab';
+
+  @override
+  String get keyEnter => 'Entrée';
+
+  @override
+  String get keyBackspace => 'Retour arrière';
+
+  @override
+  String get keyDelete => 'Suppr';
+
+  @override
+  String get keyInsert => 'Inser';
+
+  @override
+  String get keyHome => 'Début';
+
+  @override
+  String get keyEnd => 'Fin';
+
+  @override
+  String get keyPageUp => 'Pg préc.';
+
+  @override
+  String get keyPageDown => 'Pg suiv.';
+
+  @override
+  String get keyMediaPlayPause => 'Lecture/Pause';
+
+  @override
+  String keyNumpad(String key) {
+    return 'Pavé $key';
+  }
+
+  @override
+  String get keyCtrlWheel => 'Ctrl+molette';
+
+  @override
+  String get keyDoubleClick => 'double-clic';
+
+  @override
+  String scSeekBackward(int seconds) {
+    return 'Reculer de $seconds s';
+  }
+
+  @override
+  String scSeekForward(int seconds) {
+    return 'Avancer de $seconds s';
+  }
+
+  @override
+  String get scVolumeUp => 'Volume +';
+
+  @override
+  String get scVolumeDown => 'Volume −';
+
+  @override
+  String get scToggleMute => 'Couper / rétablir le son';
+
+  @override
+  String get scSpeedUp => 'Accélérer';
+
+  @override
+  String get scSpeedDown => 'Ralentir';
+
+  @override
+  String get scToggleSubtitles => 'Afficher / masquer les sous-titres';
+
+  @override
+  String get settingsTitle => 'Paramètres';
+
+  @override
+  String get settingsClose => 'Fermer les paramètres';
+
+  @override
+  String get settingsSectionGeneral => 'Général';
+
+  @override
+  String get settingsSectionPlayback => 'Lecture';
+
+  @override
+  String get settingsSectionSubtitles => 'Sous-titres';
+
+  @override
+  String get settingsSectionAudio => 'Audio';
+
+  @override
+  String get settingsSectionDocuments => 'Documents';
+
+  @override
+  String get settingsSectionShortcuts => 'Raccourcis';
+
+  @override
+  String get settingsSectionScreenshots => 'Captures';
+
+  @override
+  String get settingsSectionHistory => 'Historique';
+
+  @override
+  String get settingsLanguage => 'Langue';
+
+  @override
+  String get languageSystem => 'Système';
+
+  @override
+  String get languageFrench => 'Français';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get settingsTheme => 'Thème';
+
+  @override
+  String get themeDark => 'Sombre';
+
+  @override
+  String get themeLight => 'Clair';
+
+  @override
+  String get themeSystem => 'Système';
+
+  @override
+  String get settingsEndModeHint =>
+      'Ce qu\'OMNIA fait quand un fichier se termine. Touche L pour changer pendant la lecture.';
+
+  @override
+  String get settingsResume => 'Reprise de lecture';
+
+  @override
+  String get settingsResumeHint =>
+      'Quand vous rouvrez un fichier interrompu en cours de route.';
+
+  @override
+  String get resumeAuto => 'Automatique';
+
+  @override
+  String get resumeAsk => 'Demander';
+
+  @override
+  String get resumeNever => 'Jamais';
+
+  @override
+  String get settingsSingleInstance => 'Une seule fenêtre';
+
+  @override
+  String get settingsSingleInstanceHint =>
+      'Ouvrir un fichier depuis le système réutilise la fenêtre déjà ouverte. Pris en compte au prochain démarrage.';
+
+  @override
+  String get settingsSeekStep => 'Pas d\'avance et de recul';
+
+  @override
+  String get settingsSeekStepHint =>
+      'Touches ← et →. Avec Maj : 30 s ; avec Ctrl : 60 s.';
+
+  @override
+  String settingsSeconds(int seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String get settingsDefaultSpeed => 'Vitesse au démarrage';
+
+  @override
+  String get settingsStartupVolume => 'Volume au démarrage';
+
+  @override
+  String get startupVolumeLast => 'Dernier utilisé';
+
+  @override
+  String get startupVolumeFixed => 'Fixe';
+
+  @override
+  String get settingsFixedVolume => 'Volume fixe';
+
+  @override
+  String get settingsSubtitleAutoLoad => 'Chargement automatique';
+
+  @override
+  String get settingsSubtitleAutoLoadHint =>
+      'Les sous-titres portant le même nom que la vidéo sont chargés à l\'ouverture.';
+
+  @override
+  String get settingsSubtitleDelay => 'Décalage par défaut';
+
+  @override
+  String get settingsSubtitleDelayHint =>
+      'Appliqué à chaque vidéo ouverte. Se corrige ensuite par pas de 0,5 s.';
+
+  @override
+  String get settingsEqualizerHint =>
+      'Les curseurs se règlent pendant la lecture, dans le panneau Égaliseur.';
+
+  @override
+  String get settingsPdfLayout => 'Défilement des PDF';
+
+  @override
+  String get settingsReadingDarkHint =>
+      'Inverse doucement les couleurs des documents, pour lire dans le noir.';
+
+  @override
+  String get settingsTextSizeHint =>
+      'Taille des fichiers texte et Markdown. Ctrl+molette pendant la lecture.';
+
+  @override
+  String get settingsScreenshotFolder => 'Dossier des captures';
+
+  @override
+  String get settingsScreenshotFolderDefault => 'Dossier par défaut';
+
+  @override
+  String get settingsChooseFolder => 'Choisir…';
+
+  @override
+  String get settingsResetFolder => 'Par défaut';
+
+  @override
+  String get settingsScreenshotPattern => 'Nom des fichiers';
+
+  @override
+  String get tokenName => 'nom du média';
+
+  @override
+  String get tokenDate => 'date';
+
+  @override
+  String get tokenTime => 'heure de la capture';
+
+  @override
+  String get tokenPosition => 'position dans le média';
+
+  @override
+  String settingsScreenshotPreview(String example) {
+    return 'Exemple : $example';
+  }
+
+  @override
+  String get settingsRecentHint =>
+      'Les fichiers ouverts récemment, avec leur dossier.';
+
+  @override
+  String get settingsClearPositions => 'Effacer les positions';
+
+  @override
+  String get settingsClearPositionsHint =>
+      'OMNIA oublie où vous vous étiez arrêté dans chaque fichier. La liste des récents est conservée.';
+
+  @override
+  String get settingsClearAll => 'Tout effacer';
+
+  @override
+  String get settingsClearAllHint => 'Récents et positions.';
+
+  @override
+  String get settingsDone => 'Effacé';
+
+  @override
+  String get shortcutsHint =>
+      'Cliquez sur un raccourci pour le changer, puis appuyez sur la nouvelle combinaison.';
+
+  @override
+  String get shortcutsPress => 'Appuyez sur la combinaison…';
+
+  @override
+  String shortcutsConflict(String action) {
+    return 'Déjà utilisé par « $action ».';
+  }
+
+  @override
+  String get shortcutsReplace => 'Remplacer';
+
+  @override
+  String get shortcutsCancel => 'Annuler';
+
+  @override
+  String get shortcutsReset => 'Rétablir';
+
+  @override
+  String get shortcutsResetAll => 'Tout rétablir';
+
+  @override
+  String get shortcutsNone => 'Aucun';
+
+  @override
+  String get shortcutsChange => 'Changer le raccourci';
+
+  @override
+  String resumePromptPosition(String time) {
+    return 'Reprendre à $time ?';
+  }
+
+  @override
+  String resumePromptPage(int page) {
+    return 'Reprendre à la page $page ?';
+  }
+
+  @override
+  String get resumePromptScroll => 'Reprendre là où vous en étiez ?';
+
+  @override
+  String get resumeAccept => 'Reprendre';
+
+  @override
+  String get resumeDecline => 'Depuis le début';
+
+  @override
+  String get keyWheel => 'Molette';
+
+  @override
+  String get startupFailureTitle => 'OMNIA n’a pas pu préparer ses données';
+
+  @override
+  String get startupFailureBody =>
+      'Le dossier de données de l’application est inaccessible. Vérifiez l’espace disque et les droits sur votre dossier personnel, puis relancez OMNIA.';
 }

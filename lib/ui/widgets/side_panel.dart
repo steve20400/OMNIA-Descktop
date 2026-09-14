@@ -10,6 +10,8 @@ import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../document_search_provider.dart';
 import '../panel_controller.dart';
+import '../shortcuts/default_keymap.dart';
+import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'omnia_icon_button.dart';
 import 'pdf_panel_tabs.dart';
@@ -226,7 +228,7 @@ class _PanelHeader extends ConsumerWidget {
             icon: Icons.keyboard_double_arrow_left_rounded,
             size: OmniaMetrics.iconButtonSize - 4,
             iconSize: OmniaMetrics.iconSize - 2,
-            tooltip: '${l10n.panelHide}  ·  Tab',
+            tooltip: ref.tooltipWith(l10n.panelHide, ShortcutAction.toggleSidePanel, l10n),
             onPressed: () => ref.dispatch(const ToggleSidePanel()),
           ),
         ],
@@ -441,16 +443,17 @@ class _FilterRow extends ConsumerWidget {
         OmniaMetrics.space3,
         OmniaMetrics.space2,
       ),
-      child: Row(
+      // Wrap plutôt que Row : dans un panneau étroit, ou avec une traduction
+      // plus longue, les filtres passent à la ligne au lieu de déborder.
+      child: Wrap(
+        spacing: OmniaMetrics.space1,
+        runSpacing: OmniaMetrics.space1,
         children: [
           for (final filter in PlaylistFilter.values)
-            Padding(
-              padding: const EdgeInsets.only(right: OmniaMetrics.space1),
-              child: _FilterChip(
-                label: labelFor(filter),
-                selected: filter == active,
-                onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
-              ),
+            _FilterChip(
+              label: labelFor(filter),
+              selected: filter == active,
+              onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
             ),
         ],
       ),
@@ -660,7 +663,7 @@ class PanelRevealButton extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     return OmniaIconButton(
       icon: Icons.keyboard_double_arrow_right_rounded,
-      tooltip: '${l10n.panelShow}  ·  Tab',
+      tooltip: ref.tooltipWith(l10n.panelShow, ShortcutAction.toggleSidePanel, l10n),
       onPressed: () => ref.dispatch(const ToggleSidePanel()),
     );
   }

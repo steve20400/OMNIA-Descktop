@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../l10n/app_localizations.dart';
 import 'theme/omnia_theme.dart';
 
 /// Écran affiché quand OMNIA ne peut pas préparer son stockage local.
 ///
 /// Il vaut mieux une fenêtre qui explique le problème qu'un binaire qui se
 /// termine en silence : sans cela, l'utilisateur voit son application ne pas
-/// démarrer, sans savoir pourquoi.
+/// démarrer, sans savoir pourquoi. Les préférences étant justement
+/// inaccessibles, la langue est celle du système (français à défaut).
 class StartupFailureApp extends StatelessWidget {
   const StartupFailureApp({super.key, required this.detail});
 
@@ -19,12 +21,22 @@ class StartupFailureApp extends StatelessWidget {
       title: 'OMNIA',
       debugShowCheckedModeBanner: false,
       theme: buildOmniaTheme(Brightness.dark),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localeResolutionCallback: (locale, supported) {
+        for (final s in supported) {
+          if (s.languageCode == locale?.languageCode) return s;
+        }
+        return const Locale('fr');
+      },
       home: Builder(
         builder: (context) {
           final colors = context.colors;
           final type = context.type;
+          final l10n = AppLocalizations.of(context);
           return DragToMoveArea(
-            child: ColoredBox(
+            // Material : style de texte par défaut et fond, sans Scaffold.
+            child: Material(
               color: colors.velvet,
               child: Center(
                 child: ConstrainedBox(
@@ -35,15 +47,13 @@ class StartupFailureApp extends StatelessWidget {
                       Icon(Icons.error_outline_rounded, size: 40, color: colors.alert),
                       const SizedBox(height: OmniaMetrics.space4),
                       Text(
-                        'OMNIA n’a pas pu préparer ses données',
+                        l10n.startupFailureTitle,
                         style: type.viewTitle,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: OmniaMetrics.space2),
                       Text(
-                        'Le dossier de données de l’application est inaccessible. '
-                        'Vérifiez l’espace disque et les droits sur votre dossier '
-                        'personnel, puis relancez OMNIA.',
+                        l10n.startupFailureBody,
                         style: type.body,
                         textAlign: TextAlign.center,
                       ),

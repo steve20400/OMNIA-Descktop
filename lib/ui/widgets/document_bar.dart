@@ -9,6 +9,9 @@ import '../../core/models/playback_state.dart';
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../document_ui_controller.dart';
+import '../player_focus.dart';
+import '../shortcuts/default_keymap.dart';
+import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'floating_surface.dart';
 import 'omnia_icon_button.dart';
@@ -38,7 +41,8 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
   void _submitPage(String value) {
     final page = int.tryParse(value.trim());
     if (page != null) ref.dispatch(GoToPage(page));
-    _pageFocus.unfocus();
+    // Rendre la main au lecteur : PgUp / PgDn doivent marcher tout de suite.
+    ref.read(playerFocusProvider).restore();
   }
 
   @override
@@ -88,7 +92,7 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
                 if (hasPages) ...[
                   OmniaIconButton(
                     icon: Icons.keyboard_arrow_up_rounded,
-                    tooltip: '${l10n.docPreviousPage}  ·  PgUp',
+                    tooltip: ref.tooltipWith(l10n.docPreviousPage, ShortcutAction.previousPage, l10n),
                     onPressed: state.currentPage > 1
                         ? () => ref.dispatch(const PreviousPage())
                         : null,
@@ -98,10 +102,11 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
                     focusNode: _pageFocus,
                     total: state.totalPages,
                     onSubmitted: _submitPage,
+                    tooltip: ref.tooltipWith(l10n.docGoToPage, ShortcutAction.goToPage, l10n),
                   ),
                   OmniaIconButton(
                     icon: Icons.keyboard_arrow_down_rounded,
-                    tooltip: '${l10n.docNextPage}  ·  PgDn',
+                    tooltip: ref.tooltipWith(l10n.docNextPage, ShortcutAction.nextPage, l10n),
                     onPressed: state.currentPage < state.totalPages
                         ? () => ref.dispatch(const NextPage())
                         : null,
@@ -112,7 +117,7 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
                 ],
                 OmniaIconButton(
                   icon: Icons.remove_rounded,
-                  tooltip: '${l10n.docZoomOut}  ·  Ctrl+molette',
+                  tooltip: '${l10n.docZoomOut}  ·  ${l10n.keyCtrlWheel}',
                   onPressed: () => ref.dispatch(const ZoomRelative(1 / 1.2)),
                 ),
                 Tooltip(
@@ -132,13 +137,13 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
                 ),
                 OmniaIconButton(
                   icon: Icons.add_rounded,
-                  tooltip: '${l10n.docZoomIn}  ·  Ctrl+molette',
+                  tooltip: '${l10n.docZoomIn}  ·  ${l10n.keyCtrlWheel}',
                   onPressed: () => ref.dispatch(const ZoomRelative(1.2)),
                 ),
                 if (isPdf) ...[
                   OmniaIconButton(
                     icon: Icons.fit_screen_outlined,
-                    tooltip: '${l10n.docFitWidth}  ·  Ctrl+0',
+                    tooltip: ref.tooltipWith(l10n.docFitWidth, ShortcutAction.fitZoom, l10n),
                     onPressed: () => ref.dispatch(const FitZoom(FitMode.width)),
                   ),
                   OmniaIconButton(
@@ -148,7 +153,7 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
                   ),
                   OmniaIconButton(
                     icon: Icons.rotate_right_rounded,
-                    tooltip: '${l10n.docRotate}  ·  Ctrl+R',
+                    tooltip: ref.tooltipWith(l10n.docRotate, ShortcutAction.rotateDocument, l10n),
                     active: state.rotation != 0,
                     onPressed: () => ref.dispatch(const RotateDocument()),
                   ),
@@ -165,13 +170,13 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
                 const Spacer(),
                 OmniaIconButton(
                   icon: state.readingDark ? Icons.dark_mode_rounded : Icons.dark_mode_outlined,
-                  tooltip: '${l10n.docReadingDark}  ·  Ctrl+D',
+                  tooltip: ref.tooltipWith(l10n.docReadingDark, ShortcutAction.readingDark, l10n),
                   active: state.readingDark,
                   onPressed: () => ref.dispatch(const ToggleReadingDarkMode()),
                 ),
                 OmniaIconButton(
                   icon: Icons.search_rounded,
-                  tooltip: '${l10n.docFind}  ·  Ctrl+F',
+                  tooltip: ref.tooltipWith(l10n.docFind, ShortcutAction.find, l10n),
                   active: ui.findVisible,
                   onPressed: () => ref.read(documentUiProvider.notifier).toggleFind(),
                 ),
@@ -190,21 +195,22 @@ class _PageField extends StatelessWidget {
     required this.focusNode,
     required this.total,
     required this.onSubmitted,
+    required this.tooltip,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final int total;
   final ValueChanged<String> onSubmitted;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final type = context.type;
-    final l10n = AppLocalizations.of(context);
 
     return Tooltip(
-      message: '${l10n.docGoToPage}  ·  Ctrl+G',
+      message: tooltip,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

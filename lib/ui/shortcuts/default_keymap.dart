@@ -7,7 +7,14 @@ import 'key_combo.dart';
 
 /// Actions clavier qui ne sont pas des commandes du lecteur (dialogues, aide,
 /// champs de saisie des documents).
-enum UiAction { openFileDialog, openFolderDialog, toggleHelp, goToPage, findInDocument }
+enum UiAction {
+  openFileDialog,
+  openFolderDialog,
+  toggleHelp,
+  toggleSettings,
+  goToPage,
+  findInDocument,
+}
 
 /// Toutes les actions qu'un raccourci peut déclencher (§8 du cahier des
 /// charges), dans l'ordre où l'éditeur de raccourcis les présente.
@@ -49,6 +56,7 @@ enum ShortcutAction {
   readingDark,
   openFile,
   openFolder,
+  settings,
   help;
 
   const ShortcutAction({this.repeats = false});
@@ -110,6 +118,8 @@ final Map<ShortcutAction, List<KeyCombo>> defaultBindings = Map.unmodifiable({
   ShortcutAction.readingDark: [KeyCombo(LogicalKeyboardKey.keyD.keyId, control: true)],
   ShortcutAction.openFile: [KeyCombo(LogicalKeyboardKey.keyO.keyId, control: true)],
   ShortcutAction.openFolder: [KeyCombo(LogicalKeyboardKey.keyO.keyId, control: true, shift: true)],
+  // Ctrl+, : la convention des applications de bureau pour les réglages.
+  ShortcutAction.settings: [KeyCombo(LogicalKeyboardKey.comma.keyId, control: true)],
   ShortcutAction.help: [KeyCombo(LogicalKeyboardKey.f1.keyId)],
 });
 
@@ -154,6 +164,7 @@ Object resolveShortcut(ShortcutAction action, AppPreferences prefs) {
     ShortcutAction.readingDark => const ToggleReadingDarkMode(),
     ShortcutAction.openFile => UiAction.openFileDialog,
     ShortcutAction.openFolder => UiAction.openFolderDialog,
+    ShortcutAction.settings => UiAction.toggleSettings,
     ShortcutAction.help => UiAction.toggleHelp,
   };
 }

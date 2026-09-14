@@ -486,8 +486,8 @@ class PlaybackService implements PlaybackStateSink {
         if (_state.resumeOffer != null) {
           update((st) => st.copyWith(clearResumeOffer: true));
         }
-      case UpdatePreferences(:final preferences):
-        await _applyPreferences(preferences);
+      case UpdatePreferences(:final changes):
+        await _applyPreferences(preferences.merge(changes));
       case SetScreenshotFolder(:final path):
         await settings?.setScreenshotFolder(path);
       case TakeScreenshot():
@@ -594,6 +594,10 @@ class PlaybackService implements PlaybackStateSink {
     final type = MediaRouter.typeForPath(path);
     final file = MediaFile(path: path, type: type);
     final controller = router.controllerFor(type);
+
+    // Le mini-lecteur ne sait montrer que l'audio et la vidéo : un document
+    // déposé dessus (ou une erreur de format) reprend la fenêtre entière.
+    if (_state.miniPlayer && !type.isAv) await _setMiniPlayer(false);
 
     playlist.setCurrent(path);
     unawaited(playlist.ensureFolderFor(path));

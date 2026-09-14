@@ -8,6 +8,8 @@ import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
+import '../shortcuts/default_keymap.dart';
+import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import '../tool_panel_controller.dart';
 import 'beam_progress_bar.dart';
@@ -91,7 +93,7 @@ class _ControlBarState extends ConsumerState<ControlBar> {
                   children: [
                     OmniaIconButton(
                       icon: Icons.skip_previous_rounded,
-                      tooltip: '${l10n.previousFile}  ·  P',
+                      tooltip: ref.tooltipWith(l10n.previousFile, ShortcutAction.previousFile, l10n),
                       onPressed: hasPlaylist
                           ? () => ref.dispatch(const PreviousFile())
                           : null,
@@ -100,12 +102,16 @@ class _ControlBarState extends ConsumerState<ControlBar> {
                       icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                       size: OmniaMetrics.playButtonSize,
                       iconSize: OmniaMetrics.iconSizeLarge,
-                      tooltip: isPlaying ? l10n.pause : l10n.play,
+                      tooltip: ref.tooltipWith(
+                        isPlaying ? l10n.pause : l10n.play,
+                        ShortcutAction.togglePlay,
+                        l10n,
+                      ),
                       onPressed: hasMedia ? () => ref.dispatch(const TogglePlay()) : null,
                     ),
                     OmniaIconButton(
                       icon: Icons.skip_next_rounded,
-                      tooltip: '${l10n.nextFile}  ·  N',
+                      tooltip: ref.tooltipWith(l10n.nextFile, ShortcutAction.nextFile, l10n),
                       onPressed:
                           hasPlaylist ? () => ref.dispatch(const NextFile()) : null,
                     ),
@@ -126,14 +132,14 @@ class _ControlBarState extends ConsumerState<ControlBar> {
                     const Spacer(),
                     OmniaIconButton(
                       icon: Icons.repeat_rounded,
-                      tooltip: '${l10n.abLoop}  ·  A',
+                      tooltip: ref.tooltipWith(l10n.abLoop, ShortcutAction.abLoop, l10n),
                       active: state.loopA != null,
                       onPressed: canSeek ? () => ref.dispatch(const CycleAbLoop()) : null,
                     ),
                     if (state.hasVideo)
                       OmniaIconButton(
                         icon: Icons.photo_camera_outlined,
-                        tooltip: '${l10n.screenshot}  ·  S',
+                        tooltip: ref.tooltipWith(l10n.screenshot, ShortcutAction.screenshot, l10n),
                         onPressed: hasMedia ? () => ref.dispatch(const TakeScreenshot()) : null,
                       ),
                     SubtitleMenuButton(enabled: hasMedia && state.hasVideo),
@@ -160,7 +166,11 @@ class _ControlBarState extends ConsumerState<ControlBar> {
                     const SizedBox(width: OmniaMetrics.space3),
                     OmniaIconButton(
                       icon: volumeIcon,
-                      tooltip: state.muted ? l10n.unmute : l10n.mute,
+                      tooltip: ref.tooltipWith(
+                        state.muted ? l10n.unmute : l10n.mute,
+                        ShortcutAction.toggleMute,
+                        l10n,
+                      ),
                       onPressed: () => ref.dispatch(const ToggleMute()),
                     ),
                     SlimSlider(
@@ -171,12 +181,16 @@ class _ControlBarState extends ConsumerState<ControlBar> {
                     const SizedBox(width: OmniaMetrics.space3),
                     OmniaIconButton(
                       icon: Icons.picture_in_picture_alt_outlined,
-                      tooltip: '${l10n.miniPlayer}  ·  Ctrl+Maj+M',
+                      tooltip: ref.tooltipWith(l10n.miniPlayer, ShortcutAction.miniPlayer, l10n),
                       onPressed: hasMedia ? () => ref.dispatch(const ToggleMiniPlayer()) : null,
                     ),
                     OmniaIconButton(
                       icon: state.fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-                      tooltip: state.fullscreen ? l10n.exitFullscreen : l10n.fullscreen,
+                      tooltip: ref.tooltipWith(
+                        state.fullscreen ? l10n.exitFullscreen : l10n.fullscreen,
+                        ShortcutAction.toggleFullscreen,
+                        l10n,
+                      ),
                       onPressed: () => ref.dispatch(const ToggleFullscreen()),
                     ),
                   ],
@@ -211,7 +225,7 @@ class _EndModeButton extends ConsumerWidget {
 
     return OmniaIconButton(
       icon: icon,
-      tooltip: '${l10n.endModeLabel} : $label  ·  L',
+      tooltip: ref.tooltipWith('${l10n.endModeLabel} : $label', ShortcutAction.cycleEndMode, l10n),
       active: mode != EndOfPlaybackMode.next,
       onPressed: () => ref.dispatch(const CycleLoopMode()),
     );

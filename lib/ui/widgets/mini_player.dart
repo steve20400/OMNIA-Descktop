@@ -8,7 +8,9 @@ import '../../core/providers.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
 import '../audio_tags_provider.dart';
+import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_handler.dart';
+import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'beam_progress_bar.dart';
 import 'omnia_icon_button.dart';
@@ -134,7 +136,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                             icon: Icons.open_in_full_rounded,
                             size: OmniaMetrics.iconButtonSize - 8,
                             iconSize: OmniaMetrics.iconSize - 4,
-                            tooltip: '${l10n.miniPlayerExit}  ·  Ctrl+Maj+M',
+                            tooltip: ref.tooltipWith(l10n.miniPlayerExit, ShortcutAction.miniPlayer, l10n),
                             onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
                           ),
                         ],
