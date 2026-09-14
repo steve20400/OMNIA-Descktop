@@ -7,8 +7,8 @@
 #    rester ouvert : libmpv, la fenêtre GTK et le stockage local sont prêts.
 # 2. Une seconde instance reçoit un PDF, comme un fichier déposé sur l'icône :
 #    elle doit le confier à la première fenêtre et se terminer aussitôt.
-# 3. L'historique prouve que libmpv a lu le son et que pdfium a ouvert le PDF
-#    (voir le détail à l'étape 3).
+# 3. L'historique prouve que libmpv a ouvert le son et que pdfium a ouvert le
+#    PDF (voir le détail à l'étape 3).
 #
 # Une capture d'écran est prise à chaque étape, dans <dossier de sortie>.
 #
@@ -31,11 +31,13 @@ log_tail() {
   tail -n 30 "$1" | sed -e 's/\r$//' | tail -c 3000 | sed -e 's/%/%25/g' | awk '{ printf "%s%%0A", $0 }'
 }
 
+# fail <message> [journal] : le journal joint est celui de l'instance en cause.
 fail() {
   local message=$1
+  local log=${2:-$out/omnia.log}
   local tail
-  tail=$(log_tail "$out/omnia.log")
-  [ -n "$tail" ] && message="$message%0A%0ASortie d'OMNIA :%0A$tail"
+  tail=$(log_tail "$log")
+  [ -n "$tail" ] && message="$message%0A%0ASortie ($(basename "$log")) :%0A$tail"
   echo "::error title=Lancement réel (Linux)::$message"
   pkill -f "$bundle/omnia" || true
   exit 1
@@ -76,10 +78,10 @@ while kill -0 "$second" 2>/dev/null && [ "$waited" -lt 30 ]; do
 done
 if kill -0 "$second" 2>/dev/null; then
   shot 2-seconde-instance.png
-  fail "La seconde instance est restée ouverte : le PDF n'a pas été confié à la première fenêtre."
+  fail "La seconde instance est restée ouverte : le PDF n'a pas été confié à la première fenêtre." "$out/seconde-instance.log"
 fi
 if wait "$second"; then :; else
-  fail "La seconde instance s'est terminée en erreur (code $?)."
+  fail "La seconde instance s'est terminée en erreur (code $?)." "$out/seconde-instance.log"
 fi
 sleep 10
 shot 2-document-pdf.png
@@ -102,8 +104,10 @@ echo "Historique : $history"
 # fichier soit lu : elle ne prouve que la réception de la commande. Une
 # seconde trame n'arrive qu'après une lecture réussie :
 # - PDF : pdfium a ouvert le document et publié sa page, OMNIA mémorise la page ;
-# - son : libmpv a lu sa durée (position mémorisée en changeant de fichier) ou
-#   l'a joué jusqu'au bout (fichier marqué terminé).
+# - son : libmpv a ouvert le fichier et publié sa durée (position mémorisée en
+#   changeant de fichier), ou atteint sa fin (fichier marqué terminé). Les
+#   machines de la CI n'ont pas de sortie audio : c'est l'ouverture et le
+#   décodage qui sont prouvés, pas l'écoute.
 for name in essai.wav essai.pdf; do
   # « || true » : sans occurrence, grep échoue, et set -e arrêterait le script
   # avant le message d'erreur explicite.
@@ -112,4 +116,4 @@ for name in essai.wav essai.pdf; do
   [ "$count" -ge 4 ] || fail "$name a été reçu mais pas lu : libmpv ou pdfium n'ont pas pu l'ouvrir."
 done
 
-echo "Lancement réel réussi : démarrage, son lu par libmpv, PDF confié par une seconde instance et ouvert par pdfium."
+echo "Lancement réel réussi : démarrage, son ouvert par libmpv, PDF confié par une seconde instance et ouvert par pdfium."

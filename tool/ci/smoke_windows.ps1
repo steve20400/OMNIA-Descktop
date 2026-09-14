@@ -6,8 +6,8 @@
 #    rester ouvert : libmpv, la fenêtre et le stockage local se sont initialisés.
 # 2. Une seconde instance reçoit un PDF, comme un fichier déposé sur l'icône :
 #    elle doit le confier à la première fenêtre et se terminer aussitôt.
-# 3. Après fermeture, l'historique prouve que libmpv a lu le son et que pdfium
-#    a ouvert le PDF (voir le détail à l'étape 3).
+# 3. Après fermeture, l'historique prouve que libmpv a ouvert le son et que
+#    pdfium a ouvert le PDF (voir le détail à l'étape 3).
 #
 # Une capture d'écran est prise à chaque étape, dans -OutDir.
 #
@@ -54,9 +54,10 @@ function Get-LogTail([string] $path) {
   return ($text -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A')
 }
 
-function Fail([string] $message) {
-  $tail = Get-LogTail (Join-Path $OutDir 'omnia-stderr.txt')
-  if ($tail) { $message = "$message%0A%0ASortie d'erreur d'OMNIA :%0A$tail" }
+# [logName] : journal joint au message, celui de l'instance en cause.
+function Fail([string] $message, [string] $logName = 'omnia-stderr.txt') {
+  $tail = Get-LogTail (Join-Path $OutDir $logName)
+  if ($tail) { $message = "$message%0A%0ASortie d'erreur ($logName) :%0A$tail" }
   Write-Output "::error title=Lancement réel (Windows)::$message"
   Get-Process -Name omnia -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
   exit 1
@@ -89,9 +90,11 @@ if ($first.HasExited) { Fail "OMNIA s'est arrêté au démarrage (code $($first.
 $second = Start-Omnia $pdf 'seconde-instance'
 if (-not $second.WaitForExit(30000)) {
   Save-Screen '2-seconde-instance.png'
-  Fail 'La seconde instance est restée ouverte : le PDF n''a pas été confié à la première fenêtre.'
+  Fail 'La seconde instance est restée ouverte : le PDF n''a pas été confié à la première fenêtre.' 'seconde-instance-stderr.txt'
 }
-if ($second.ExitCode -ne 0) { Fail "La seconde instance s'est terminée en erreur (code $($second.ExitCode))." }
+if ($second.ExitCode -ne 0) {
+  Fail "La seconde instance s'est terminée en erreur (code $($second.ExitCode))." 'seconde-instance-stderr.txt'
+}
 Start-Sleep -Seconds 10
 Save-Screen '2-document-pdf.png'
 if ($first.HasExited) { Fail "OMNIA s'est arrêté après avoir reçu le PDF (code $($first.ExitCode))." }
@@ -128,12 +131,14 @@ $content = [System.Text.Encoding]::UTF8.GetString($buffer.ToArray())
 # fichier soit lu : elle ne prouve que la réception de la commande. Une
 # seconde trame n'arrive qu'après une lecture réussie :
 # - PDF : pdfium a ouvert le document et publié sa page, OMNIA mémorise la page ;
-# - son : libmpv a lu sa durée (position mémorisée en changeant de fichier) ou
-#   l'a joué jusqu'au bout (fichier marqué terminé).
+# - son : libmpv a ouvert le fichier et publié sa durée (position mémorisée en
+#   changeant de fichier), ou atteint sa fin (fichier marqué terminé). Les
+#   machines de la CI n'ont pas de sortie audio : c'est l'ouverture et le
+#   décodage qui sont prouvés, pas l'écoute.
 foreach ($name in @('essai.wav', 'essai.pdf')) {
   $count = ([regex]::Matches($content, [regex]::Escape($name))).Count
   if ($count -eq 0) { Fail "$name est absent de l'historique : la commande d'ouverture n'est pas arrivée." }
   if ($count -lt 4) { Fail "$name a été reçu mais pas lu : libmpv ou pdfium n'ont pas pu l'ouvrir." }
 }
 
-Write-Output 'Lancement réel réussi : démarrage, son lu par libmpv, PDF confié par une seconde instance et ouvert par pdfium.'
+Write-Output 'Lancement réel réussi : démarrage, son ouvert par libmpv, PDF confié par une seconde instance et ouvert par pdfium.'

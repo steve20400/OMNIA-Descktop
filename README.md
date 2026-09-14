@@ -167,9 +167,11 @@ GitHub. Il n'y a rien à installer : la compilation n'a pas besoin d'un poste de
 | Linux | Ubuntu 24.04 | compilation, archive `tar.gz`, lancement réel sur écran virtuel |
 
 Le **lancement réel** démarre l'application compilée avec un son en argument, puis lui confie un PDF
-par une seconde instance, comme un fichier déposé sur l'icône. Il vérifie que la fenêtre reste
-ouverte, que la seconde instance se retire, et que les deux fichiers entrent dans l'historique. Il
-prend une capture d'écran à chaque étape.
+par une seconde instance, comme un fichier déposé sur l'icône. Il vérifie que les bibliothèques
+natives sont dans le paquet, que la fenêtre reste ouverte et que la seconde instance se retire. Il
+vérifie aussi, dans l'historique, que libmpv a ouvert le son et que pdfium a ouvert le PDF. Les
+machines de GitHub n'ont pas de sortie audio : l'ouverture et le décodage sont prouvés, pas
+l'écoute. Une capture d'écran est prise à chaque étape.
 
 Les résultats se téléchargent en bas de la page de chaque exécution, onglet **Actions** du dépôt,
 une fois connecté à GitHub : installateur Windows, version portable, archive Linux, captures du
@@ -179,6 +181,9 @@ Un échec se lit sans ouvrir les journaux : la fin de la sortie de l'étape est 
 sur la page de l'exécution, et chaque test échoué y apparaît avec son fichier, sa ligne et son
 message. La version de Flutter est fixée dans le workflow (`FLUTTER_VERSION`), en accord avec la
 contrainte de `pdfrx`.
+
+Un échec sur « Failed to download PDFium » est passager : la compilation télécharge pdfium depuis
+GitHub, qui limite parfois ces téléchargements. Il suffit de relancer l'exécution.
 
 ## Structure du projet
 
