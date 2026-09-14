@@ -1,0 +1,208 @@
+# Intégration continue d'OMNIA : analyse, tests, compilation Windows et Linux,
+# installateur, et lancement réel de l'application compilée.
+#
+# Les exécutables, l'installateur et les captures d'écran du lancement réel se
+# téléchargent en bas de la page de chaque exécution, onglet « Actions ».
+# Un échec est résumé en annotation sur cette page (fin de la sortie de
+# l'étape ; fichier, ligne et message de chaque test échoué).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Un nouvel envoi sur la même branche remplace l'exécution en cours.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # pdfrx ≥ 2.6 exige Flutter 3.47 : le projet reste sur Flutter 3.44 (voir
+  # pubspec.yaml). À relever en même temps que la contrainte de pdfrx.
+  FLUTTER_VERSION: '3.44.8'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  qualite:
+    name: Analyse et tests (Ubuntu)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dépendances
+        id: deps
+        run: bash tool/ci/run.sh "Dépendances" flutter pub get
+
+      - name: Analyse statique
+        run: bash tool/ci/run.sh "Analyse statique" flutter analyze
+
+      # Les tests tournent même si l'analyse a échoué : on veut les deux
+      # résultats en une seule exécution.
+      - name: Tests
+        id: tests
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: |
+          mkdir -p build
+          bash tool/ci/run.sh "Tests (Ubuntu)" flutter test --file-reporter json:build/rapport-tests.json
+
+      - name: Détail des tests échoués
+        if: ${{ !cancelled() && steps.tests.outcome == 'failure' }}
+        run: dart run tool/ci/test_failures.dart build/rapport-tests.json
+
+  windows:
+    name: Windows (application, installateur, lancement réel)
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Version
+        run: echo "OMNIA_VERSION=$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml)" >> "$GITHUB_ENV"
+
+      - name: Dépendances
+        id: deps
+        run: bash tool/ci/run.sh "Dépendances" flutter pub get
+
+      - name: Tests (Windows)
+        id: tests
+        run: |
+          mkdir -p build
+          bash tool/ci/run.sh "Tests (Windows)" flutter test --file-reporter json:build/rapport-tests.json
+
+      - name: Détail des tests échoués
+        if: ${{ !cancelled() && steps.tests.outcome == 'failure' }}
+        run: dart run tool/ci/test_failures.dart build/rapport-tests.json
+
+      # La compilation a lieu même si un test échoue : l'installateur reste
+      # disponible, et l'exécution est de toute façon marquée en échec.
+      - name: Compilation
+        id: build
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: bash tool/ci/run.sh "Compilation Windows" flutter build windows --release
+
+      - name: Installateur
+        id: installer
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+          if (-not $iscc) { $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe' }
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          }
+          & $iscc "/DAppVersion=$env:OMNIA_VERSION" windows\installer\omnia.iss
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::error title=Installateur Windows::ISCC a échoué (code $LASTEXITCODE)."
+            exit $LASTEXITCODE
+          }
+
+      - name: Téléverser l'installateur
+        if: ${{ !cancelled() && steps.installer.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: OMNIA-${{ env.OMNIA_VERSION }}-Windows-installateur
+          path: build/installer/OMNIA-Setup-${{ env.OMNIA_VERSION }}.exe
+          if-no-files-found: error
+
+      - name: Téléverser la version portable
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: OMNIA-${{ env.OMNIA_VERSION }}-Windows-portable
+          path: build/windows/x64/runner/Release/
+          if-no-files-found: error
+
+      - name: Lancement réel
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: pwsh
+        run: ./tool/ci/smoke_windows.ps1 -Exe build/windows/x64/runner/Release/omnia.exe -OutDir build/lancement
+
+      - name: Captures du lancement réel
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: OMNIA-${{ env.OMNIA_VERSION }}-Windows-captures
+          path: build/lancement/
+          if-no-files-found: warn
+
+  linux:
+    name: Linux (application, lancement réel)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      # Chaîne de compilation Flutter pour Linux, libmpv (lecture), et pour le
+      # lancement réel : écran virtuel, rendu OpenGL logiciel, capture.
+      - name: Paquets système
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libmpv-dev xvfb libgl1-mesa-dri imagemagick
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Version
+        run: echo "OMNIA_VERSION=$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml)" >> "$GITHUB_ENV"
+
+      - name: Dépendances
+        run: bash tool/ci/run.sh "Dépendances" flutter pub get
+
+      - name: Compilation
+        id: build
+        run: bash tool/ci/run.sh "Compilation Linux" flutter build linux --release
+
+      # Archive tar : l'artefact zip de GitHub ne garde pas le droit
+      # d'exécution du binaire. Le .desktop et l'icône suivent le README.
+      - name: Archive
+        run: |
+          dir="omnia-${OMNIA_VERSION}-linux-x64"
+          mkdir -p "build/paquet/$dir"
+          cp -r build/linux/x64/release/bundle/. "build/paquet/$dir/"
+          cp linux/dev.omnia.omnia.desktop linux/dev.omnia.omnia.svg "build/paquet/$dir/"
+          tar -C build/paquet -czf "build/paquet/$dir.tar.gz" "$dir"
+
+      - name: Téléverser l'archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: OMNIA-${{ env.OMNIA_VERSION }}-Linux-x64
+          path: build/paquet/omnia-${{ env.OMNIA_VERSION }}-linux-x64.tar.gz
+          if-no-files-found: error
+
+      - name: Lancement réel
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: bash tool/ci/smoke_linux.sh build/linux/x64/release/bundle build/lancement
+
+      - name: Captures du lancement réel
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: OMNIA-${{ env.OMNIA_VERSION }}-Linux-captures
+          path: build/lancement/
+          if-no-files-found: warn

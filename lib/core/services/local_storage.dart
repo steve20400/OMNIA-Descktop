@@ -17,7 +17,8 @@ import '../models/app_preferences.dart';
 /// déterminable :
 ///
 /// - Linux  : `~/.local/share/dev.omnia.omnia/`
-/// - Windows: `%APPDATA%\dev.omnia\omnia\`
+/// - Windows: `%APPDATA%\OMNIA\OMNIA\` (société et produit déclarés dans
+///   les ressources de l'exécutable, `windows/runner/Runner.rc`)
 /// - macOS  : `~/Library/Application Support/dev.omnia.omnia/`
 Future<void> initialiseLocalStorage() async {
   if (_initialised) return;

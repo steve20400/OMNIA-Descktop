@@ -93,7 +93,7 @@ flutter build windows --release
 iscc windows\installer\omnia.iss
 ```
 
-L'installateur `build\installer\OMNIA-Setup-1.0.0.exe` propose l'installation pour tous ou pour soi seul,
+L'installateur `build\installer\OMNIA-Setup-<version>.exe` propose l'installation pour tous ou pour soi seul,
 un raccourci de bureau, et inscrit OMNIA dans **« Ouvrir avec »** pour chaque format lisible (42
 extensions). Il ne détourne pas l'application par défaut : Windows 10 et 11 laissent ce choix à
 l'utilisateur, dans *Paramètres › Applications › Applications par défaut*. La désinstallation retire
@@ -147,7 +147,38 @@ le tri naturel, la playlist, la reprise de lecture et ses trois politiques, l'hi
 préférences (relecture tolérante, changements partiels), la table de raccourcis (conflits,
 réaffectation, persistance), l'OSD, l'instance unique, l'encodage des textes, les contrôleurs de
 documents, et l'écran Paramètres de bout en bout (du clic au stockage). Les fichiers d'installation
-Windows et Linux sont vérifiés contre le code.
+Windows et Linux, et le workflow de CI, sont vérifiés contre le code.
+
+Aperçus des écrans, dessinés par le vrai code de l'interface, dans `build/preview/` :
+
+```bash
+OMNIA_PREVIEW=1 flutter test test/preview/screens_preview_test.dart
+```
+
+## Intégration continue
+
+Chaque envoi sur `main` et chaque pull request lancent `.github/workflows/ci.yml` sur les machines de
+GitHub. Il n'y a rien à installer : la compilation n'a pas besoin d'un poste de développement prêt.
+
+| Tâche | Machine | Contenu |
+|---|---|---|
+| Analyse et tests | Ubuntu 24.04 | `flutter analyze`, `flutter test` |
+| Windows | Windows Server 2025 | tests, compilation, installateur Inno Setup, lancement réel |
+| Linux | Ubuntu 24.04 | compilation, archive `tar.gz`, lancement réel sur écran virtuel |
+
+Le **lancement réel** démarre l'application compilée avec un son en argument, puis lui confie un PDF
+par une seconde instance, comme un fichier déposé sur l'icône. Il vérifie que la fenêtre reste
+ouverte, que la seconde instance se retire, et que les deux fichiers entrent dans l'historique. Il
+prend une capture d'écran à chaque étape.
+
+Les résultats se téléchargent en bas de la page de chaque exécution, onglet **Actions** du dépôt,
+une fois connecté à GitHub : installateur Windows, version portable, archive Linux, captures du
+lancement réel. L'archive Linux est un `tar.gz`, qui garde le droit d'exécution du binaire.
+
+Un échec se lit sans ouvrir les journaux : la fin de la sortie de l'étape est publiée en annotation
+sur la page de l'exécution, et chaque test échoué y apparaît avec son fichier, sa ligne et son
+message. La version de Flutter est fixée dans le workflow (`FLUTTER_VERSION`), en accord avec la
+contrainte de `pdfrx`.
 
 ## Structure du projet
 
@@ -180,6 +211,8 @@ assets/fonts/               # Instrument Sans, IBM Plex Mono (embarquées)
 linux/                      # dev.omnia.omnia.desktop, dev.omnia.omnia.svg, CMake (mimalloc)
 windows/installer/          # omnia.iss (Inno Setup)
 tool/                       # génération de l'icône et des associations de l'installateur
+tool/ci/                    # scripts de la CI : annotations d'erreur, lancement réel, fichiers d'essai
+.github/workflows/ci.yml    # intégration continue (analyse, tests, compilation, installateur)
 test/                       # core, interface, intégration système
 ```
 

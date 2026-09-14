@@ -33,6 +33,14 @@ void main() {
     test('l’icône de l’installateur existe', () {
       expect(File('windows/runner/resources/app_icon.ico').existsSync(), isTrue);
     });
+
+    test('la version par défaut est celle du pubspec, et la CI peut la fixer', () {
+      final pubspec = RegExp(r'^version:\s*(\d+\.\d+\.\d+)', multiLine: true)
+          .firstMatch(File('pubspec.yaml').readAsStringSync())!
+          .group(1);
+      expect(iss, contains('#ifndef AppVersion'));
+      expect(RegExp(r'#define AppVersion "([^"]+)"').firstMatch(iss)?.group(1), pubspec);
+    });
   });
 
   test('le manifeste Windows accepte les chemins longs', () {
@@ -65,6 +73,53 @@ void main() {
       final mimes = field('MimeType')!.split(';').where((m) => m.isNotEmpty).toSet();
       expect(mimes, containsAll(['video/mp4', 'video/x-matroska', 'audio/mpeg', 'audio/flac']));
       expect(mimes, containsAll(['application/pdf', 'text/plain', 'text/markdown']));
+    });
+  });
+
+  group('Intégration continue', () {
+    late String workflow;
+
+    setUpAll(() => workflow = File('.github/workflows/ci.yml').readAsStringSync());
+
+    test('Flutter est épinglé sur la version compatible avec pdfrx', () {
+      expect(workflow, contains("FLUTTER_VERSION: '3.44.8'"));
+      // pdfrx ≥ 2.6 exige Flutter 3.47 : les deux se relèvent ensemble.
+      expect(File('pubspec.yaml').readAsStringSync(), contains('pdfrx: ">=2.4.0 <2.6.0"'));
+    });
+
+    test('Windows et Ubuntu sont compilés et lancés pour de vrai', () {
+      expect(workflow, contains('runs-on: windows-2025'));
+      expect(workflow, contains('flutter build windows --release'));
+      expect(workflow, contains('runs-on: ubuntu-24.04'));
+      expect(workflow, contains('flutter build linux --release'));
+      expect(workflow, contains('smoke_windows.ps1'));
+      expect(workflow, contains('smoke_linux.sh'));
+    });
+
+    test('chaque script appelé par le workflow existe', () {
+      final scripts = RegExp(r'tool/ci/[\w.]+').allMatches(workflow).map((m) => m.group(0)!).toSet();
+      expect(scripts, isNotEmpty);
+      for (final script in scripts) {
+        expect(File(script).existsSync(), isTrue, reason: script);
+      }
+      // Les scripts appelés par d'autres scripts aussi.
+      expect(File('tool/ci/make_samples.py').existsSync(), isTrue);
+    });
+
+    test('une étape conditionnelle garde une fonction d’état', () {
+      // Sans success(), always() ou !cancelled(), GitHub ajoute success() :
+      // l'étape serait sautée dès qu'une étape précédente a échoué.
+      final conditions = RegExp(r'^\s*if: (.+)$', multiLine: true)
+          .allMatches(workflow)
+          .map((m) => m.group(1)!);
+      for (final condition in conditions) {
+        expect(condition, matches(RegExp(r'success\(\)|failure\(\)|always\(\)|cancelled\(\)')),
+            reason: condition);
+      }
+    });
+
+    test('les scripts shell gardent des fins de ligne LF', () {
+      expect(File('.gitattributes').readAsStringSync(), contains('*.sh text eol=lf'));
     });
   });
 }

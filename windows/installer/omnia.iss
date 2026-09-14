@@ -11,7 +11,10 @@
 ; tool/make_installer_assoc.py : ne pas la modifier à la main.
 
 #define AppName "OMNIA"
-#define AppVersion "1.0.0"
+; La CI transmet la version du pubspec : iscc /DAppVersion=0.1.0 omnia.iss
+#ifndef AppVersion
+  #define AppVersion "0.1.0"
+#endif
 #define AppPublisher "OMNIA"
 #define AppExe "omnia.exe"
 #define BuildDir "..\..\build\windows\x64\runner\Release"

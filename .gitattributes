@@ -1,0 +1,4 @@
+# Scripts shell : fins de ligne LF sur toutes les machines. Sous Windows, Git
+# convertit sinon en CRLF à l'extraction (c'est le réglage des machines de la
+# CI GitHub), et bash, Git Bash compris, échoue sur les retours chariot.
+*.sh text eol=lf
