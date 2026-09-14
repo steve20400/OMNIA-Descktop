@@ -9,11 +9,13 @@ import 'controllers/pdf_controller.dart';
 import 'controllers/text_controller.dart';
 import 'models/playback_state.dart';
 import 'models/playlist_state.dart';
+import 'services/audio_metadata_service.dart';
 import 'services/folder_scanner.dart';
 import 'services/history_store.dart';
 import 'services/playback_service.dart';
 import 'services/playlist_service.dart';
 import 'services/screen_wake.dart';
+import 'services/screenshot_service.dart';
 import 'services/settings_store.dart';
 import 'services/system_integration.dart';
 import 'services/window_service.dart';
@@ -53,6 +55,15 @@ final folderScannerProvider =
 
 /// Maintien de l'écran allumé pendant une vidéo.
 final screenWakeProvider = Provider<ScreenWake>((_) => const WakelockScreenWake());
+
+/// Captures d'écran (dossier configurable).
+final screenshotServiceProvider = Provider<ScreenshotService>(
+  (ref) => ScreenshotService(settings: ref.watch(settingsStoreProvider)),
+);
+
+/// Tags et pochettes des fichiers audio.
+final audioMetadataServiceProvider =
+    Provider<AudioMetadataService>((_) => const IsolateAudioMetadataService());
 
 /// Moteur audio/vidéo. Ce provider possède le cycle de vie de mpv : il est le
 /// seul à le libérer.
@@ -111,6 +122,7 @@ final playbackServiceProvider = Provider<PlaybackService>((ref) {
     playlist: ref.watch(playlistServiceProvider),
     history: ref.watch(historyStoreProvider),
     settings: ref.watch(settingsStoreProvider),
+    screenshots: ref.watch(screenshotServiceProvider),
     system: ref.watch(systemIntegrationProvider),
   );
   ref.onDispose(service.dispose);

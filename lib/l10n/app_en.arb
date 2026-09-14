@@ -206,5 +206,77 @@
   "panelTabPages": "Pages",
   "docNoOutline": "This document has no outline",
   "docLoading": "Loading document…",
-  "helpGroupDocuments": "Documents"
+  "helpGroupDocuments": "Documents",
+  "subtitles": "Subtitles",
+  "subtitlesOff": "Subtitles off",
+  "subtitlesNone": "None",
+  "subtitlesLoadFile": "Load subtitle file…",
+  "subtitleDelay": "Delay",
+  "subtitleDelayValue": "{seconds} s",
+  "@subtitleDelayValue": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "subtitleSize": "Subtitle size",
+  "audioTracks": "Audio track",
+  "audioTrackAuto": "Automatic",
+  "noTracks": "No track",
+  "abLoop": "A-B loop",
+  "abLoopSetA": "Point A set",
+  "abLoopSetB": "A-B loop on",
+  "abLoopCleared": "A-B loop off",
+  "screenshot": "Screenshot",
+  "screenshotSaved": "Screenshot saved",
+  "image": "Picture",
+  "aspectRatio": "Aspect ratio",
+  "aspectAuto": "Automatic",
+  "aspectWide": "16:9",
+  "aspectStandard": "4:3",
+  "aspectFill": "Fill",
+  "videoZoom": "Video zoom",
+  "videoZoomValue": "Zoom {percent} %",
+  "@videoZoomValue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "videoZoomReset": "Normal zoom",
+  "videoRotate": "Rotate video",
+  "videoRotation": "Rotation {degrees}°",
+  "@videoRotation": {
+    "placeholders": {
+      "degrees": {
+        "type": "int"
+      }
+    }
+  },
+  "imageAdjust": "Picture adjustments…",
+  "brightness": "Brightness",
+  "contrast": "Contrast",
+  "saturation": "Saturation",
+  "resetAdjust": "Reset",
+  "equalizer": "Equalizer",
+  "equalizerOn": "Equalizer on",
+  "equalizerOff": "Equalizer off",
+  "equalizerPreset": "Preset",
+  "presetNormal": "Flat",
+  "presetRock": "Rock",
+  "presetPop": "Pop",
+  "presetJazz": "Jazz",
+  "presetClassical": "Classical",
+  "presetBass": "Bass",
+  "presetTreble": "Treble",
+  "presetVocal": "Vocal",
+  "presetElectronic": "Electronic",
+  "presetAcoustic": "Acoustic",
+  "presetCustom": "Custom",
+  "miniPlayer": "Mini player",
+  "miniPlayerExit": "Leave mini player",
+  "unknownArtist": "Unknown artist",
+  "closePanel": "Close"
 }

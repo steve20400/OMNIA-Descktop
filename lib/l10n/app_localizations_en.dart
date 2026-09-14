@@ -412,4 +412,163 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get helpGroupDocuments => 'Documents';
+
+  @override
+  String get subtitles => 'Subtitles';
+
+  @override
+  String get subtitlesOff => 'Subtitles off';
+
+  @override
+  String get subtitlesNone => 'None';
+
+  @override
+  String get subtitlesLoadFile => 'Load subtitle file…';
+
+  @override
+  String get subtitleDelay => 'Delay';
+
+  @override
+  String subtitleDelayValue(String seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String get subtitleSize => 'Subtitle size';
+
+  @override
+  String get audioTracks => 'Audio track';
+
+  @override
+  String get audioTrackAuto => 'Automatic';
+
+  @override
+  String get noTracks => 'No track';
+
+  @override
+  String get abLoop => 'A-B loop';
+
+  @override
+  String get abLoopSetA => 'Point A set';
+
+  @override
+  String get abLoopSetB => 'A-B loop on';
+
+  @override
+  String get abLoopCleared => 'A-B loop off';
+
+  @override
+  String get screenshot => 'Screenshot';
+
+  @override
+  String get screenshotSaved => 'Screenshot saved';
+
+  @override
+  String get image => 'Picture';
+
+  @override
+  String get aspectRatio => 'Aspect ratio';
+
+  @override
+  String get aspectAuto => 'Automatic';
+
+  @override
+  String get aspectWide => '16:9';
+
+  @override
+  String get aspectStandard => '4:3';
+
+  @override
+  String get aspectFill => 'Fill';
+
+  @override
+  String get videoZoom => 'Video zoom';
+
+  @override
+  String videoZoomValue(int percent) {
+    return 'Zoom $percent %';
+  }
+
+  @override
+  String get videoZoomReset => 'Normal zoom';
+
+  @override
+  String get videoRotate => 'Rotate video';
+
+  @override
+  String videoRotation(int degrees) {
+    return 'Rotation $degrees°';
+  }
+
+  @override
+  String get imageAdjust => 'Picture adjustments…';
+
+  @override
+  String get brightness => 'Brightness';
+
+  @override
+  String get contrast => 'Contrast';
+
+  @override
+  String get saturation => 'Saturation';
+
+  @override
+  String get resetAdjust => 'Reset';
+
+  @override
+  String get equalizer => 'Equalizer';
+
+  @override
+  String get equalizerOn => 'Equalizer on';
+
+  @override
+  String get equalizerOff => 'Equalizer off';
+
+  @override
+  String get equalizerPreset => 'Preset';
+
+  @override
+  String get presetNormal => 'Flat';
+
+  @override
+  String get presetRock => 'Rock';
+
+  @override
+  String get presetPop => 'Pop';
+
+  @override
+  String get presetJazz => 'Jazz';
+
+  @override
+  String get presetClassical => 'Classical';
+
+  @override
+  String get presetBass => 'Bass';
+
+  @override
+  String get presetTreble => 'Treble';
+
+  @override
+  String get presetVocal => 'Vocal';
+
+  @override
+  String get presetElectronic => 'Electronic';
+
+  @override
+  String get presetAcoustic => 'Acoustic';
+
+  @override
+  String get presetCustom => 'Custom';
+
+  @override
+  String get miniPlayer => 'Mini player';
+
+  @override
+  String get miniPlayerExit => 'Leave mini player';
+
+  @override
+  String get unknownArtist => 'Unknown artist';
+
+  @override
+  String get closePanel => 'Close';
 }

@@ -206,5 +206,77 @@
   "panelTabPages": "Pages",
   "docNoOutline": "Ce document n'a pas de sommaire",
   "docLoading": "Chargement du document…",
-  "helpGroupDocuments": "Documents"
+  "helpGroupDocuments": "Documents",
+  "subtitles": "Sous-titres",
+  "subtitlesOff": "Sous-titres désactivés",
+  "subtitlesNone": "Aucun",
+  "subtitlesLoadFile": "Charger un fichier de sous-titres…",
+  "subtitleDelay": "Décalage",
+  "subtitleDelayValue": "{seconds} s",
+  "@subtitleDelayValue": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "subtitleSize": "Taille des sous-titres",
+  "audioTracks": "Piste audio",
+  "audioTrackAuto": "Automatique",
+  "noTracks": "Aucune piste",
+  "abLoop": "Boucle A-B",
+  "abLoopSetA": "Point A posé",
+  "abLoopSetB": "Boucle A-B active",
+  "abLoopCleared": "Boucle A-B désactivée",
+  "screenshot": "Capture d'écran",
+  "screenshotSaved": "Capture enregistrée",
+  "image": "Image",
+  "aspectRatio": "Ratio d'aspect",
+  "aspectAuto": "Automatique",
+  "aspectWide": "16:9",
+  "aspectStandard": "4:3",
+  "aspectFill": "Remplir",
+  "videoZoom": "Zoom vidéo",
+  "videoZoomValue": "Zoom {percent} %",
+  "@videoZoomValue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "videoZoomReset": "Zoom normal",
+  "videoRotate": "Pivoter la vidéo",
+  "videoRotation": "Rotation {degrees}°",
+  "@videoRotation": {
+    "placeholders": {
+      "degrees": {
+        "type": "int"
+      }
+    }
+  },
+  "imageAdjust": "Réglages d'image…",
+  "brightness": "Luminosité",
+  "contrast": "Contraste",
+  "saturation": "Saturation",
+  "resetAdjust": "Réinitialiser",
+  "equalizer": "Égaliseur",
+  "equalizerOn": "Égaliseur activé",
+  "equalizerOff": "Égaliseur désactivé",
+  "equalizerPreset": "Préréglage",
+  "presetNormal": "Normal",
+  "presetRock": "Rock",
+  "presetPop": "Pop",
+  "presetJazz": "Jazz",
+  "presetClassical": "Classique",
+  "presetBass": "Basses",
+  "presetTreble": "Aigus",
+  "presetVocal": "Vocal",
+  "presetElectronic": "Électro",
+  "presetAcoustic": "Acoustique",
+  "presetCustom": "Personnalisé",
+  "miniPlayer": "Mini-lecteur",
+  "miniPlayerExit": "Quitter le mini-lecteur",
+  "unknownArtist": "Artiste inconnu",
+  "closePanel": "Fermer"
 }

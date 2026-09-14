@@ -823,6 +823,312 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Documents'**
   String get helpGroupDocuments;
+
+  /// No description provided for @subtitles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titres'**
+  String get subtitles;
+
+  /// No description provided for @subtitlesOff.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titres désactivés'**
+  String get subtitlesOff;
+
+  /// No description provided for @subtitlesNone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun'**
+  String get subtitlesNone;
+
+  /// No description provided for @subtitlesLoadFile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Charger un fichier de sous-titres…'**
+  String get subtitlesLoadFile;
+
+  /// No description provided for @subtitleDelay.
+  ///
+  /// In fr, this message translates to:
+  /// **'Décalage'**
+  String get subtitleDelay;
+
+  /// No description provided for @subtitleDelayValue.
+  ///
+  /// In fr, this message translates to:
+  /// **'{seconds} s'**
+  String subtitleDelayValue(String seconds);
+
+  /// No description provided for @subtitleSize.
+  ///
+  /// In fr, this message translates to:
+  /// **'Taille des sous-titres'**
+  String get subtitleSize;
+
+  /// No description provided for @audioTracks.
+  ///
+  /// In fr, this message translates to:
+  /// **'Piste audio'**
+  String get audioTracks;
+
+  /// No description provided for @audioTrackAuto.
+  ///
+  /// In fr, this message translates to:
+  /// **'Automatique'**
+  String get audioTrackAuto;
+
+  /// No description provided for @noTracks.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune piste'**
+  String get noTracks;
+
+  /// No description provided for @abLoop.
+  ///
+  /// In fr, this message translates to:
+  /// **'Boucle A-B'**
+  String get abLoop;
+
+  /// No description provided for @abLoopSetA.
+  ///
+  /// In fr, this message translates to:
+  /// **'Point A posé'**
+  String get abLoopSetA;
+
+  /// No description provided for @abLoopSetB.
+  ///
+  /// In fr, this message translates to:
+  /// **'Boucle A-B active'**
+  String get abLoopSetB;
+
+  /// No description provided for @abLoopCleared.
+  ///
+  /// In fr, this message translates to:
+  /// **'Boucle A-B désactivée'**
+  String get abLoopCleared;
+
+  /// No description provided for @screenshot.
+  ///
+  /// In fr, this message translates to:
+  /// **'Capture d\'écran'**
+  String get screenshot;
+
+  /// No description provided for @screenshotSaved.
+  ///
+  /// In fr, this message translates to:
+  /// **'Capture enregistrée'**
+  String get screenshotSaved;
+
+  /// No description provided for @image.
+  ///
+  /// In fr, this message translates to:
+  /// **'Image'**
+  String get image;
+
+  /// No description provided for @aspectRatio.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ratio d\'aspect'**
+  String get aspectRatio;
+
+  /// No description provided for @aspectAuto.
+  ///
+  /// In fr, this message translates to:
+  /// **'Automatique'**
+  String get aspectAuto;
+
+  /// No description provided for @aspectWide.
+  ///
+  /// In fr, this message translates to:
+  /// **'16:9'**
+  String get aspectWide;
+
+  /// No description provided for @aspectStandard.
+  ///
+  /// In fr, this message translates to:
+  /// **'4:3'**
+  String get aspectStandard;
+
+  /// No description provided for @aspectFill.
+  ///
+  /// In fr, this message translates to:
+  /// **'Remplir'**
+  String get aspectFill;
+
+  /// No description provided for @videoZoom.
+  ///
+  /// In fr, this message translates to:
+  /// **'Zoom vidéo'**
+  String get videoZoom;
+
+  /// No description provided for @videoZoomValue.
+  ///
+  /// In fr, this message translates to:
+  /// **'Zoom {percent} %'**
+  String videoZoomValue(int percent);
+
+  /// No description provided for @videoZoomReset.
+  ///
+  /// In fr, this message translates to:
+  /// **'Zoom normal'**
+  String get videoZoomReset;
+
+  /// No description provided for @videoRotate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pivoter la vidéo'**
+  String get videoRotate;
+
+  /// No description provided for @videoRotation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rotation {degrees}°'**
+  String videoRotation(int degrees);
+
+  /// No description provided for @imageAdjust.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réglages d\'image…'**
+  String get imageAdjust;
+
+  /// No description provided for @brightness.
+  ///
+  /// In fr, this message translates to:
+  /// **'Luminosité'**
+  String get brightness;
+
+  /// No description provided for @contrast.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contraste'**
+  String get contrast;
+
+  /// No description provided for @saturation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Saturation'**
+  String get saturation;
+
+  /// No description provided for @resetAdjust.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réinitialiser'**
+  String get resetAdjust;
+
+  /// No description provided for @equalizer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Égaliseur'**
+  String get equalizer;
+
+  /// No description provided for @equalizerOn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Égaliseur activé'**
+  String get equalizerOn;
+
+  /// No description provided for @equalizerOff.
+  ///
+  /// In fr, this message translates to:
+  /// **'Égaliseur désactivé'**
+  String get equalizerOff;
+
+  /// No description provided for @equalizerPreset.
+  ///
+  /// In fr, this message translates to:
+  /// **'Préréglage'**
+  String get equalizerPreset;
+
+  /// No description provided for @presetNormal.
+  ///
+  /// In fr, this message translates to:
+  /// **'Normal'**
+  String get presetNormal;
+
+  /// No description provided for @presetRock.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rock'**
+  String get presetRock;
+
+  /// No description provided for @presetPop.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pop'**
+  String get presetPop;
+
+  /// No description provided for @presetJazz.
+  ///
+  /// In fr, this message translates to:
+  /// **'Jazz'**
+  String get presetJazz;
+
+  /// No description provided for @presetClassical.
+  ///
+  /// In fr, this message translates to:
+  /// **'Classique'**
+  String get presetClassical;
+
+  /// No description provided for @presetBass.
+  ///
+  /// In fr, this message translates to:
+  /// **'Basses'**
+  String get presetBass;
+
+  /// No description provided for @presetTreble.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aigus'**
+  String get presetTreble;
+
+  /// No description provided for @presetVocal.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vocal'**
+  String get presetVocal;
+
+  /// No description provided for @presetElectronic.
+  ///
+  /// In fr, this message translates to:
+  /// **'Électro'**
+  String get presetElectronic;
+
+  /// No description provided for @presetAcoustic.
+  ///
+  /// In fr, this message translates to:
+  /// **'Acoustique'**
+  String get presetAcoustic;
+
+  /// No description provided for @presetCustom.
+  ///
+  /// In fr, this message translates to:
+  /// **'Personnalisé'**
+  String get presetCustom;
+
+  /// No description provided for @miniPlayer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mini-lecteur'**
+  String get miniPlayer;
+
+  /// No description provided for @miniPlayerExit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quitter le mini-lecteur'**
+  String get miniPlayerExit;
+
+  /// No description provided for @unknownArtist.
+  ///
+  /// In fr, this message translates to:
+  /// **'Artiste inconnu'**
+  String get unknownArtist;
+
+  /// No description provided for @closePanel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fermer'**
+  String get closePanel;
 }
 
 class _AppLocalizationsDelegate

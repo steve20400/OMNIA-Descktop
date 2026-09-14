@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/end_of_playback_mode.dart';
+import '../../core/models/video_adjust.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
 import '../osd/osd_controller.dart';
@@ -154,6 +157,95 @@ class _OsdPill extends StatelessWidget {
           enabled ? Icons.fullscreen_rounded : Icons.fullscreen_exit_rounded,
           Text(enabled ? l10n.fullscreen : l10n.exitFullscreen, style: type.osdLabel),
         ),
+      OsdSubtitles(:final visible, :final trackLabel) => (
+          visible ? Icons.subtitles_rounded : Icons.subtitles_off_rounded,
+          Text(
+            visible ? (trackLabel ?? l10n.subtitles) : l10n.subtitlesOff,
+            style: type.osdLabel,
+          ),
+        ),
+      OsdSubtitleDelay(:final seconds) => (
+          Icons.subtitles_rounded,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.subtitleDelay, style: type.osdLabel),
+              Text('  ·  ', style: type.osdLabel),
+              Text(
+                l10n.subtitleDelayValue(
+                  '${seconds > 0 ? '+' : ''}${seconds.toStringAsFixed(1)}',
+                ),
+                style: type.osdValue,
+              ),
+            ],
+          ),
+        ),
+      OsdAudioTrack(:final label) => (
+          Icons.audiotrack_rounded,
+          Text(label.isEmpty ? l10n.audioTrackAuto : label, style: type.osdLabel),
+        ),
+      OsdAbLoop(:final a, :final b) => (
+          Icons.repeat_rounded,
+          Text(
+            a == null
+                ? l10n.abLoopCleared
+                : b == null
+                    ? '${l10n.abLoopSetA}  ·  ${formatTimecode(a)}'
+                    : '${l10n.abLoopSetB}  ·  ${formatTimecode(a)} → ${formatTimecode(b)}',
+            style: type.osdLabel,
+          ),
+        ),
+      OsdScreenshot(:final path) => (
+          Icons.photo_camera_rounded,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.screenshotSaved, style: type.osdLabel),
+                const SizedBox(height: 3),
+                Text(
+                  path,
+                  style: type.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      OsdAspect(:final mode) => (
+          Icons.aspect_ratio_rounded,
+          Text(
+            switch (mode) {
+              AspectMode.auto => l10n.aspectAuto,
+              AspectMode.wide => l10n.aspectWide,
+              AspectMode.standard => l10n.aspectStandard,
+              AspectMode.fill => l10n.aspectFill,
+            },
+            style: type.osdLabel,
+          ),
+        ),
+      OsdVideoZoom(:final zoom) => (
+          Icons.zoom_in_rounded,
+          Text(l10n.videoZoomValue((math.pow(2, zoom) * 100).round()), style: type.osdValue),
+        ),
+      OsdVideoRotation(:final quarterTurns) => (
+          Icons.rotate_right_rounded,
+          Text(l10n.videoRotation(quarterTurns * 90), style: type.osdLabel),
+        ),
+      OsdEqualizer(:final enabled, :final preset) => (
+          Icons.equalizer_rounded,
+          Text(
+            !enabled ? l10n.equalizerOff : (preset == null ? l10n.equalizerOn : _presetLabel(l10n, preset)),
+            style: type.osdLabel,
+          ),
+        ),
+      OsdMiniPlayer(:final enabled) => (
+          Icons.picture_in_picture_alt_rounded,
+          Text(enabled ? l10n.miniPlayer : l10n.miniPlayerExit, style: type.osdLabel),
+        ),
     };
 
     return FloatingSurface(
@@ -177,7 +269,24 @@ class _OsdPill extends StatelessWidget {
     final rounded = seconds.round();
     return '${rounded > 0 ? '+' : '−'}${rounded.abs()} s';
   }
+
+  static String _presetLabel(AppLocalizations l10n, String preset) => presetLabel(l10n, preset);
 }
+
+/// Libellé traduit d'un préréglage d'égaliseur.
+String presetLabel(AppLocalizations l10n, String preset) => switch (preset) {
+      'normal' => l10n.presetNormal,
+      'rock' => l10n.presetRock,
+      'pop' => l10n.presetPop,
+      'jazz' => l10n.presetJazz,
+      'classical' => l10n.presetClassical,
+      'bass' => l10n.presetBass,
+      'treble' => l10n.presetTreble,
+      'vocal' => l10n.presetVocal,
+      'electronic' => l10n.presetElectronic,
+      'acoustic' => l10n.presetAcoustic,
+      _ => l10n.presetCustom,
+    };
 
 /// Jauge horizontale fine, pour le volume.
 class _LevelBar extends StatelessWidget {

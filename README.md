@@ -6,11 +6,13 @@ Lecteur universel desktop : vidéo, audio, PDF et texte dans une seule applicati
 Flutter + media_kit (libmpv), architecture « bus de commandes » prête pour la future télécommande mobile
 ([OMNIA-Mobile](https://github.com/steve20400/OMNIA-Mobile)).
 
-> État : **Phase 4 — Documents** terminée.
+> État : **Phase 5 — Avancé** terminée.
 > Phase 1 (fondations, thème, fenêtre, lecture audio/vidéo), Phase 2 (scan du dossier, panneau latéral,
 > navigation, modes de fin de lecture, reprise de lecture), Phase 3 (OSD, fichiers récents, menu
-> contextuel, instance unique, aide `F1`, écran maintenu allumé) et Phase 4 (PDF, texte, Markdown)
-> sont en place. Voir `DESIGN.md` pour le plan design.
+> contextuel, instance unique, aide `F1`, écran maintenu allumé), Phase 4 (PDF, texte, Markdown) et
+> Phase 5 (sous-titres, pistes audio, capture, boucle A-B, image, égaliseur, vue audio, mini-lecteur)
+> sont en place. Reste la Phase 6 (paramètres, éditeur de raccourcis, finitions).
+> Voir `DESIGN.md` pour le plan design.
 
 ## Plateformes
 
@@ -98,7 +100,8 @@ lib/
                             # TextController, MediaRouter
     models/                 # PlaybackState, PlaylistState, MediaFile, HistoryEntry…
     services/               # PlaybackService, PlaylistService, FolderScanner, HistoryStore,
-                            # SettingsStore, WindowService, SystemIntegration, SingleInstance, ScreenWake
+                            # SettingsStore, WindowService, SystemIntegration, SingleInstance,
+                            # ScreenWake, ScreenshotService, AudioMetadataService
     utils/                  # timecodes, tri naturel, codes d'erreur OS, session Wayland, arguments CLI
     providers.dart          # câblage Riverpod
   ui/
@@ -147,12 +150,32 @@ apparaissent dans le panneau de gauche.
 - **Fichiers récents** : menu sous le bouton « Ouvrir » de la barre de titre, et liste sur l'écran
   d'accueil. Un fichier est inscrit dès son ouverture ; un fichier déplacé reste listé, grisé.
 - **Menu contextuel** (clic droit sur la scène) : lecture, fichier suivant/précédent, vitesse, fin de
-  lecture, plein écran, premier plan, panneau, ouverture, emplacement du fichier. Sous-titres, pistes
-  audio, image et capture s'y ajouteront en Phase 5.
+  lecture, sous-titres, pistes audio, image, capture, boucle A-B, égaliseur, mini-lecteur, plein écran,
+  premier plan, panneau, ouverture, emplacement du fichier.
 - **Instance unique** : « Ouvrir avec → OMNIA » alors qu'OMNIA tourne déjà réutilise la fenêtre
   existante et remplace la lecture en cours. Voir « Compromis » pour le mécanisme.
 - **Aide `F1`** : récapitulatif des raccourcis.
 - **Veille** : l'écran reste allumé tant qu'une vidéo joue, et seulement là.
+
+## Vidéo et audio, en détail
+
+- **Sous-titres** : les fichiers `.srt`, `.ass`, `.ssa`, `.vtt`, `.sub` du même dossier portant le même nom
+  de base (avec ou sans suffixe de langue, `film.fr.srt`) sont chargés automatiquement par mpv. Pistes
+  intégrées et externes listées dans le menu « sous-titres » ; chargement manuel ; décalage par pas de
+  0,5 s ; taille réglable ; `V` masque ou affiche sans oublier la piste choisie.
+- **Pistes audio** : sélection dans le menu quand le fichier en a plusieurs.
+- **Capture** (`S`) : PNG dans `Téléchargements/OMNIA` (dossier configurable en Phase 6), le chemin
+  s'affiche dans l'OSD ; deux captures dans la même seconde sont numérotées.
+- **Boucle A-B** (`A`) : pose A, puis B, puis efface. Bornes marquées sur le faisceau ; mpv boucle lui-même
+  entre les deux, à l'image près.
+- **Image** : ratio (auto, 16:9, 4:3, remplir), zoom, rotation 90°, luminosité / contraste / saturation
+  dans un panneau flottant. Réglages conservés d'un fichier à l'autre, zoom et rotation remis à zéro.
+- **Égaliseur** 10 bandes (31 Hz à 16 kHz), préréglages Normal, Rock, Pop, Jazz, Classique, Basses,
+  Aigus, Vocal, Électro, Acoustique, curseurs libres, activable sans perdre les réglages.
+- **Vue audio** : pochette (ID3, Vorbis, MP4, APE, lue hors du fil de l'interface) en grand, fond flouté
+  dérivé de la pochette sous un voile de velours, titre, artiste, album ; vinyle stylisé sans pochette.
+- **Mini-lecteur** (`Ctrl+Maj+M`) : fenêtre compacte au premier plan (pochette, titre, faisceau,
+  transport), la géométrie et l'état de premier plan sont rendus à la sortie.
 
 ## Documents (lecture seule)
 
@@ -184,6 +207,10 @@ PDF, textes et médias du dossier.
 | `L` | Mode de fin de lecture (cycle) |
 | `T` | Toujours au premier plan |
 | `Tab` | Afficher / masquer le panneau |
+| `S` | Capture d'écran |
+| `A` | Boucle A-B (A, puis B, puis effacer) |
+| `V` | Sous-titres on / off |
+| `Ctrl+Maj+M` | Mini-lecteur |
 | `Échap` | Quitter la recherche du panneau, fermer l'aide, quitter le plein écran |
 | `Ctrl+O` / `Ctrl+Shift+O` | Ouvrir un fichier / un dossier |
 | `PgUp` / `PgDn` | Document : page précédente / suivante |
@@ -222,10 +249,12 @@ gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
 - **Position de fenêtre sous Wayland** : le protocole interdit à une application de connaître ou d'imposer sa position. OMNIA n'y mémorise que la taille et laisse le compositeur placer la fenêtre.
 - **Bordures de fenêtre sous Linux** : masquer la barre de titre retire toutes les décorations GTK. OMNIA redessine donc ses propres bords de redimensionnement (`DragToResizeArea`), inutiles sur Windows et macOS qui gardent leur cadre natif.
 - **`N` en fin de liste** : la touche « fichier suivant » reboucle au premier fichier, alors que la lecture automatique en mode « suivant » s'arrête. Une action explicite ne doit pas être sans effet ; un enchaînement automatique ne doit pas tourner en rond sans qu'on l'ait demandé (mode « boucler le dossier » pour cela).
-- **Vue audio** : pochette et fond dérivé prévus en Phase 5 ; pour l'instant, nom du morceau et symbole.
 - **Instance unique** : le brief suggère un socket local ou D-Bus sous Linux. Ni l'un ni l'autre n'existe sous Windows, alors qu'OMNIA doit s'y installer aussi. La première instance écoute donc sur un port de la boucle locale (`127.0.0.1`, jamais exposé au réseau), noté avec un secret aléatoire dans `instance.json` du dossier de données ; une seconde instance lit ce fichier, transmet ses arguments et se termine. Un verrou périmé (instance tuée) est détecté par l'échec de connexion et réécrit.
 - **Reprise de lecture** : la position mémorisée est appliquée par un seek juste après le démarrage ; on peut apercevoir la première image un instant. Le réglage « reprendre automatiquement / proposer / jamais » arrive avec les paramètres (Phase 6).
 - **Version de `pdfrx`** : les versions ≥ 2.6 exigent Dart 3.13 (Flutter 3.47) ; le projet reste sur la dernière version compatible avec Flutter 3.44 (`>=2.4.0 <2.6.0`). À relever avec le SDK.
 - **Rotation d'un PDF en défilement continu** : `pdfrx` ne pivote pas sa vue continue ; OMNIA pivote la vue entière, le défilement suit donc l'axe des pages pivotées. En mode page par page, la rotation est native (`rotationOverride`).
 - **Mode sombre de lecture des PDF** : inversion des couleurs suivie d'une rotation de teinte de 180° (« inversion intelligente »). Le papier devient sombre, l'encre claire, et les images gardent des teintes proches des originales — sans être préservées exactement, ce qu'aucun filtre matriciel ne permet.
 - **Recherche en mode page par page** : le surlignage des occurrences n'est disponible qu'en défilement continu (il est rendu par la vue `pdfrx`) ; la barre de recherche fonctionne dans les deux modes.
+- **Égaliseur** : appliqué par le filtre FFmpeg `equalizer` (une bande par fréquence, largeur d'une octave) via la propriété mpv `af`, remplacée à chaque réglage. C'est la voie la plus fiable que mpv offre ; si une version de mpv refuse la propriété, l'erreur est absorbée et le son continue sans égalisation. Les préréglages sont des courbes classiques, à affiner à l'oreille.
+- **Mode sombre et image** : les réglages luminosité / contraste / saturation utilisent les propriétés mpv du même nom ; selon le pilote vidéo (`gpu` ou non), certaines sorties les ignorent.
+- **Capture** : `media_kit` rend l'image via mpv sans les sous-titres libass ; la capture reflète l'image seule.

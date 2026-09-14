@@ -51,6 +51,13 @@ final Map<ShortcutActivator, Object> defaultKeymap = {
   const SingleActivator(LogicalKeyboardKey.keyO, control: true, shift: true, includeRepeats: false):
       UiAction.openFolderDialog,
 
+  // Vidéo (Phase 5)
+  const SingleActivator(LogicalKeyboardKey.keyS, includeRepeats: false): const TakeScreenshot(),
+  const SingleActivator(LogicalKeyboardKey.keyA, includeRepeats: false): const CycleAbLoop(),
+  const SingleActivator(LogicalKeyboardKey.keyV, includeRepeats: false): const ToggleSubtitles(),
+  const SingleActivator(LogicalKeyboardKey.keyM, control: true, shift: true, includeRepeats: false):
+      const ToggleMiniPlayer(),
+
   // Documents (Phase 4)
   const SingleActivator(LogicalKeyboardKey.pageUp): const PreviousPage(),
   const SingleActivator(LogicalKeyboardKey.pageDown): const NextPage(),

@@ -416,4 +416,163 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get helpGroupDocuments => 'Documents';
+
+  @override
+  String get subtitles => 'Sous-titres';
+
+  @override
+  String get subtitlesOff => 'Sous-titres désactivés';
+
+  @override
+  String get subtitlesNone => 'Aucun';
+
+  @override
+  String get subtitlesLoadFile => 'Charger un fichier de sous-titres…';
+
+  @override
+  String get subtitleDelay => 'Décalage';
+
+  @override
+  String subtitleDelayValue(String seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String get subtitleSize => 'Taille des sous-titres';
+
+  @override
+  String get audioTracks => 'Piste audio';
+
+  @override
+  String get audioTrackAuto => 'Automatique';
+
+  @override
+  String get noTracks => 'Aucune piste';
+
+  @override
+  String get abLoop => 'Boucle A-B';
+
+  @override
+  String get abLoopSetA => 'Point A posé';
+
+  @override
+  String get abLoopSetB => 'Boucle A-B active';
+
+  @override
+  String get abLoopCleared => 'Boucle A-B désactivée';
+
+  @override
+  String get screenshot => 'Capture d\'écran';
+
+  @override
+  String get screenshotSaved => 'Capture enregistrée';
+
+  @override
+  String get image => 'Image';
+
+  @override
+  String get aspectRatio => 'Ratio d\'aspect';
+
+  @override
+  String get aspectAuto => 'Automatique';
+
+  @override
+  String get aspectWide => '16:9';
+
+  @override
+  String get aspectStandard => '4:3';
+
+  @override
+  String get aspectFill => 'Remplir';
+
+  @override
+  String get videoZoom => 'Zoom vidéo';
+
+  @override
+  String videoZoomValue(int percent) {
+    return 'Zoom $percent %';
+  }
+
+  @override
+  String get videoZoomReset => 'Zoom normal';
+
+  @override
+  String get videoRotate => 'Pivoter la vidéo';
+
+  @override
+  String videoRotation(int degrees) {
+    return 'Rotation $degrees°';
+  }
+
+  @override
+  String get imageAdjust => 'Réglages d\'image…';
+
+  @override
+  String get brightness => 'Luminosité';
+
+  @override
+  String get contrast => 'Contraste';
+
+  @override
+  String get saturation => 'Saturation';
+
+  @override
+  String get resetAdjust => 'Réinitialiser';
+
+  @override
+  String get equalizer => 'Égaliseur';
+
+  @override
+  String get equalizerOn => 'Égaliseur activé';
+
+  @override
+  String get equalizerOff => 'Égaliseur désactivé';
+
+  @override
+  String get equalizerPreset => 'Préréglage';
+
+  @override
+  String get presetNormal => 'Normal';
+
+  @override
+  String get presetRock => 'Rock';
+
+  @override
+  String get presetPop => 'Pop';
+
+  @override
+  String get presetJazz => 'Jazz';
+
+  @override
+  String get presetClassical => 'Classique';
+
+  @override
+  String get presetBass => 'Basses';
+
+  @override
+  String get presetTreble => 'Aigus';
+
+  @override
+  String get presetVocal => 'Vocal';
+
+  @override
+  String get presetElectronic => 'Électro';
+
+  @override
+  String get presetAcoustic => 'Acoustique';
+
+  @override
+  String get presetCustom => 'Personnalisé';
+
+  @override
+  String get miniPlayer => 'Mini-lecteur';
+
+  @override
+  String get miniPlayerExit => 'Quitter le mini-lecteur';
+
+  @override
+  String get unknownArtist => 'Artiste inconnu';
+
+  @override
+  String get closePanel => 'Fermer';
 }

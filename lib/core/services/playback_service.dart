@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show Rect, Size;
 
 import 'package:collection/collection.dart';
 
 import '../commands/player_command.dart';
 import '../commands/player_command_bus.dart';
+import '../controllers/frame_capturer.dart';
 import '../controllers/media_controller.dart';
 import '../controllers/media_router.dart';
 import '../models/end_of_playback_mode.dart';
@@ -13,6 +15,7 @@ import '../models/playback_state.dart';
 import '../models/playback_status.dart';
 import 'history_store.dart';
 import 'playlist_service.dart';
+import 'screenshot_service.dart';
 import 'settings_store.dart';
 import 'system_integration.dart';
 import 'window_service.dart';
@@ -30,6 +33,7 @@ class PlaybackService implements PlaybackStateSink {
     required this.playlist,
     this.history,
     this.settings,
+    this.screenshots,
     this.system = const NoopSystemIntegration(),
     PlaybackState initialState = const PlaybackState(),
   }) : _state = initialState {
@@ -60,6 +64,17 @@ class PlaybackService implements PlaybackStateSink {
 
   /// Intégration système (ouvrir l'emplacement d'un fichier).
   final SystemIntegration system;
+
+  /// Enregistrement des captures d'écran. `null` désactive la capture.
+  final ScreenshotService? screenshots;
+
+  /// Géométrie et état de premier plan à restaurer en quittant le mini-lecteur.
+  Rect? _boundsBeforeMini;
+  bool _alwaysOnTopBeforeMini = false;
+
+  /// Taille du mini-lecteur et minimum de fenêtre du lecteur principal.
+  static const Size miniPlayerSize = Size(400, 132);
+  static const Size mainMinimumSize = Size(720, 460);
 
   late final StreamSubscription<DispatchedCommand> _subscription;
   late final StreamSubscription<Object?> _playlistSubscription;
@@ -272,6 +287,10 @@ class PlaybackService implements PlaybackStateSink {
         for (final entry in playlist.state.entries) {
           playlist.refreshEntry(entry.path);
         }
+      case TakeScreenshot():
+        await _takeScreenshot();
+      case ToggleMiniPlayer():
+        await _setMiniPlayer(!_state.miniPlayer);
       case SetVolume() || VolumeRelative() || ToggleMute() when _active == null:
         // Le curseur de volume reste utilisable sans fichier ouvert : le
         // réglage est mémorisé et appliqué au prochain fichier.
@@ -306,6 +325,49 @@ class PlaybackService implements PlaybackStateSink {
   Future<void> _setFullscreen(bool value) async {
     await window.setFullscreen(value);
     update((st) => st.copyWith(fullscreen: value));
+  }
+
+  /// Capture l'image affichée et l'enregistre. Le chemin est publié dans
+  /// l'état : c'est lui que l'OSD montre.
+  Future<void> _takeScreenshot() async {
+    // `FrameCapturer` n'est pas un sous-type de `MediaController` : Dart ne
+    // promeut pas la variable directement, d'où le passage par `Object?`.
+    final Object? capturer = _active;
+    final store = screenshots;
+    final file = _state.file;
+    if (capturer is! FrameCapturer || store == null || file == null) return;
+    final png = await capturer.captureFrame();
+    if (png == null) return;
+    try {
+      final path = await store.save(png, mediaPath: file.path);
+      update((st) => st.copyWith(lastScreenshot: path));
+    } on FileSystemException {
+      // Dossier inaccessible : la lecture continue, rien n'est publié. Le
+      // choix du dossier arrive dans les paramètres (Phase 6).
+    }
+  }
+
+  /// Mini-lecteur : fenêtre compacte toujours au premier plan. On mémorise la
+  /// géométrie et l'état de premier plan pour les rendre à la sortie.
+  Future<void> _setMiniPlayer(bool enabled) async {
+    if (enabled == _state.miniPlayer) return;
+    if (enabled) {
+      if (_state.fullscreen) await _setFullscreen(false);
+      _boundsBeforeMini = await window.getBounds();
+      _alwaysOnTopBeforeMini = _state.alwaysOnTop;
+      await window.setMinimumSize(miniPlayerSize);
+      final origin = _boundsBeforeMini!.topLeft;
+      await window.setBounds(origin & miniPlayerSize);
+      await window.setAlwaysOnTop(true);
+      update((st) => st.copyWith(miniPlayer: true, alwaysOnTop: true));
+    } else {
+      await window.setMinimumSize(mainMinimumSize);
+      final previous = _boundsBeforeMini;
+      if (previous != null) await window.setBounds(previous);
+      await window.setAlwaysOnTop(_alwaysOnTopBeforeMini);
+      update((st) => st.copyWith(miniPlayer: false, alwaysOnTop: _alwaysOnTopBeforeMini));
+      _boundsBeforeMini = null;
+    }
   }
 
   /// Ouvre un fichier : scan du dossier parent, choix du contrôleur, reprise

@@ -4,12 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/commands/player_command.dart';
 import '../../core/models/end_of_playback_mode.dart';
 import '../../core/models/playback_status.dart';
+import '../../core/models/video_adjust.dart';
 import '../../core/providers.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
 import '../file_dialogs.dart';
 import '../panel_controller.dart';
+import '../tool_panel_controller.dart';
 import 'omnia_menu.dart';
+import 'track_menus.dart';
 
 /// Menu contextuel de la scène (clic droit sur la vidéo).
 ///
@@ -40,6 +43,13 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
         state.hasFile && state.status != PlaybackStatus.error && state.mediaType.isAv;
     final hasPlaylist = state.playlist.length > 1;
     final path = state.file?.path;
+
+    String aspectLabel(AspectMode mode) => switch (mode) {
+          AspectMode.auto => l10n.aspectAuto,
+          AspectMode.wide => l10n.aspectWide,
+          AspectMode.standard => l10n.aspectStandard,
+          AspectMode.fill => l10n.aspectFill,
+        };
 
     String endModeLabel(EndOfPlaybackMode mode) => switch (mode) {
           EndOfPlaybackMode.stop => l10n.endModeStop,
@@ -103,6 +113,88 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
               ),
           ],
         ),
+        if (hasMedia && state.hasVideo) ...[
+          const OmniaMenuDivider(),
+          OmniaSubmenu(
+            icon: Icons.subtitles_outlined,
+            label: l10n.subtitles,
+            children: subtitleMenuItems(context, ref, state),
+          ),
+          if (state.audioTracks.length > 1)
+            OmniaSubmenu(
+              icon: Icons.audiotrack_rounded,
+              label: l10n.audioTracks,
+              children: audioTrackMenuItems(context, ref, state),
+            ),
+          OmniaSubmenu(
+            icon: Icons.tune_rounded,
+            label: l10n.image,
+            children: [
+              OmniaSubmenu(
+                label: l10n.aspectRatio,
+                trailing: aspectLabel(state.aspectMode),
+                children: [
+                  for (final mode in AspectMode.values)
+                    OmniaMenuItem(
+                      label: aspectLabel(mode),
+                      active: state.aspectMode == mode,
+                      icon: state.aspectMode == mode ? Icons.check_rounded : null,
+                      onPressed: () => ref.dispatch(SetAspectMode(mode)),
+                    ),
+                ],
+              ),
+              OmniaMenuItem(
+                icon: Icons.zoom_in_rounded,
+                label: l10n.docZoomIn,
+                onPressed: () => ref.dispatch(const VideoZoomRelative(0.1)),
+              ),
+              OmniaMenuItem(
+                icon: Icons.zoom_out_rounded,
+                label: l10n.docZoomOut,
+                onPressed: () => ref.dispatch(const VideoZoomRelative(-0.1)),
+              ),
+              OmniaMenuItem(
+                icon: Icons.crop_free_rounded,
+                label: l10n.videoZoomReset,
+                enabled: state.videoZoom != 0,
+                onPressed: () => ref.dispatch(const ResetVideoZoom()),
+              ),
+              OmniaMenuItem(
+                icon: Icons.rotate_right_rounded,
+                label: l10n.videoRotate,
+                trailing: state.videoRotation == 0 ? null : '${state.videoRotation * 90}°',
+                onPressed: () => ref.dispatch(const RotateVideo()),
+              ),
+              const OmniaMenuDivider(),
+              OmniaMenuItem(
+                icon: Icons.brightness_6_outlined,
+                label: l10n.imageAdjust,
+                onPressed: () => ref.read(toolPanelProvider.notifier).toggle(ToolPanel.image),
+              ),
+            ],
+          ),
+          OmniaMenuItem(
+            icon: Icons.photo_camera_outlined,
+            label: l10n.screenshot,
+            trailing: 'S',
+            onPressed: () => ref.dispatch(const TakeScreenshot()),
+          ),
+        ],
+        if (hasMedia) ...[
+          OmniaMenuItem(
+            icon: Icons.repeat_rounded,
+            label: l10n.abLoop,
+            trailing: 'A',
+            active: state.loopA != null,
+            onPressed: () => ref.dispatch(const CycleAbLoop()),
+          ),
+          OmniaMenuItem(
+            icon: Icons.equalizer_rounded,
+            label: l10n.equalizer,
+            active: state.equalizerEnabled,
+            onPressed: () => ref.read(toolPanelProvider.notifier).toggle(ToolPanel.equalizer),
+          ),
+        ],
         const OmniaMenuDivider(),
         OmniaMenuItem(
           icon: state.fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
@@ -110,6 +202,13 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
           trailing: 'F',
           onPressed: () => ref.dispatch(const ToggleFullscreen()),
         ),
+        if (hasMedia)
+          OmniaMenuItem(
+            icon: Icons.picture_in_picture_alt_outlined,
+            label: l10n.miniPlayer,
+            trailing: 'Ctrl+Maj+M',
+            onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
+          ),
         OmniaMenuItem(
           icon: Icons.push_pin_outlined,
           label: l10n.alwaysOnTop,

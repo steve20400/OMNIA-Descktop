@@ -9,10 +9,12 @@ import '../../core/providers.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
 import '../theme/omnia_theme.dart';
+import '../tool_panel_controller.dart';
 import 'beam_progress_bar.dart';
 import 'floating_surface.dart';
 import 'omnia_icon_button.dart';
 import 'slim_slider.dart';
+import 'track_menus.dart';
 
 /// Barre de contrôles flottante : faisceau de progression, lecture/pause,
 /// timecodes, vitesse, volume, plein écran.
@@ -29,6 +31,11 @@ class ControlBar extends ConsumerStatefulWidget {
 class _ControlBarState extends ConsumerState<ControlBar> {
   /// Clic sur la durée : bascule durée totale ↔ temps restant.
   bool _showRemaining = false;
+
+  static double? _fraction(Duration? value, Duration duration) {
+    if (value == null || duration.inMilliseconds <= 0) return null;
+    return (value.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +62,7 @@ class _ControlBarState extends ConsumerState<ControlBar> {
             : Icons.volume_up_rounded;
 
     final isPlaying = state.status == PlaybackStatus.playing;
+    final toolPanel = ref.watch(toolPanelProvider);
 
     return Center(
       child: ConstrainedBox(
@@ -75,6 +83,8 @@ class _ControlBarState extends ConsumerState<ControlBar> {
                   progress: state.progress,
                   duration: state.duration,
                   enabled: canSeek,
+                  loopA: _fraction(state.loopA, state.duration),
+                  loopB: _fraction(state.loopB, state.duration),
                   onSeek: (position) => ref.dispatch(SeekAbsolute(position)),
                 ),
                 Row(
@@ -114,6 +124,36 @@ class _ControlBarState extends ConsumerState<ControlBar> {
                       ),
                     ),
                     const Spacer(),
+                    OmniaIconButton(
+                      icon: Icons.repeat_rounded,
+                      tooltip: '${l10n.abLoop}  ·  A',
+                      active: state.loopA != null,
+                      onPressed: canSeek ? () => ref.dispatch(const CycleAbLoop()) : null,
+                    ),
+                    if (state.hasVideo)
+                      OmniaIconButton(
+                        icon: Icons.photo_camera_outlined,
+                        tooltip: '${l10n.screenshot}  ·  S',
+                        onPressed: hasMedia ? () => ref.dispatch(const TakeScreenshot()) : null,
+                      ),
+                    SubtitleMenuButton(enabled: hasMedia && state.hasVideo),
+                    const AudioTrackMenuButton(),
+                    if (state.hasVideo)
+                      OmniaIconButton(
+                        icon: Icons.tune_rounded,
+                        tooltip: l10n.image,
+                        active: toolPanel == ToolPanel.image,
+                        onPressed: () => ref.read(toolPanelProvider.notifier).toggle(ToolPanel.image),
+                      ),
+                    OmniaIconButton(
+                      icon: Icons.equalizer_rounded,
+                      tooltip: l10n.equalizer,
+                      active: state.equalizerEnabled || toolPanel == ToolPanel.equalizer,
+                      onPressed: hasMedia
+                          ? () => ref.read(toolPanelProvider.notifier).toggle(ToolPanel.equalizer)
+                          : null,
+                    ),
+                    const SizedBox(width: OmniaMetrics.space2),
                     _EndModeButton(mode: state.endMode),
                     const SizedBox(width: OmniaMetrics.space2),
                     _SpeedChip(speed: state.speed, enabled: hasMedia),
@@ -129,6 +169,11 @@ class _ControlBarState extends ConsumerState<ControlBar> {
                       onChanged: (v) => ref.dispatch(SetVolume(v * PlaybackState.maxVolume)),
                     ),
                     const SizedBox(width: OmniaMetrics.space3),
+                    OmniaIconButton(
+                      icon: Icons.picture_in_picture_alt_outlined,
+                      tooltip: '${l10n.miniPlayer}  ·  Ctrl+Maj+M',
+                      onPressed: hasMedia ? () => ref.dispatch(const ToggleMiniPlayer()) : null,
+                    ),
                     OmniaIconButton(
                       icon: state.fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
                       tooltip: state.fullscreen ? l10n.exitFullscreen : l10n.fullscreen,

@@ -18,6 +18,8 @@ class BeamProgressBar extends StatefulWidget {
     required this.duration,
     required this.onSeek,
     this.enabled = true,
+    this.loopA,
+    this.loopB,
   });
 
   /// Progression 0–1.
@@ -30,6 +32,10 @@ class BeamProgressBar extends StatefulWidget {
   final ValueChanged<Duration> onSeek;
 
   final bool enabled;
+
+  /// Bornes de la boucle A-B, en fraction 0–1 ; `null` si absentes.
+  final double? loopA;
+  final double? loopB;
 
   @override
   State<BeamProgressBar> createState() => _BeamProgressBarState();
@@ -112,6 +118,8 @@ class _BeamProgressBarState extends State<BeamProgressBar> {
                           hoverFraction: lit && hoverX != null && width > 0
                               ? hoverX / width
                               : null,
+                          loopA: widget.loopA,
+                          loopB: widget.loopB,
                           colors: colors,
                         ),
                       ),
@@ -155,6 +163,8 @@ class _BeamPainter extends CustomPainter {
     required this.lit,
     required this.hoverFraction,
     required this.colors,
+    this.loopA,
+    this.loopB,
   });
 
   final double progress;
@@ -162,6 +172,8 @@ class _BeamPainter extends CustomPainter {
   /// 0 au repos, 1 survolé (animé).
   final double lit;
   final double? hoverFraction;
+  final double? loopA;
+  final double? loopB;
   final OmniaColors colors;
 
   @override
@@ -212,6 +224,28 @@ class _BeamPainter extends CustomPainter {
       canvas.drawRRect(elapsed, Paint()..color = colors.projector);
     }
 
+    // Boucle A-B : la portion bouclée est soulignée, ses bornes marquées.
+    final a = loopA;
+    final b = loopB;
+    if (a != null) {
+      final ax = a.clamp(0.0, 1.0) * size.width;
+      final bx = (b ?? a).clamp(0.0, 1.0) * size.width;
+      if (b != null && bx > ax) {
+        canvas.drawRect(
+          Rect.fromLTWH(ax, cy + thickness / 2 + 2, bx - ax, 2),
+          Paint()..color = colors.projector.withValues(alpha: 0.7),
+        );
+      }
+      final marker = Paint()
+        ..color = colors.screen
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(Offset(ax, cy - thickness - 3), Offset(ax, cy + thickness + 3), marker);
+      if (b != null) {
+        canvas.drawLine(Offset(bx, cy - thickness - 3), Offset(bx, cy + thickness + 3), marker);
+      }
+    }
+
     // Lampe : la tête de lecture.
     final lampR = lerpDouble(
       OmniaMetrics.beamLampRadiusRest,
@@ -246,5 +280,7 @@ class _BeamPainter extends CustomPainter {
       old.progress != progress ||
       old.lit != lit ||
       old.hoverFraction != hoverFraction ||
+      old.loopA != loopA ||
+      old.loopB != loopB ||
       old.colors != colors;
 }

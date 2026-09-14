@@ -1,7 +1,10 @@
+import 'package:collection/collection.dart';
+
 import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
 import '../../core/models/end_of_playback_mode.dart';
 import '../../core/models/playback_state.dart';
+import '../../core/models/video_adjust.dart';
 
 /// Ce que l'OSD (affichage à l'écran) doit montrer après une action.
 ///
@@ -62,6 +65,64 @@ final class OsdFullscreen extends OsdMessage {
   final bool enabled;
 }
 
+/// Sous-titres affichés / masqués, ou piste changée.
+final class OsdSubtitles extends OsdMessage {
+  const OsdSubtitles({required this.visible, this.trackLabel});
+  final bool visible;
+  final String? trackLabel;
+}
+
+/// Décalage des sous-titres, en secondes.
+final class OsdSubtitleDelay extends OsdMessage {
+  const OsdSubtitleDelay(this.seconds);
+  final double seconds;
+}
+
+final class OsdAudioTrack extends OsdMessage {
+  const OsdAudioTrack(this.label);
+  final String label;
+}
+
+/// Boucle A-B : étape atteinte.
+final class OsdAbLoop extends OsdMessage {
+  const OsdAbLoop({required this.a, required this.b});
+  final Duration? a;
+  final Duration? b;
+}
+
+final class OsdScreenshot extends OsdMessage {
+  const OsdScreenshot(this.path);
+  final String path;
+}
+
+final class OsdAspect extends OsdMessage {
+  const OsdAspect(this.mode);
+  final AspectMode mode;
+}
+
+final class OsdVideoZoom extends OsdMessage {
+  const OsdVideoZoom(this.zoom);
+
+  /// Échelle mpv (logarithmique) ; 0 = 1×.
+  final double zoom;
+}
+
+final class OsdVideoRotation extends OsdMessage {
+  const OsdVideoRotation(this.quarterTurns);
+  final int quarterTurns;
+}
+
+final class OsdEqualizer extends OsdMessage {
+  const OsdEqualizer({required this.enabled, this.preset});
+  final bool enabled;
+  final String? preset;
+}
+
+final class OsdMiniPlayer extends OsdMessage {
+  const OsdMiniPlayer({required this.enabled});
+  final bool enabled;
+}
+
 /// Décide si une action mérite un retour à l'écran.
 ///
 /// Une action au clavier, en ligne de commande ou depuis la télécommande n'a
@@ -116,6 +177,32 @@ OsdMessage? osdFor(PlayerCommand command, PlaybackState after) {
     ToggleFullscreen() || ExitFullscreen() => OsdFullscreen(
         enabled: after.fullscreen,
       ),
+    ToggleSubtitles() || SetSubtitleTrack() || LoadSubtitleFile() when hasMedia => OsdSubtitles(
+        visible: after.subtitlesVisible && after.subtitleTrackId != null,
+        trackLabel: after.subtitleTracks
+            .where((t) => t.id == after.subtitleTrackId)
+            .map((t) => t.label)
+            .firstOrNull,
+      ),
+    SetSubtitleDelay() || SubtitleDelayRelative() when hasMedia =>
+      OsdSubtitleDelay(after.subtitleDelay),
+    SetAudioTrack() when hasMedia => OsdAudioTrack(
+        after.audioTracks
+                .where((t) => t.id == after.audioTrackId)
+                .map((t) => t.label)
+                .firstOrNull ??
+            '',
+      ),
+    CycleAbLoop() || ClearAbLoop() when hasMedia => OsdAbLoop(a: after.loopA, b: after.loopB),
+    TakeScreenshot() when after.lastScreenshot != null => OsdScreenshot(after.lastScreenshot!),
+    SetAspectMode() when hasMedia => OsdAspect(after.aspectMode),
+    VideoZoomRelative() || ResetVideoZoom() when hasMedia => OsdVideoZoom(after.videoZoom),
+    RotateVideo() when hasMedia => OsdVideoRotation(after.videoRotation),
+    ToggleEqualizer() || SetEqualizerPreset() => OsdEqualizer(
+        enabled: after.equalizerEnabled,
+        preset: after.equalizerPreset,
+      ),
+    ToggleMiniPlayer() => OsdMiniPlayer(enabled: after.miniPlayer),
     _ => null,
   };
 }

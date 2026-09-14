@@ -25,6 +25,10 @@ abstract interface class WindowService {
   /// sa géométrie. Utilisé quand une seconde instance nous confie un fichier.
   Future<void> focus();
 
+  /// Taille minimale de la fenêtre (le mini-lecteur descend sous celle du
+  /// lecteur principal).
+  Future<void> setMinimumSize(Size size);
+
   /// Émet à chaque déplacement/redimensionnement/maximisation.
   Stream<void> get geometryChanges;
 }
@@ -85,6 +89,9 @@ class WindowManagerService with WindowListener implements WindowService {
     await windowManager.show();
     await windowManager.focus();
   }
+
+  @override
+  Future<void> setMinimumSize(Size size) => windowManager.setMinimumSize(size);
 
   @override
   void onWindowMoved() => _geometry.add(null);
@@ -157,4 +164,9 @@ class FakeWindowService implements WindowService {
 
   @override
   Future<void> focus() async => focusCount++;
+
+  Size minimumSize = const Size(720, 460);
+
+  @override
+  Future<void> setMinimumSize(Size size) async => minimumSize = size;
 }

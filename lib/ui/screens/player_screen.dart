@@ -26,11 +26,13 @@ import '../widgets/control_bar.dart';
 import '../widgets/document_bar.dart';
 import '../widgets/find_bar.dart';
 import '../widgets/help_overlay.dart';
+import '../widgets/mini_player.dart';
 import '../widgets/osd_overlay.dart';
 import '../widgets/side_panel.dart';
 import '../widgets/stage.dart';
 import '../widgets/stage_context_menu.dart';
 import '../widgets/title_bar.dart';
+import '../widgets/tool_panels.dart';
 
 /// Écran unique d'OMNIA : barre de titre, panneau de dossier, scène,
 /// contrôles flottants.
@@ -138,6 +140,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       ),
     );
     final isDocument = ref.watch(playbackStateProvider.select((s) => s.isDocument));
+    final miniPlayer = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
+    if (miniPlayer) return const MiniPlayer();
     final findVisible = ref.watch(documentUiProvider.select((u) => u.findVisible));
     final search = ref.watch(documentSearchProvider);
     final panelVisible = ref.watch(panelStateProvider.select((p) => p.visible));
@@ -216,6 +220,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                   top: OmniaMetrics.space3,
                                   child: PanelRevealButton(),
                                 ),
+                              Positioned(
+                                right: OmniaMetrics.controlBarMargin,
+                                bottom: OmniaMetrics.controlBarMargin + 96,
+                                child: const ToolPanelHost(),
+                              ),
                               Positioned(
                                 left: 0,
                                 right: 0,

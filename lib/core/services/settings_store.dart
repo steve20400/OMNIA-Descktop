@@ -13,6 +13,7 @@ abstract final class SettingsKeys {
   static const playlistSort = 'playlist.sort';
   static const playlistDescending = 'playlist.descending';
   static const endOfPlaybackMode = 'playback.endMode';
+  static const screenshotFolder = 'screenshots.folder';
 }
 
 /// Préférences persistantes d'OMNIA.
@@ -42,6 +43,10 @@ abstract interface class SettingsStore {
   /// Comportement en fin de lecture.
   String? get endOfPlaybackMode;
   Future<void> setEndOfPlaybackMode(String mode);
+
+  /// Dossier des captures d'écran ; `null` = dossier par défaut du système.
+  String? get screenshotFolder;
+  Future<void> setScreenshotFolder(String? path);
 }
 
 /// Implémentation Hive (fichier local dans le dossier de données de l'app).
@@ -118,6 +123,14 @@ class HiveSettingsStore implements SettingsStore {
   @override
   Future<void> setEndOfPlaybackMode(String mode) =>
       _box.put(SettingsKeys.endOfPlaybackMode, mode);
+
+  @override
+  String? get screenshotFolder => _box.get(SettingsKeys.screenshotFolder) as String?;
+
+  @override
+  Future<void> setScreenshotFolder(String? path) => path == null
+      ? _box.delete(SettingsKeys.screenshotFolder)
+      : _box.put(SettingsKeys.screenshotFolder, path);
 }
 
 /// Implémentation en mémoire pour les tests.
@@ -171,4 +184,12 @@ class MemorySettingsStore implements SettingsStore {
 
   @override
   Future<void> setEndOfPlaybackMode(String mode) async => _endMode = mode;
+
+  String? _screenshotFolder;
+
+  @override
+  String? get screenshotFolder => _screenshotFolder;
+
+  @override
+  Future<void> setScreenshotFolder(String? path) async => _screenshotFolder = path;
 }

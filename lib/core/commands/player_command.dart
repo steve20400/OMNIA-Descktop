@@ -3,6 +3,7 @@ import 'package:collection/collection.dart';
 import '../models/document_layout.dart';
 import '../models/end_of_playback_mode.dart';
 import '../models/playlist_sort.dart';
+import '../models/video_adjust.dart';
 
 /// Commandes du lecteur.
 ///
@@ -75,6 +76,29 @@ sealed class PlayerCommand {
         SetDocumentLayout(DocumentLayout.fromJson(json['layout'])),
       'toggleDocumentLayout' => const ToggleDocumentLayout(),
       'scrollTo' => ScrollTo(_num(json, 'fraction').toDouble()),
+      'setSubtitleTrack' => SetSubtitleTrack(json['id'] as String?),
+      'toggleSubtitles' => const ToggleSubtitles(),
+      'loadSubtitleFile' => LoadSubtitleFile(_string(json, 'path')),
+      'setSubtitleDelay' => SetSubtitleDelay(_num(json, 'seconds').toDouble()),
+      'subtitleDelayRelative' => SubtitleDelayRelative(_num(json, 'delta').toDouble()),
+      'setSubtitleScale' => SetSubtitleScale(_num(json, 'scale').toDouble()),
+      'setAudioTrack' => SetAudioTrack(json['id'] as String?),
+      'cycleAbLoop' => const CycleAbLoop(),
+      'clearAbLoop' => const ClearAbLoop(),
+      'setAspectMode' => SetAspectMode(AspectMode.fromJson(json['mode'])),
+      'videoZoomRelative' => VideoZoomRelative(_num(json, 'delta').toDouble()),
+      'resetVideoZoom' => const ResetVideoZoom(),
+      'rotateVideo' => RotateVideo(_num(json, 'quarterTurns').toInt()),
+      'setVideoAdjust' => SetVideoAdjust(
+          VideoAdjust.fromJson(Map<String, Object?>.from(json['adjust'] as Map)),
+        ),
+      'resetVideoAdjust' => const ResetVideoAdjust(),
+      'setEqualizerGains' => SetEqualizerGains(
+          (json['gains'] as List).whereType<num>().map((n) => n.toDouble()).toList(),
+        ),
+      'setEqualizerPreset' => SetEqualizerPreset(_string(json, 'preset')),
+      'toggleEqualizer' => const ToggleEqualizer(),
+      'toggleMiniPlayer' => const ToggleMiniPlayer(),
       _ => throw FormatException('Commande inconnue : $type'),
     };
   }
@@ -471,4 +495,172 @@ final class ScrollTo extends PlayerCommand {
   String get type => 'scrollTo';
   @override
   Map<String, Object?> get arguments => {'fraction': fraction};
+}
+
+// --- Sous-titres et pistes audio ------------------------------------------
+
+/// Sélectionne une piste de sous-titres ; `null` pour aucune.
+final class SetSubtitleTrack extends PlayerCommand {
+  const SetSubtitleTrack(this.id);
+  final String? id;
+  @override
+  String get type => 'setSubtitleTrack';
+  @override
+  Map<String, Object?> get arguments => {'id': id};
+}
+
+/// Affiche / masque les sous-titres sans changer la piste choisie (`V`).
+final class ToggleSubtitles extends PlayerCommand {
+  const ToggleSubtitles();
+  @override
+  String get type => 'toggleSubtitles';
+}
+
+/// Charge un fichier de sous-titres externe et le sélectionne.
+final class LoadSubtitleFile extends PlayerCommand {
+  const LoadSubtitleFile(this.path);
+  final String path;
+  @override
+  String get type => 'loadSubtitleFile';
+  @override
+  Map<String, Object?> get arguments => {'path': path};
+}
+
+final class SetSubtitleDelay extends PlayerCommand {
+  const SetSubtitleDelay(this.seconds);
+  final double seconds;
+  @override
+  String get type => 'setSubtitleDelay';
+  @override
+  Map<String, Object?> get arguments => {'seconds': seconds};
+}
+
+final class SubtitleDelayRelative extends PlayerCommand {
+  const SubtitleDelayRelative(this.delta);
+  final double delta;
+  @override
+  String get type => 'subtitleDelayRelative';
+  @override
+  Map<String, Object?> get arguments => {'delta': delta};
+}
+
+final class SetSubtitleScale extends PlayerCommand {
+  const SetSubtitleScale(this.scale);
+  final double scale;
+  @override
+  String get type => 'setSubtitleScale';
+  @override
+  Map<String, Object?> get arguments => {'scale': scale};
+}
+
+/// Sélectionne une piste audio ; `null` pour « automatique ».
+final class SetAudioTrack extends PlayerCommand {
+  const SetAudioTrack(this.id);
+  final String? id;
+  @override
+  String get type => 'setAudioTrack';
+  @override
+  Map<String, Object?> get arguments => {'id': id};
+}
+
+// --- Boucle A-B -------------------------------------------------------------
+
+/// Touche `A` : pose A, puis B (boucle active), puis efface.
+final class CycleAbLoop extends PlayerCommand {
+  const CycleAbLoop();
+  @override
+  String get type => 'cycleAbLoop';
+}
+
+final class ClearAbLoop extends PlayerCommand {
+  const ClearAbLoop();
+  @override
+  String get type => 'clearAbLoop';
+}
+
+// --- Image ------------------------------------------------------------------
+
+final class SetAspectMode extends PlayerCommand {
+  const SetAspectMode(this.mode);
+  final AspectMode mode;
+  @override
+  String get type => 'setAspectMode';
+  @override
+  Map<String, Object?> get arguments => {'mode': mode.name};
+}
+
+/// Zoom vidéo relatif, sur l'échelle logarithmique de mpv (0.1 ≈ +7 %).
+final class VideoZoomRelative extends PlayerCommand {
+  const VideoZoomRelative(this.delta);
+  final double delta;
+  @override
+  String get type => 'videoZoomRelative';
+  @override
+  Map<String, Object?> get arguments => {'delta': delta};
+}
+
+final class ResetVideoZoom extends PlayerCommand {
+  const ResetVideoZoom();
+  @override
+  String get type => 'resetVideoZoom';
+}
+
+/// Pivote la vidéo de [quarterTurns] quarts de tour (1 = 90° horaire).
+final class RotateVideo extends PlayerCommand {
+  const RotateVideo([this.quarterTurns = 1]);
+  final int quarterTurns;
+  @override
+  String get type => 'rotateVideo';
+  @override
+  Map<String, Object?> get arguments => {'quarterTurns': quarterTurns};
+}
+
+final class SetVideoAdjust extends PlayerCommand {
+  const SetVideoAdjust(this.adjust);
+  final VideoAdjust adjust;
+  @override
+  String get type => 'setVideoAdjust';
+  @override
+  Map<String, Object?> get arguments => {'adjust': adjust.toJson()};
+}
+
+final class ResetVideoAdjust extends PlayerCommand {
+  const ResetVideoAdjust();
+  @override
+  String get type => 'resetVideoAdjust';
+}
+
+// --- Égaliseur --------------------------------------------------------------
+
+final class SetEqualizerGains extends PlayerCommand {
+  const SetEqualizerGains(this.gains);
+  final List<double> gains;
+  @override
+  String get type => 'setEqualizerGains';
+  @override
+  Map<String, Object?> get arguments => {'gains': gains};
+}
+
+final class SetEqualizerPreset extends PlayerCommand {
+  const SetEqualizerPreset(this.preset);
+  final String preset;
+  @override
+  String get type => 'setEqualizerPreset';
+  @override
+  Map<String, Object?> get arguments => {'preset': preset};
+}
+
+final class ToggleEqualizer extends PlayerCommand {
+  const ToggleEqualizer();
+  @override
+  String get type => 'toggleEqualizer';
+}
+
+// --- Fenêtre ---------------------------------------------------------------
+
+/// Bascule le mode mini-lecteur (fenêtre compacte au premier plan).
+final class ToggleMiniPlayer extends PlayerCommand {
+  const ToggleMiniPlayer();
+  @override
+  String get type => 'toggleMiniPlayer';
 }

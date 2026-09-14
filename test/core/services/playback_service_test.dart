@@ -1,25 +1,34 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' show Offset, Rect;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/commands/player_command.dart';
 import 'package:omnia/core/commands/player_command_bus.dart';
+import 'package:omnia/core/controllers/frame_capturer.dart';
 import 'package:omnia/core/controllers/media_controller.dart';
 import 'package:omnia/core/controllers/media_router.dart';
+import 'package:omnia/core/models/document_layout.dart';
 import 'package:omnia/core/models/end_of_playback_mode.dart';
+import 'package:omnia/core/models/equalizer.dart';
 import 'package:omnia/core/models/media_file.dart';
 import 'package:omnia/core/models/media_type.dart';
 import 'package:omnia/core/models/playback_state.dart';
 import 'package:omnia/core/models/playback_status.dart';
+import 'package:omnia/core/models/track_info.dart';
+import 'package:omnia/core/models/video_adjust.dart';
 import 'package:omnia/core/services/folder_scanner.dart';
 import 'package:omnia/core/services/history_store.dart';
 import 'package:omnia/core/services/playback_service.dart';
 import 'package:omnia/core/services/playlist_service.dart';
+import 'package:omnia/core/services/screenshot_service.dart';
 import 'package:omnia/core/services/settings_store.dart';
 import 'package:omnia/core/services/system_integration.dart';
 import 'package:omnia/core/services/window_service.dart';
+import 'package:path/path.dart' as p;
 
 /// Contrôleur factice : enregistre ce qu'il reçoit et simule une lecture.
-class FakeAvController implements MediaController {
+class FakeAvController implements MediaController, FrameCapturer {
   final List<MediaFile> opened = [];
   final List<PlayerCommand> handled = [];
   int closeCount = 0;
@@ -27,6 +36,12 @@ class FakeAvController implements MediaController {
 
   /// Durée annoncée à l'ouverture.
   Duration duration = const Duration(minutes: 10);
+
+  /// Image renvoyée par la capture ; `null` simule un flux sans vidéo.
+  Uint8List? frame = Uint8List.fromList([1, 2, 3]);
+
+  @override
+  Future<Uint8List?> captureFrame() async => frame;
 
   @override
   Set<MediaType> get supportedTypes => const {MediaType.video, MediaType.audio};
@@ -760,6 +775,106 @@ void main() {
     });
   });
 
+  group('Capture d’écran', () {
+    late Directory shots;
+    late PlaybackService shotService;
+    late PlaylistService shotPlaylist;
+
+    setUp(() {
+      shots = Directory.systemTemp.createTempSync('omnia_shots_');
+      shotPlaylist = PlaylistService(bus: bus, scanner: scanner);
+      shotService = PlaybackService(
+        bus: bus,
+        router: MediaRouter([av]),
+        window: window,
+        playlist: shotPlaylist,
+        screenshots: ScreenshotService(defaultFolder: () async => shots),
+      );
+    });
+
+    tearDown(() async {
+      await shotService.dispose();
+      await shotPlaylist.dispose();
+      try {
+        shots.deleteSync(recursive: true);
+      } on FileSystemException {
+        // Nettoyé par le système.
+      }
+    });
+
+    test('S enregistre un PNG et publie son chemin', () async {
+      await shotService.openPath('/serie/ep1.mkv');
+      bus.dispatch(const TakeScreenshot());
+      await settle();
+      await shotService.idle;
+
+      final path = shotService.state.lastScreenshot;
+      expect(path, isNotNull);
+      expect(p.dirname(path!), shots.path);
+      expect(p.basename(path), startsWith('ep1 '));
+      expect(File(path).existsSync(), isTrue);
+    });
+
+    test('sans image (audio), rien n’est enregistré', () async {
+      av.frame = null;
+      await shotService.openPath('/serie/ep1.mkv');
+      bus.dispatch(const TakeScreenshot());
+      await settle();
+      await shotService.idle;
+
+      expect(shotService.state.lastScreenshot, isNull);
+      expect(shots.listSync(), isEmpty);
+    });
+
+    test('sans fichier ouvert, rien ne se passe', () async {
+      bus.dispatch(const TakeScreenshot());
+      await settle();
+      expect(shotService.state.lastScreenshot, isNull);
+    });
+  });
+
+  group('Mini-lecteur', () {
+    test('entrer : fenêtre compacte, premier plan ; sortir : tout est rendu', () async {
+      window.bounds = const Rect.fromLTWH(100, 80, 1200, 760);
+      bus.dispatch(const ToggleMiniPlayer());
+      await settle();
+
+      expect(service.state.miniPlayer, isTrue);
+      expect(service.state.alwaysOnTop, isTrue);
+      expect(window.alwaysOnTop, isTrue);
+      expect(window.bounds.topLeft, const Offset(100, 80));
+      expect(window.bounds.size, PlaybackService.miniPlayerSize);
+      expect(window.minimumSize, PlaybackService.miniPlayerSize);
+
+      bus.dispatch(const ToggleMiniPlayer());
+      await settle();
+
+      expect(service.state.miniPlayer, isFalse);
+      expect(service.state.alwaysOnTop, isFalse);
+      expect(window.alwaysOnTop, isFalse);
+      expect(window.bounds, const Rect.fromLTWH(100, 80, 1200, 760));
+      expect(window.minimumSize, PlaybackService.mainMinimumSize);
+    });
+
+    test('le premier plan choisi avant est conservé à la sortie', () async {
+      bus.dispatch(const ToggleAlwaysOnTop());
+      bus.dispatch(const ToggleMiniPlayer());
+      bus.dispatch(const ToggleMiniPlayer());
+      await settle();
+      expect(service.state.alwaysOnTop, isTrue);
+      expect(window.alwaysOnTop, isTrue);
+    });
+
+    test('quitter le plein écran avant d’entrer en mini-lecteur', () async {
+      bus.dispatch(const ToggleFullscreen());
+      bus.dispatch(const ToggleMiniPlayer());
+      await settle();
+      expect(service.state.fullscreen, isFalse);
+      expect(window.fullscreen, isFalse);
+      expect(service.state.miniPlayer, isTrue);
+    });
+  });
+
   test('PlaybackState — aller-retour JSON', () {
     const state = PlaybackState(
       file: MediaFile(path: '/a/b.mkv', type: MediaType.video),
@@ -769,6 +884,27 @@ void main() {
       volume: 65,
       muted: true,
       speed: 1.25,
+      rotation: 1,
+      readingDark: true,
+      documentLayout: DocumentLayout.paged,
+      scrollFraction: 0.3,
+      subtitleTracks: [TrackInfo(id: '1', title: 'Français', language: 'fre')],
+      audioTracks: [TrackInfo(id: '1', language: 'eng'), TrackInfo(id: '2', language: 'fre')],
+      subtitleTrackId: '1',
+      audioTrackId: '2',
+      subtitlesVisible: false,
+      subtitleDelay: -0.5,
+      subtitleScale: 1.5,
+      loopA: Duration(seconds: 10),
+      loopB: Duration(seconds: 20),
+      aspectMode: AspectMode.wide,
+      videoZoom: 0.2,
+      videoRotation: 3,
+      videoAdjust: VideoAdjust(brightness: 5, contrast: -5, saturation: 10),
+      equalizerGains: [5, 4, 3, 1, -1, -1, 1, 3, 4, 5],
+      equalizerEnabled: true,
+      lastScreenshot: '/captures/x.png',
+      miniPlayer: true,
       endMode: EndOfPlaybackMode.repeatOne,
       fullscreen: true,
       playlist: ['/a/b.mkv', '/a/c.mkv'],
@@ -779,5 +915,16 @@ void main() {
     expect(restored.toJson(), state.toJson());
     expect(restored.progress, closeTo(42 / 180, 1e-9));
     expect(restored.remaining, const Duration(minutes: 2, seconds: 18));
+    expect(restored.abLoopActive, isTrue);
+    expect(restored.equalizerPreset, 'rock');
+    expect(restored.subtitleTracks.single.label, 'Français');
+  });
+
+  test('PlaybackState — JSON minimal : valeurs de repli', () {
+    final restored = PlaybackState.fromJson(const {});
+    expect(restored.subtitlesVisible, isTrue);
+    expect(restored.equalizerGains, Equalizer.flat);
+    expect(restored.abLoopActive, isFalse);
+    expect(restored.videoAdjust, VideoAdjust.neutral);
   });
 }

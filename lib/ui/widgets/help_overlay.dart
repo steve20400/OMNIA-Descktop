@@ -64,6 +64,9 @@ class _HelpCard extends ConsumerWidget {
           (l10n.mute, 'M'),
           (l10n.helpSpeed, '+  −'),
           (l10n.resetSpeed, '='),
+          (l10n.abLoop, 'A'),
+          (l10n.subtitles, 'V'),
+          (l10n.screenshot, 'S'),
         ],
       ),
       (
@@ -82,6 +85,7 @@ class _HelpCard extends ConsumerWidget {
           (l10n.fullscreen, 'F  ·  double-clic'),
           (l10n.exitFullscreen, 'Échap'),
           (l10n.alwaysOnTop, 'T'),
+          (l10n.miniPlayer, 'Ctrl + Maj + M'),
           (l10n.openFile, 'Ctrl + O'),
           (l10n.openFolder, 'Ctrl + Maj + O'),
           (l10n.helpTitle, 'F1'),

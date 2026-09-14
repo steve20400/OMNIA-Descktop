@@ -1,25 +1,37 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:path/path.dart' as p;
 
 import '../commands/player_command.dart';
+import '../models/equalizer.dart';
 import '../models/media_file.dart';
 import '../models/media_type.dart';
 import '../models/playback_state.dart';
 import '../models/playback_status.dart';
+import '../models/track_info.dart';
+import '../models/video_adjust.dart';
 import '../utils/os_errors.dart';
+import 'frame_capturer.dart';
 import 'media_controller.dart';
 
 /// Contrôleur audio/vidéo basé sur media_kit (libmpv).
 ///
 /// Un seul [Player] pour toute la vie de l'application : ouvrir un nouveau
 /// fichier remplace le précédent sans recréer le moteur (ouverture < 1 s).
-class AvController implements MediaController {
+///
+/// Tout ce que media_kit n'expose pas directement (sourdine, sous-titres
+/// externes automatiques, boucle A-B, image, égaliseur) passe par les
+/// propriétés mpv, derrière [_setProperty] qui n'échoue jamais bruyamment :
+/// une propriété refusée par une version de mpv laisse la lecture intacte.
+class AvController implements MediaController, FrameCapturer {
   AvController({Player? player}) : player = player ?? Player() {
     videoController = VideoController(this.player);
     _listen();
+    unawaited(_applyBaseProperties());
   }
 
   /// Moteur mpv.
@@ -35,8 +47,21 @@ class AvController implements MediaController {
   /// afficher « en pause » pendant le chargement.
   bool _opening = false;
 
+  /// Pistes rapportées par mpv pour le fichier courant, pour retrouver un
+  /// objet piste à partir de son identifiant.
+  Tracks _tracks = const Tracks();
+
   @override
   Set<MediaType> get supportedTypes => const {MediaType.video, MediaType.audio};
+
+  /// Réglages mpv valables pour toute la session.
+  Future<void> _applyBaseProperties() async {
+    // Sous-titres voisins chargés automatiquement : même nom de base, avec ou
+    // sans suffixe de langue (`film.srt`, `film.fr.srt`).
+    await _setProperty('sub-auto', 'fuzzy');
+    // Une seule image demandée à la capture, pas de bande-son de clic.
+    await _setProperty('screenshot-format', 'png');
+  }
 
   void _listen() {
     final s = player.stream;
@@ -49,6 +74,25 @@ class AvController implements MediaController {
       s.width.listen((width) {
         if (width == null) return;
         _update((st) => st.copyWith(hasVideo: width > 0));
+      }),
+      s.tracks.listen((tracks) {
+        _tracks = tracks;
+        _update(
+          (st) => st.copyWith(
+            subtitleTracks: tracks.subtitle.where(_isRealTrack).map(_toInfo).toList(),
+            audioTracks: tracks.audio.where(_isRealTrack).map(_toInfo).toList(),
+          ),
+        );
+      }),
+      s.track.listen((track) {
+        _update(
+          (st) => st.copyWith(
+            subtitleTrackId: _isRealTrack(track.subtitle) ? track.subtitle.id : null,
+            clearSubtitleTrack: !_isRealTrack(track.subtitle),
+            audioTrackId: _isRealTrack(track.audio) ? track.audio.id : null,
+            clearAudioTrack: !_isRealTrack(track.audio),
+          ),
+        );
       }),
       s.playing.listen((playing) {
         if (playing) _opening = false;
@@ -86,8 +130,43 @@ class AvController implements MediaController {
     ]);
   }
 
+  /// media_kit liste aussi les pseudo-pistes « auto » et « no ».
+  static bool _isRealTrack(Object track) {
+    final id = switch (track) {
+      SubtitleTrack(:final id) => id,
+      AudioTrack(:final id) => id,
+      VideoTrack(:final id) => id,
+      _ => '',
+    };
+    return id != 'auto' && id != 'no';
+  }
+
+  static TrackInfo _toInfo(Object track) => switch (track) {
+        SubtitleTrack(:final id, :final title, :final language, :final uri) => TrackInfo(
+            id: id,
+            title: title ?? (uri ? p.basename(id) : null),
+            language: language,
+            external: uri,
+          ),
+        AudioTrack(:final id, :final title, :final language, :final uri) =>
+          TrackInfo(id: id, title: title, language: language, external: uri),
+        _ => const TrackInfo(id: '?'),
+      };
+
   void _update(PlaybackState Function(PlaybackState) reducer) {
     _sink?.update(reducer);
+  }
+
+  /// Écrit une propriété mpv. Une propriété inconnue ou refusée ne doit pas
+  /// interrompre la lecture : on l'ignore.
+  Future<void> _setProperty(String name, String value) async {
+    final platform = player.platform;
+    if (platform is! NativePlayer) return;
+    try {
+      await platform.setProperty(name, value);
+    } on Object {
+      // Propriété absente de cette version de mpv, ou moteur déjà libéré.
+    }
   }
 
   @override
@@ -120,16 +199,40 @@ class AvController implements MediaController {
         position: Duration.zero,
         duration: Duration.zero,
         hasVideo: file.type == MediaType.video,
+        // Propres à chaque fichier : pistes, boucle A-B, décalage des
+        // sous-titres, zoom et rotation de l'image.
+        subtitleTracks: const [],
+        audioTracks: const [],
+        clearSubtitleTrack: true,
+        clearAudioTrack: true,
+        clearLoop: true,
+        subtitleDelay: 0,
+        videoZoom: 0,
+        videoRotation: 0,
         clearError: true,
       ),
     );
 
     try {
+      await _setProperty('ab-loop-a', 'no');
+      await _setProperty('ab-loop-b', 'no');
+      await _setProperty('sub-delay', '0');
+      await _setProperty('video-zoom', '0');
+      await _setProperty('video-rotate', '0');
+
       await player.open(Media(file.path), play: true);
-      // Vitesse, volume et sourdine sont conservés d'un fichier à l'autre.
-      await player.setRate(sink.state.speed);
-      await player.setVolume(sink.state.volume);
-      await _setMuted(sink.state.muted);
+
+      // Vitesse, volume, sourdine, sous-titres, image et égaliseur sont
+      // conservés d'un fichier à l'autre.
+      final state = sink.state;
+      await player.setRate(state.speed);
+      await player.setVolume(state.volume);
+      await _setMuted(state.muted);
+      await _setProperty('sub-visibility', state.subtitlesVisible ? 'yes' : 'no');
+      await _setProperty('sub-scale', state.subtitleScale.toStringAsFixed(2));
+      await _applyAspect(state.aspectMode);
+      await _applyAdjust(state.videoAdjust);
+      await _applyEqualizer(state.equalizerEnabled ? state.equalizerGains : Equalizer.flat);
     } on Object catch (e) {
       _opening = false;
       sink.update(
@@ -177,11 +280,96 @@ class AvController implements MediaController {
         await _setSpeed(speed);
       case SpeedRelative(:final delta):
         await _setSpeed(state.speed + delta);
+
+      // Sous-titres
+      case SetSubtitleTrack(:final id):
+        await _selectSubtitle(id);
+      case ToggleSubtitles():
+        final visible = !state.subtitlesVisible;
+        await _setProperty('sub-visibility', visible ? 'yes' : 'no');
+        _update((st) => st.copyWith(subtitlesVisible: visible));
+      case LoadSubtitleFile(:final path):
+        await player.setSubtitleTrack(SubtitleTrack.uri(path, title: p.basename(path)));
+        await _setProperty('sub-visibility', 'yes');
+        _update((st) => st.copyWith(subtitlesVisible: true));
+      case SetSubtitleDelay(:final seconds):
+        await _setSubtitleDelay(seconds);
+      case SubtitleDelayRelative(:final delta):
+        await _setSubtitleDelay(state.subtitleDelay + delta);
+      case SetSubtitleScale(:final scale):
+        final s = scale.clamp(PlaybackState.minSubtitleScale, PlaybackState.maxSubtitleScale);
+        await _setProperty('sub-scale', s.toStringAsFixed(2));
+        _update((st) => st.copyWith(subtitleScale: s));
+
+      // Pistes audio
+      case SetAudioTrack(:final id):
+        await _selectAudio(id);
+
+      // Boucle A-B
+      case CycleAbLoop():
+        await _cycleAbLoop(state);
+      case ClearAbLoop():
+        await _clearAbLoop();
+
+      // Image
+      case SetAspectMode(:final mode):
+        await _applyAspect(mode);
+        _update((st) => st.copyWith(aspectMode: mode));
+      case VideoZoomRelative(:final delta):
+        final z = (state.videoZoom + delta)
+            .clamp(PlaybackState.minVideoZoom, PlaybackState.maxVideoZoom);
+        await _setProperty('video-zoom', z.toStringAsFixed(3));
+        _update((st) => st.copyWith(videoZoom: z));
+      case ResetVideoZoom():
+        await _setProperty('video-zoom', '0');
+        _update((st) => st.copyWith(videoZoom: 0));
+      case RotateVideo(:final quarterTurns):
+        final r = (state.videoRotation + quarterTurns) % 4;
+        await _setProperty('video-rotate', '${r * 90}');
+        _update((st) => st.copyWith(videoRotation: r));
+      case SetVideoAdjust(:final adjust):
+        final a = adjust.copyWith();
+        await _applyAdjust(a);
+        _update((st) => st.copyWith(videoAdjust: a));
+      case ResetVideoAdjust():
+        await _applyAdjust(VideoAdjust.neutral);
+        _update((st) => st.copyWith(videoAdjust: VideoAdjust.neutral));
+
+      // Égaliseur
+      case SetEqualizerGains(:final gains):
+        final g = Equalizer.normalise(gains);
+        await _applyEqualizer(state.equalizerEnabled ? g : Equalizer.flat);
+        _update((st) => st.copyWith(equalizerGains: g));
+      case SetEqualizerPreset(:final preset):
+        final g = Equalizer.presets[preset];
+        if (g == null) return false;
+        await _applyEqualizer(g);
+        _update((st) => st.copyWith(equalizerGains: g, equalizerEnabled: true));
+      case ToggleEqualizer():
+        final enabled = !state.equalizerEnabled;
+        await _applyEqualizer(enabled ? state.equalizerGains : Equalizer.flat);
+        _update((st) => st.copyWith(equalizerEnabled: enabled));
+
       default:
         return false;
     }
     return true;
   }
+
+  // --- Capture ----------------------------------------------------------------
+
+  @override
+  Future<Uint8List?> captureFrame() async {
+    final state = _sink?.state;
+    if (state == null || !state.hasVideo) return null;
+    try {
+      return await player.screenshot(format: 'image/png');
+    } on Object {
+      return null;
+    }
+  }
+
+  // --- Transport --------------------------------------------------------------
 
   Future<void> _seekTo(Duration target) async {
     final duration = _sink?.state.duration ?? Duration.zero;
@@ -202,10 +390,7 @@ class AvController implements MediaController {
   }
 
   Future<void> _setMuted(bool muted) async {
-    final platform = player.platform;
-    if (platform is NativePlayer) {
-      await platform.setProperty('mute', muted ? 'yes' : 'no');
-    }
+    await _setProperty('mute', muted ? 'yes' : 'no');
     _update((st) => st.copyWith(muted: muted));
   }
 
@@ -218,10 +403,100 @@ class AvController implements MediaController {
     _update((st) => st.copyWith(speed: s));
   }
 
+  // --- Sous-titres et pistes --------------------------------------------------
+
+  Future<void> _selectSubtitle(String? id) async {
+    if (id == null) {
+      await player.setSubtitleTrack(SubtitleTrack.no());
+      _update((st) => st.copyWith(clearSubtitleTrack: true));
+      return;
+    }
+    final track = _tracks.subtitle.where((t) => t.id == id).firstOrNull;
+    if (track != null) {
+      await player.setSubtitleTrack(track);
+    } else if (File(id).existsSync()) {
+      // Identifiant qui est un chemin : sous-titre externe pas encore chargé.
+      await player.setSubtitleTrack(SubtitleTrack.uri(id, title: p.basename(id)));
+    } else {
+      return;
+    }
+    await _setProperty('sub-visibility', 'yes');
+    _update((st) => st.copyWith(subtitleTrackId: id, subtitlesVisible: true));
+  }
+
+  Future<void> _selectAudio(String? id) async {
+    if (id == null) {
+      await player.setAudioTrack(AudioTrack.auto());
+      _update((st) => st.copyWith(clearAudioTrack: true));
+      return;
+    }
+    final track = _tracks.audio.where((t) => t.id == id).firstOrNull;
+    if (track == null) return;
+    await player.setAudioTrack(track);
+    _update((st) => st.copyWith(audioTrackId: id));
+  }
+
+  Future<void> _setSubtitleDelay(double seconds) async {
+    final d = seconds.clamp(PlaybackState.minSubtitleDelay, PlaybackState.maxSubtitleDelay);
+    await _setProperty('sub-delay', d.toStringAsFixed(2));
+    _update((st) => st.copyWith(subtitleDelay: d));
+  }
+
+  // --- Boucle A-B -------------------------------------------------------------
+
+  /// A absent → A = position ; B absent → B = position ; les deux → effacer.
+  /// mpv boucle lui-même entre `ab-loop-a` et `ab-loop-b`, à l'image près.
+  Future<void> _cycleAbLoop(PlaybackState state) async {
+    if (state.loopA == null) {
+      final a = state.position;
+      await _setProperty('ab-loop-a', _seconds(a));
+      _update((st) => st.copyWith(loopA: a));
+    } else if (state.loopB == null) {
+      final b = state.position;
+      if (b <= state.loopA! + const Duration(milliseconds: 500)) {
+        // Un point B avant A (ou collé à A) ne ferait pas une boucle.
+        return;
+      }
+      await _setProperty('ab-loop-b', _seconds(b));
+      _update((st) => st.copyWith(loopB: b));
+    } else {
+      await _clearAbLoop();
+    }
+  }
+
+  Future<void> _clearAbLoop() async {
+    await _setProperty('ab-loop-a', 'no');
+    await _setProperty('ab-loop-b', 'no');
+    _update((st) => st.copyWith(clearLoop: true));
+  }
+
+  static String _seconds(Duration d) => (d.inMilliseconds / 1000).toStringAsFixed(3);
+
+  // --- Image ------------------------------------------------------------------
+
+  Future<void> _applyAspect(AspectMode mode) async {
+    await _setProperty('video-aspect-override', mode.mpvAspect);
+    await _setProperty('panscan', mode.mpvPanscan);
+  }
+
+  Future<void> _applyAdjust(VideoAdjust adjust) async {
+    await _setProperty('brightness', adjust.brightness.round().toString());
+    await _setProperty('contrast', adjust.contrast.round().toString());
+    await _setProperty('saturation', adjust.saturation.round().toString());
+  }
+
+  // --- Égaliseur --------------------------------------------------------------
+
+  /// Remplace la chaîne de filtres audio. Une chaîne vide retire tout filtre.
+  Future<void> _applyEqualizer(List<double> gains) async {
+    await _setProperty('af', Equalizer.filterFor(gains));
+  }
+
   @override
   Future<void> close() async {
     _opening = false;
     await player.stop();
+    _tracks = const Tracks();
     _sink?.update(
       (st) => st.copyWith(
         clearFile: true,
@@ -229,6 +504,11 @@ class AvController implements MediaController {
         position: Duration.zero,
         duration: Duration.zero,
         hasVideo: false,
+        subtitleTracks: const [],
+        audioTracks: const [],
+        clearSubtitleTrack: true,
+        clearAudioTrack: true,
+        clearLoop: true,
         clearError: true,
       ),
     );

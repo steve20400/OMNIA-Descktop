@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/commands/player_command.dart';
+import 'package:omnia/core/models/document_layout.dart';
 import 'package:omnia/core/models/end_of_playback_mode.dart';
+import 'package:omnia/core/models/playlist_sort.dart';
+import 'package:omnia/core/models/video_adjust.dart';
 
 void main() {
   group('PlayerCommand — sérialisation JSON', () {
@@ -30,8 +33,48 @@ void main() {
       CycleLoopMode(),
       ToggleAlwaysOnTop(),
       ToggleSidePanel(),
+      SetSidePanelVisible(false),
+      SetSidePanelWidth(320),
       OpenFile('/videos/ep2.mkv'),
       OpenFolder('/videos'),
+      // Phase 2
+      SetPlaylistSort(PlaylistSort.size, descending: true),
+      SetPlaylistFilter(PlaylistFilter.audio),
+      SetPlaylistQuery('ep'),
+      RemoveFromPlaylist('/videos/ep3.mkv'),
+      RescanFolder(),
+      RevealInFolder('/videos/ep2.mkv'),
+      // Phase 3
+      ClearHistory(),
+      // Phase 4
+      ZoomRelative(1.2),
+      FitZoom(FitMode.page),
+      RotateDocument(3),
+      ToggleReadingDarkMode(),
+      SetDocumentLayout(DocumentLayout.paged),
+      ToggleDocumentLayout(),
+      ScrollTo(0.42),
+      // Phase 5
+      SetSubtitleTrack('2'),
+      SetSubtitleTrack(null),
+      ToggleSubtitles(),
+      LoadSubtitleFile('/videos/ep2.fr.srt'),
+      SetSubtitleDelay(-0.5),
+      SubtitleDelayRelative(0.5),
+      SetSubtitleScale(1.5),
+      SetAudioTrack('1'),
+      CycleAbLoop(),
+      ClearAbLoop(),
+      SetAspectMode(AspectMode.wide),
+      VideoZoomRelative(0.1),
+      ResetVideoZoom(),
+      RotateVideo(2),
+      SetVideoAdjust(VideoAdjust(brightness: 10, contrast: -5, saturation: 20)),
+      ResetVideoAdjust(),
+      SetEqualizerGains([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+      SetEqualizerPreset('rock'),
+      ToggleEqualizer(),
+      ToggleMiniPlayer(),
     ];
 
     for (final command in samples) {
@@ -46,8 +89,11 @@ void main() {
     }
 
     test('chaque commande a un type unique', () {
+      // Deux échantillons de SetSubtitleTrack : on compare les types distincts
+      // aux classes distinctes, pas au nombre d'échantillons.
       final types = samples.map((c) => c.type).toSet();
-      expect(types.length, samples.length);
+      final classes = samples.map((c) => c.runtimeType).toSet();
+      expect(types.length, classes.length);
     });
 
     test('les arguments sont conservés', () {

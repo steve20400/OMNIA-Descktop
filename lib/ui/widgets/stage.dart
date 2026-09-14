@@ -11,6 +11,7 @@ import '../document_search.dart';
 import '../document_search_provider.dart';
 import '../file_dialogs.dart';
 import '../theme/omnia_theme.dart';
+import 'audio_stage.dart';
 import 'omnia_button.dart';
 import 'pdf_stage.dart';
 import 'recent_files_menu.dart';
@@ -53,7 +54,7 @@ class Stage extends ConsumerWidget {
     } else if (state.hasVideo) {
       content = const _VideoStage(key: ValueKey('video'));
     } else {
-      content = _AudioStage(key: const ValueKey('audio'), file: state.file!);
+      content = AudioStage(key: const ValueKey('audio'), file: state.file!);
     }
 
     return ColoredBox(
@@ -98,54 +99,6 @@ class _VideoStage extends ConsumerWidget {
       controller: controller,
       controls: NoVideoControls,
       fill: context.colors.velvet,
-    );
-  }
-}
-
-/// Vue audio de Phase 1 : nom du morceau et symbole. La pochette et le fond
-/// dérivé arrivent en Phase 5.
-class _AudioStage extends StatelessWidget {
-  const _AudioStage({super.key, required this.file});
-
-  final MediaFile file;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final type = context.type;
-    final l10n = AppLocalizations.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(OmniaMetrics.space6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 168,
-              height: 168,
-              decoration: BoxDecoration(
-                color: colors.curtain,
-                borderRadius: OmniaMetrics.overlayRadius,
-                border: Border.all(color: colors.seam),
-              ),
-              child: Icon(Icons.music_note_rounded, size: 56, color: colors.dust),
-            ),
-            const SizedBox(height: OmniaMetrics.space5),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Text(
-                file.baseName,
-                style: type.viewTitle,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: OmniaMetrics.space2),
-            Text(l10n.audioOnly, style: type.secondary),
-          ],
-        ),
-      ),
     );
   }
 }
