@@ -43,7 +43,7 @@ class _Report {
           'url': 'package:flutter_test/src/widget_tester.dart',
           'line': 180,
           if (rootFile != null) 'root_url': Uri.file(p.join(root, rootFile)).toString(),
-          if (rootLine != null) 'root_line': rootLine,
+          'root_line': ?rootLine,
         },
       }),
     );

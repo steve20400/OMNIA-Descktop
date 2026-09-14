@@ -1,11 +1,13 @@
 # Lancement réel d'OMNIA sur la machine Windows de la CI.
 #
+# 0. Le dossier Release contient les bibliothèques natives : moteur Flutter,
+#    code de l'application, libmpv, pdfium.
 # 1. OMNIA démarre avec un son en argument, comme par « Ouvrir avec », et doit
 #    rester ouvert : libmpv, la fenêtre et le stockage local se sont initialisés.
 # 2. Une seconde instance reçoit un PDF, comme un fichier déposé sur l'icône :
 #    elle doit le confier à la première fenêtre et se terminer aussitôt.
-# 3. Après fermeture, l'historique doit contenir les deux fichiers : les deux
-#    ouvertures ont réellement eu lieu.
+# 3. Après fermeture, l'historique prouve que libmpv a lu le son et que pdfium
+#    a ouvert le PDF (voir le détail à l'étape 3).
 #
 # Une capture d'écran est prise à chaque étape, dans -OutDir.
 #
@@ -43,11 +45,13 @@ function Save-Screen([string] $name) {
   }
 }
 
-# Fin d'un journal, encodée pour tenir dans une annotation.
+# Fin d'un journal, bornée puis encodée : GitHub ne garde que les 4096
+# premiers caractères d'une annotation, et c'est la fin qui compte.
 function Get-LogTail([string] $path) {
   if (-not (Test-Path $path)) { return '' }
-  $lines = Get-Content -Path $path -Tail 30 -ErrorAction SilentlyContinue
-  return (($lines -join "`n") -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A')
+  $text = (Get-Content -Path $path -Tail 30 -ErrorAction SilentlyContinue) -join "`n"
+  if ($text.Length -gt 3000) { $text = $text.Substring($text.Length - 3000) }
+  return ($text -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A')
 }
 
 function Fail([string] $message) {
@@ -65,6 +69,14 @@ function Start-Omnia([string] $file, [string] $logName) {
   # Sans cette lecture, ExitCode reste vide une fois le processus terminé.
   $null = $process.Handle
   return $process
+}
+
+# 0. Bibliothèques natives présentes à côté de l'exécutable.
+$release = Split-Path -Parent $Exe
+foreach ($pattern in @('flutter_windows.dll', 'app.so', 'libmpv*.dll', 'pdfium*.dll')) {
+  if (-not (Get-ChildItem -Path $release -Recurse -Filter $pattern -ErrorAction SilentlyContinue)) {
+    Fail "$pattern est absent du dossier Release : l'application ne pourrait pas s'en servir."
+  }
 }
 
 # 1. Première instance, avec le son.
@@ -89,6 +101,9 @@ $null = $first.CloseMainWindow()
 if (-not $first.WaitForExit(20000)) {
   Write-Output '::warning title=Lancement réel (Windows)::OMNIA ne s''est pas fermé en 20 s ; arrêt forcé.'
   Stop-Process -Id $first.Id -Force
+  # L'arrêt est asynchrone : tant que le processus existe, il garde le
+  # fichier de l'historique ouvert en écriture.
+  $null = $first.WaitForExit(15000)
 }
 
 # Dossier de données : %APPDATA%\<société>\<produit>\data (Runner.rc). On le
@@ -101,9 +116,24 @@ if (-not $history) {
 }
 if (-not $history) { Fail "Aucun historique trouvé sous $env:APPDATA : le stockage local n'a pas été créé." }
 Write-Output "Historique : $($history.FullName)"
-$content = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($history.FullName))
+# Lecture qui tolère un autre processus en écriture.
+$stream = [System.IO.File]::Open($history.FullName, 'Open', 'Read', 'ReadWrite')
+$buffer = New-Object System.IO.MemoryStream
+$stream.CopyTo($buffer)
+$stream.Dispose()
+$content = [System.Text.Encoding]::UTF8.GetString($buffer.ToArray())
+
+# Chaque écriture de l'historique ajoute une trame qui contient deux fois le
+# chemin (clé et valeur). L'ouverture en écrit une première, avant même que le
+# fichier soit lu : elle ne prouve que la réception de la commande. Une
+# seconde trame n'arrive qu'après une lecture réussie :
+# - PDF : pdfium a ouvert le document et publié sa page, OMNIA mémorise la page ;
+# - son : libmpv a lu sa durée (position mémorisée en changeant de fichier) ou
+#   l'a joué jusqu'au bout (fichier marqué terminé).
 foreach ($name in @('essai.wav', 'essai.pdf')) {
-  if (-not $content.Contains($name)) { Fail "$name est absent de l'historique : son ouverture n'a pas eu lieu." }
+  $count = ([regex]::Matches($content, [regex]::Escape($name))).Count
+  if ($count -eq 0) { Fail "$name est absent de l'historique : la commande d'ouverture n'est pas arrivée." }
+  if ($count -lt 4) { Fail "$name a été reçu mais pas lu : libmpv ou pdfium n'ont pas pu l'ouvrir." }
 }
 
-Write-Output 'Lancement réel réussi : démarrage, ouverture du son, PDF confié par une seconde instance.'
+Write-Output 'Lancement réel réussi : démarrage, son lu par libmpv, PDF confié par une seconde instance et ouvert par pdfium.'

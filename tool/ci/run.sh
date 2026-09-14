@@ -18,9 +18,10 @@ log=$(mktemp)
 status=${PIPESTATUS[0]}
 
 if [ "$status" -ne 0 ]; then
-  # Une annotation a une taille limitée : les dernières lignes suffisent à
-  # situer l'erreur. %, CR et LF doivent être encodés (%25, %0D, %0A).
-  message=$(tail -n 60 "$log" | sed -e 's/%/%25/g' -e 's/\r$//' | awk '{ printf "%s%%0A", $0 }')
+  # GitHub ne garde que les 4096 premiers caractères d'une annotation : on
+  # n'y met que la fin de la sortie, là où se trouve l'erreur, bornée avant
+  # l'encodage. %, CR et LF doivent être encodés (%25, %0D, %0A).
+  message=$(tail -n 60 "$log" | sed -e 's/\r$//' | tail -c 3500 | sed -e 's/%/%25/g' | awk '{ printf "%s%%0A", $0 }')
   echo "::error title=${title} (code ${status})::${message}"
 fi
 
