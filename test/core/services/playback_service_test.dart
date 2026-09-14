@@ -8,6 +8,7 @@ import 'package:omnia/core/commands/player_command_bus.dart';
 import 'package:omnia/core/controllers/frame_capturer.dart';
 import 'package:omnia/core/controllers/media_controller.dart';
 import 'package:omnia/core/controllers/media_router.dart';
+import 'package:omnia/core/models/app_preferences.dart';
 import 'package:omnia/core/models/document_layout.dart';
 import 'package:omnia/core/models/end_of_playback_mode.dart';
 import 'package:omnia/core/models/equalizer.dart';
@@ -15,6 +16,7 @@ import 'package:omnia/core/models/media_file.dart';
 import 'package:omnia/core/models/media_type.dart';
 import 'package:omnia/core/models/playback_state.dart';
 import 'package:omnia/core/models/playback_status.dart';
+import 'package:omnia/core/models/resume_offer.dart';
 import 'package:omnia/core/models/track_info.dart';
 import 'package:omnia/core/models/video_adjust.dart';
 import 'package:omnia/core/services/folder_scanner.dart';
@@ -926,5 +928,302 @@ void main() {
     expect(restored.equalizerGains, Equalizer.flat);
     expect(restored.abLoopActive, isFalse);
     expect(restored.videoAdjust, VideoAdjust.neutral);
+    expect(restored.resumeOffer, isNull);
+    expect(restored.screenshotFailed, isFalse);
+  });
+
+  test('PlaybackState — l’offre de reprise survit au JSON', () {
+    const state = PlaybackState(resumeOffer: ResumeOffer(page: 12));
+    expect(PlaybackState.fromJson(state.toJson()).resumeOffer, const ResumeOffer(page: 12));
+  });
+
+  // --- Phase 6 --------------------------------------------------------------------
+
+  group('Préférences', () {
+    // Chaque test a son propre bus : le service du setUp général écoute le bus
+    // partagé et réagirait aussi aux commandes.
+    late PlayerCommandBus ownBus;
+    late FakeAvController ownAv;
+    late FakeDocController ownDoc;
+    late MemoryHistoryStore ownHistory;
+    late MemorySettingsStore store;
+    PlaylistService? ownPlaylist;
+    PlaybackService? ownService;
+
+    PlaybackService build({
+      AppPreferences prefs = AppPreferences.defaults,
+      double? lastVolume,
+    }) {
+      store = MemorySettingsStore(preferences: prefs);
+      if (lastVolume != null) store.setLastVolume(lastVolume);
+      ownPlaylist = PlaylistService(bus: ownBus, scanner: FakeFolderScanner(folders));
+      return ownService = PlaybackService(
+        bus: ownBus,
+        router: MediaRouter([ownAv, ownDoc]),
+        window: FakeWindowService(),
+        playlist: ownPlaylist!,
+        history: ownHistory,
+        settings: store,
+      );
+    }
+
+    Future<void> drain(PlaybackService s) async {
+      await settle();
+      await s.idle;
+    }
+
+    setUp(() {
+      ownBus = PlayerCommandBus();
+      ownAv = FakeAvController();
+      ownDoc = FakeDocController();
+      ownHistory = MemoryHistoryStore();
+    });
+
+    tearDown(() async {
+      await ownService?.dispose();
+      await ownPlaylist?.dispose();
+      await ownBus.dispose();
+      ownService = null;
+      ownPlaylist = null;
+    });
+
+    group('au démarrage', () {
+      test('volume fixe', () {
+        final s = build(
+          prefs: const AppPreferences(startupVolume: StartupVolume.fixed, fixedVolume: 30),
+          lastVolume: 70,
+        );
+        expect(s.state.volume, 30);
+      });
+
+      test('dernier volume', () {
+        expect(build(lastVolume: 55).state.volume, 55);
+      });
+
+      test('dernier volume inconnu : volume par défaut', () {
+        expect(build().state.volume, const PlaybackState().volume);
+      });
+
+      test('vitesse, sous-titres, égaliseur et documents', () {
+        final s = build(
+          prefs: AppPreferences(
+            defaultSpeed: 1.5,
+            subtitleScale: 1.4,
+            equalizerEnabled: true,
+            equalizerGains: Equalizer.presets['bass']!,
+            readingDark: true,
+            pdfLayout: DocumentLayout.paged,
+          ),
+        );
+        expect(s.state.speed, 1.5);
+        expect(s.state.subtitleScale, 1.4);
+        expect(s.state.equalizerEnabled, isTrue);
+        expect(s.state.equalizerPreset, 'bass');
+        expect(s.state.readingDark, isTrue);
+        expect(s.state.documentLayout, DocumentLayout.paged);
+      });
+    });
+
+    test('le dernier volume est mémorisé, après une courte attente', () async {
+      final s = build();
+      ownBus.dispatch(const SetVolume(40));
+      await drain(s);
+      expect(store.lastVolume, isNull, reason: 'écriture différée');
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+      expect(store.lastVolume, 40);
+    });
+
+    test('fermer le service enregistre aussitôt une sauvegarde en attente', () async {
+      final s = build();
+      ownBus.dispatch(const SetVolume(25));
+      await drain(s);
+      await s.dispose();
+      ownService = null;
+      expect(store.lastVolume, 25);
+    });
+
+    test('UpdatePreferences enregistre, publie et aligne l’état', () async {
+      final s = build();
+      final published = <AppPreferences>[];
+      final sub = s.preferencesChanges.listen(published.add);
+      final next = AppPreferences.defaults.copyWith(
+        seekStepSeconds: 30,
+        resumePolicy: ResumePolicy.never,
+        subtitleScale: 1.8,
+        readingDark: true,
+        pdfLayout: DocumentLayout.paged,
+        equalizerEnabled: true,
+        equalizerGains: Equalizer.presets['rock'],
+      );
+
+      ownBus.dispatch(UpdatePreferences(next));
+      await drain(s);
+
+      expect(store.preferences, next);
+      expect(published.last, next);
+      expect(s.preferences, next);
+      expect(s.state.subtitleScale, 1.8);
+      expect(s.state.readingDark, isTrue);
+      expect(s.state.documentLayout, DocumentLayout.paged);
+      expect(s.state.equalizerEnabled, isTrue);
+      expect(s.state.equalizerPreset, 'rock');
+
+      // La sauvegarde différée des réglages suivis en direct n'annule rien.
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+      expect(store.preferences, next);
+      await sub.cancel();
+    });
+
+    test('SetScreenshotFolder passe par le bus', () async {
+      final s = build();
+      ownBus.dispatch(const SetScreenshotFolder('/captures'));
+      await drain(s);
+      expect(store.screenshotFolder, '/captures');
+      ownBus.dispatch(const SetScreenshotFolder(null));
+      await drain(s);
+      expect(store.screenshotFolder, isNull);
+    });
+
+    test('effacer les récents, puis les positions', () async {
+      final s = build();
+      await ownHistory.savePosition(
+        '/serie/ep1.mkv',
+        position: const Duration(minutes: 4),
+        duration: const Duration(minutes: 10),
+        now: DateTime(2026, 9, 14),
+      );
+
+      ownBus.dispatch(const ClearRecentFiles());
+      await drain(s);
+      expect(ownHistory.recent(), isEmpty);
+      expect(ownHistory.entryFor('/serie/ep1.mkv')!.resumePosition, const Duration(minutes: 4));
+
+      ownBus.dispatch(const ClearResumePositions());
+      await drain(s);
+      expect(ownHistory.entryFor('/serie/ep1.mkv')!.resumePosition, isNull);
+    });
+
+    group('politique de reprise', () {
+      Future<void> remember() => ownHistory.savePosition(
+            '/serie/ep1.mkv',
+            position: const Duration(minutes: 4),
+            duration: const Duration(minutes: 10),
+            now: DateTime(2026, 9, 14),
+          );
+
+      test('« demander » : une offre est publiée, rien n’est appliqué', () async {
+        final s = build(prefs: const AppPreferences(resumePolicy: ResumePolicy.ask));
+        await remember();
+        await s.openPath('/serie/ep1.mkv');
+        await settle();
+
+        expect(s.state.resumeOffer, const ResumeOffer(position: Duration(minutes: 4)));
+        expect(ownAv.handled.whereType<SeekAbsolute>(), isEmpty);
+        expect(s.state.position, Duration.zero);
+      });
+
+      test('accepter applique la position et retire l’offre', () async {
+        final s = build(prefs: const AppPreferences(resumePolicy: ResumePolicy.ask));
+        await remember();
+        await s.openPath('/serie/ep1.mkv');
+        ownBus.dispatch(const AcceptResume());
+        await drain(s);
+
+        expect(ownAv.handled, contains(const SeekAbsolute(Duration(minutes: 4))));
+        expect(s.state.position, const Duration(minutes: 4));
+        expect(s.state.resumeOffer, isNull);
+      });
+
+      test('refuser retire l’offre sans rien appliquer', () async {
+        final s = build(prefs: const AppPreferences(resumePolicy: ResumePolicy.ask));
+        await remember();
+        await s.openPath('/serie/ep1.mkv');
+        ownBus.dispatch(const DeclineResume());
+        await drain(s);
+
+        expect(s.state.resumeOffer, isNull);
+        expect(ownAv.handled.whereType<SeekAbsolute>(), isEmpty);
+      });
+
+      test('ouvrir un autre fichier retire l’offre', () async {
+        final s = build(prefs: const AppPreferences(resumePolicy: ResumePolicy.ask));
+        await remember();
+        await s.openPath('/serie/ep1.mkv');
+        await s.openPath('/serie/ep2.mkv');
+        expect(s.state.resumeOffer, isNull);
+      });
+
+      test('« jamais » : ni reprise ni offre', () async {
+        final s = build(prefs: const AppPreferences(resumePolicy: ResumePolicy.never));
+        await remember();
+        await s.openPath('/serie/ep1.mkv');
+        await settle();
+
+        expect(s.state.resumeOffer, isNull);
+        expect(ownAv.handled.whereType<SeekAbsolute>(), isEmpty);
+      });
+
+      test('« auto » reste le comportement par défaut', () async {
+        final s = build();
+        await remember();
+        await s.openPath('/serie/ep1.mkv');
+        await settle();
+
+        expect(s.state.resumeOffer, isNull);
+        expect(ownAv.handled, contains(const SeekAbsolute(Duration(minutes: 4))));
+      });
+
+      test('document, « demander » : offre de page, acceptée', () async {
+        final s = build(prefs: const AppPreferences(resumePolicy: ResumePolicy.ask));
+        await ownHistory.saveDocumentPosition(
+          '/docs/manuel.pdf',
+          page: 12,
+          pageCount: 40,
+          now: DateTime(2026, 9, 14),
+        );
+        await s.openPath('/docs/manuel.pdf');
+        await settle();
+        expect(s.state.resumeOffer, const ResumeOffer(page: 12));
+        expect(s.state.currentPage, 1);
+
+        ownBus.dispatch(const AcceptResume());
+        await drain(s);
+        expect(ownDoc.handled, contains(const GoToPage(12)));
+        expect(s.state.currentPage, 12);
+      });
+    });
+  });
+
+  test('une capture impossible est signalée, sans interrompre la lecture', () async {
+    final shots = Directory.systemTemp.createTempSync('omnia_blocked_');
+    // Un fichier à la place du dossier : impossible d'y créer quoi que ce soit.
+    final blocker = File(p.join(shots.path, 'pas-un-dossier'))..writeAsStringSync('x');
+    final ownBus = PlayerCommandBus();
+    final ownPlaylist = PlaylistService(bus: ownBus, scanner: scanner);
+    final failing = PlaybackService(
+      bus: ownBus,
+      router: MediaRouter([av]),
+      window: window,
+      playlist: ownPlaylist,
+      screenshots: ScreenshotService(defaultFolder: () async => Directory(blocker.path)),
+    );
+
+    await failing.openPath('/serie/ep1.mkv');
+    ownBus.dispatch(const TakeScreenshot());
+    await settle();
+    await failing.idle;
+
+    expect(failing.state.screenshotFailed, isTrue);
+    expect(failing.state.lastScreenshot, isNull);
+    expect(failing.state.status, PlaybackStatus.playing);
+
+    await failing.dispose();
+    await ownPlaylist.dispose();
+    await ownBus.dispose();
+    try {
+      shots.deleteSync(recursive: true);
+    } on FileSystemException {
+      // Nettoyé par le système.
+    }
   });
 }

@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:hive_ce_flutter/hive_flutter.dart';
 
+import '../models/app_preferences.dart';
 import 'local_storage.dart';
+import 'single_instance.dart';
 
 /// Clés de persistance. Centralisées pour éviter les chaînes magiques.
 abstract final class SettingsKeys {
@@ -14,13 +17,26 @@ abstract final class SettingsKeys {
   static const playlistDescending = 'playlist.descending';
   static const endOfPlaybackMode = 'playback.endMode';
   static const screenshotFolder = 'screenshots.folder';
+  static const preferences = 'preferences';
+  static const lastVolume = 'playback.lastVolume';
+  static const keymapOverrides = 'keymap.overrides';
 }
 
-/// Préférences persistantes d'OMNIA.
-///
-/// Interface minimale en Phase 1 (géométrie de fenêtre) ; les phases suivantes
-/// ajoutent positions de lecture, historique et paramètres.
+/// Préférences persistantes d'OMNIA : réglages de l'utilisateur, et état
+/// d'interface à retrouver d'une session à l'autre.
 abstract interface class SettingsStore {
+  /// Réglages de l'écran Paramètres.
+  AppPreferences get preferences;
+  Future<void> setPreferences(AppPreferences value);
+
+  /// Dernier volume utilisé, pour « volume au démarrage : dernier ».
+  double? get lastVolume;
+  Future<void> setLastVolume(double value);
+
+  /// Raccourcis modifiés par l'utilisateur (seuls les écarts aux défauts).
+  Map<String, Object?> get keymapOverrides;
+  Future<void> setKeymapOverrides(Map<String, Object?> value);
+
   Rect? get windowBounds;
   Future<void> setWindowBounds(Rect bounds);
 
@@ -51,9 +67,12 @@ abstract interface class SettingsStore {
 
 /// Implémentation Hive (fichier local dans le dossier de données de l'app).
 class HiveSettingsStore implements SettingsStore {
-  HiveSettingsStore._(this._box);
+  HiveSettingsStore._(this._box, this._dataDirectory);
 
   final Box<dynamic> _box;
+
+  /// Dossier de données, où vit le marqueur « plusieurs instances ».
+  final Directory? _dataDirectory;
 
   static const boxName = 'settings';
 
@@ -61,8 +80,49 @@ class HiveSettingsStore implements SettingsStore {
   static Future<HiveSettingsStore> open() async {
     await initialiseLocalStorage();
     final box = await Hive.openBox<dynamic>(boxName);
-    return HiveSettingsStore._(box);
+    return HiveSettingsStore._(box, await localStorageDirectory());
   }
+
+  @override
+  AppPreferences get preferences {
+    final raw = _box.get(SettingsKeys.preferences);
+    if (raw is! Map) return AppPreferences.defaults;
+    try {
+      return AppPreferences.fromJson(Map<String, Object?>.from(raw));
+    } on Object {
+      return AppPreferences.defaults;
+    }
+  }
+
+  @override
+  Future<void> setPreferences(AppPreferences value) async {
+    await _box.put(SettingsKeys.preferences, value.toJson());
+    // L'instance unique se décide avant l'ouverture de Hive : le réglage est
+    // aussi reflété par un fichier marqueur, et les préférences par une copie
+    // en clair, lisibles sans base de données.
+    final dir = _dataDirectory;
+    if (dir != null) {
+      await writeSingleInstancePreference(dir, enabled: value.singleInstance);
+      await writePreferencesSnapshot(dir, value);
+    }
+  }
+
+  @override
+  double? get lastVolume => (_box.get(SettingsKeys.lastVolume) as num?)?.toDouble();
+
+  @override
+  Future<void> setLastVolume(double value) => _box.put(SettingsKeys.lastVolume, value);
+
+  @override
+  Map<String, Object?> get keymapOverrides {
+    final raw = _box.get(SettingsKeys.keymapOverrides);
+    if (raw is! Map) return const {};
+    return Map<String, Object?>.from(raw);
+  }
+
+  @override
+  Future<void> setKeymapOverrides(Map<String, Object?> value) =>
+      value.isEmpty ? _box.delete(SettingsKeys.keymapOverrides) : _box.put(SettingsKeys.keymapOverrides, value);
 
   @override
   Rect? get windowBounds {
@@ -133,8 +193,36 @@ class HiveSettingsStore implements SettingsStore {
       : _box.put(SettingsKeys.screenshotFolder, path);
 }
 
-/// Implémentation en mémoire pour les tests.
+/// Implémentation en mémoire : tests, et repli quand le stockage local est
+/// déjà tenu par une autre instance.
 class MemorySettingsStore implements SettingsStore {
+  MemorySettingsStore({AppPreferences? preferences}) {
+    if (preferences != null) _preferences = preferences;
+  }
+
+  AppPreferences _preferences = AppPreferences.defaults;
+  double? _lastVolume;
+  Map<String, Object?> _keymap = const {};
+
+  @override
+  AppPreferences get preferences => _preferences;
+
+  @override
+  Future<void> setPreferences(AppPreferences value) async => _preferences = value;
+
+  @override
+  double? get lastVolume => _lastVolume;
+
+  @override
+  Future<void> setLastVolume(double value) async => _lastVolume = value;
+
+  @override
+  Map<String, Object?> get keymapOverrides => _keymap;
+
+  @override
+  Future<void> setKeymapOverrides(Map<String, Object?> value) async =>
+      _keymap = Map.unmodifiable(value);
+
   Rect? _bounds;
   bool _maximized = false;
   bool _panelVisible = true;

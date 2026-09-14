@@ -9,8 +9,10 @@ import '../document_ui_controller.dart';
 import '../file_dialogs.dart';
 import '../help_overlay_controller.dart';
 import 'default_keymap.dart';
+import 'keymap_provider.dart';
 
-/// Traduit un événement clavier en commande sur le bus.
+/// Traduit un événement clavier en commande sur le bus, d'après la table de
+/// raccourcis de l'utilisateur.
 ///
 /// Quand un champ de saisie a le focus (recherche du panneau), les raccourcis
 /// se taisent : taper « pause » dans la recherche ne doit pas mettre le film en
@@ -40,43 +42,41 @@ KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
   }
 
   final keyboard = HardwareKeyboard.instance;
-  for (final entry in defaultKeymap.entries) {
-    if (!entry.key.accepts(event, keyboard)) continue;
-    final action = entry.value;
-    switch (action) {
-      case PlayerCommand():
-        ref.dispatch(action, source: CommandSource.keyboard);
-      case UiAction.openFileDialog:
-        pickAndOpenFile(ref);
-      case UiAction.openFolderDialog:
-        pickAndOpenFolder(ref);
-      case UiAction.toggleHelp:
-        help.toggle();
-      case UiAction.goToPage:
-        if (!ref.read(playbackStateProvider).isDocument) return KeyEventResult.ignored;
-        ref.read(documentUiProvider.notifier).requestGoToPage();
-      case UiAction.findInDocument:
-        if (!ref.read(playbackStateProvider).isDocument) return KeyEventResult.ignored;
-        ref.read(documentUiProvider.notifier).showFind();
-    }
-    return KeyEventResult.handled;
+  final action = ref.read(keymapProvider).match(
+        key: event.logicalKey,
+        character: event.character,
+        control: keyboard.isControlPressed,
+        shift: keyboard.isShiftPressed,
+        alt: keyboard.isAltPressed,
+        meta: keyboard.isMetaPressed,
+        isRepeat: event is KeyRepeatEvent,
+      );
+  if (action == null) {
+    // `Shift+Tab` n'est volontairement pas capturé : il reste le moyen clavier
+    // d'atteindre la recherche du panneau. Le piège classique — se retrouver
+    // dans un champ, tous les raccourcis muets — est levé par `Échap`.
+    return KeyEventResult.ignored;
   }
 
-  // Touches de vitesse par caractère : `+`, `-` et `=` ne sont pas au même
-  // endroit en AZERTY et en QWERTY, on les reconnaît donc au caractère produit.
-  final char = event.character;
-  if (char != null && !keyboard.isControlPressed && !keyboard.isAltPressed) {
-    final command = characterKeymap[char];
-    if (command != null) {
+  switch (resolveShortcut(action, ref.read(preferencesProvider))) {
+    case final PlayerCommand command:
       ref.dispatch(command, source: CommandSource.keyboard);
-      return KeyEventResult.handled;
-    }
+    case UiAction.openFileDialog:
+      pickAndOpenFile(ref);
+    case UiAction.openFolderDialog:
+      pickAndOpenFolder(ref);
+    case UiAction.toggleHelp:
+      help.toggle();
+    case UiAction.goToPage:
+      if (!ref.read(playbackStateProvider).isDocument) return KeyEventResult.ignored;
+      ref.read(documentUiProvider.notifier).requestGoToPage();
+    case UiAction.findInDocument:
+      if (!ref.read(playbackStateProvider).isDocument) return KeyEventResult.ignored;
+      ref.read(documentUiProvider.notifier).showFind();
+    case _:
+      return KeyEventResult.ignored;
   }
-
-  // `Shift+Tab` n'est volontairement pas capturé : il reste le moyen clavier
-  // d'atteindre la recherche du panneau. Le piège classique — se retrouver
-  // dans un champ, tous les raccourcis muets — est levé par `Échap` ci-dessus.
-  return KeyEventResult.ignored;
+  return KeyEventResult.handled;
 }
 
 /// Vrai si le focus est dans un champ de texte.

@@ -7,6 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path/path.dart' as p;
 
 import '../commands/player_command.dart';
+import '../models/app_preferences.dart';
 import '../models/equalizer.dart';
 import '../models/media_file.dart';
 import '../models/media_type.dart';
@@ -28,7 +29,9 @@ import 'media_controller.dart';
 /// propriétés mpv, derrière [_setProperty] qui n'échoue jamais bruyamment :
 /// une propriété refusée par une version de mpv laisse la lecture intacte.
 class AvController implements MediaController, FrameCapturer {
-  AvController({Player? player}) : player = player ?? Player() {
+  AvController({Player? player, AppPreferences Function()? preferences})
+      : player = player ?? Player(),
+        _preferences = preferences ?? (() => AppPreferences.defaults) {
     videoController = VideoController(this.player);
     _listen();
     unawaited(_applyBaseProperties());
@@ -36,6 +39,10 @@ class AvController implements MediaController, FrameCapturer {
 
   /// Moteur mpv.
   final Player player;
+
+  /// Préférences lues à chaque ouverture (sous-titres automatiques, décalage
+  /// par défaut) : un changement dans les paramètres vaut dès le fichier suivant.
+  final AppPreferences Function() _preferences;
 
   /// Surface de rendu vidéo, consommée par le widget `Video` de l'interface.
   late final VideoController videoController;
@@ -56,9 +63,6 @@ class AvController implements MediaController, FrameCapturer {
 
   /// Réglages mpv valables pour toute la session.
   Future<void> _applyBaseProperties() async {
-    // Sous-titres voisins chargés automatiquement : même nom de base, avec ou
-    // sans suffixe de langue (`film.srt`, `film.fr.srt`).
-    await _setProperty('sub-auto', 'fuzzy');
     // Une seule image demandée à la capture, pas de bande-son de clic.
     await _setProperty('screenshot-format', 'png');
   }
@@ -192,6 +196,13 @@ class AvController implements MediaController, FrameCapturer {
       return;
     }
 
+    final prefs = _preferences();
+    // Vitesse, volume, sourdine, sous-titres, image et égaliseur sont
+    // conservés d'un fichier à l'autre. On les relève AVANT d'ouvrir : le
+    // moteur peut publier ses propres valeurs pendant l'ouverture, qui
+    // écraseraient celles de l'utilisateur.
+    final state = sink.state;
+
     sink.update(
       (st) => st.copyWith(
         file: file,
@@ -206,7 +217,7 @@ class AvController implements MediaController, FrameCapturer {
         clearSubtitleTrack: true,
         clearAudioTrack: true,
         clearLoop: true,
-        subtitleDelay: 0,
+        subtitleDelay: prefs.subtitleDelay,
         videoZoom: 0,
         videoRotation: 0,
         clearError: true,
@@ -214,17 +225,17 @@ class AvController implements MediaController, FrameCapturer {
     );
 
     try {
+      // Sous-titres voisins chargés automatiquement : même nom de base, avec
+      // ou sans suffixe de langue (`film.srt`, `film.fr.srt`).
+      await _setProperty('sub-auto', prefs.subtitleAutoLoad ? 'fuzzy' : 'no');
       await _setProperty('ab-loop-a', 'no');
       await _setProperty('ab-loop-b', 'no');
-      await _setProperty('sub-delay', '0');
+      await _setProperty('sub-delay', prefs.subtitleDelay.toStringAsFixed(2));
       await _setProperty('video-zoom', '0');
       await _setProperty('video-rotate', '0');
 
       await player.open(Media(file.path), play: true);
 
-      // Vitesse, volume, sourdine, sous-titres, image et égaliseur sont
-      // conservés d'un fichier à l'autre.
-      final state = sink.state;
       await player.setRate(state.speed);
       await player.setVolume(state.volume);
       await _setMuted(state.muted);

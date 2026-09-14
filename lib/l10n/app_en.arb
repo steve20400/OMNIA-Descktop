@@ -278,5 +278,7 @@
   "miniPlayer": "Mini player",
   "miniPlayerExit": "Leave mini player",
   "unknownArtist": "Unknown artist",
-  "closePanel": "Close"
+  "closePanel": "Close",
+  "screenshotFailed": "Screenshot failed",
+  "screenshotFailedHint": "The screenshot folder cannot be written to. Pick another one in Settings."
 }

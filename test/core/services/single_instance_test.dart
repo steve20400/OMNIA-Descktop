@@ -127,5 +127,45 @@ void main() {
       await service.dispose();
       expect(service.lockFile.existsSync(), isFalse);
     });
+
+    test('une instance qui ne sert pas ne supprime pas le verrou de la première', () async {
+      final first = SingleInstanceService(directory: dir);
+      await first.serve((_) {});
+
+      final secondary = SingleInstanceService(directory: dir);
+      await secondary.dispose();
+
+      expect(first.lockFile.existsSync(), isTrue);
+      await first.dispose();
+    });
+  });
+
+  group('Réglage « instance unique »', () {
+    late Directory dir;
+
+    setUp(() => dir = Directory.systemTemp.createTempSync('omnia_marker_'));
+    tearDown(() {
+      try {
+        dir.deleteSync(recursive: true);
+      } on FileSystemException {
+        // Nettoyé par le système.
+      }
+    });
+
+    test('actif par défaut', () {
+      expect(singleInstanceEnabled(dir), isTrue);
+    });
+
+    test('désactiver pose un marqueur, réactiver le retire', () async {
+      await writeSingleInstancePreference(dir, enabled: false);
+      expect(singleInstanceEnabled(dir), isFalse);
+      await writeSingleInstancePreference(dir, enabled: true);
+      expect(singleInstanceEnabled(dir), isTrue);
+    });
+
+    test('réactiver sans marqueur ne fait rien', () async {
+      await writeSingleInstancePreference(dir, enabled: true);
+      expect(singleInstanceEnabled(dir), isTrue);
+    });
   });
 }

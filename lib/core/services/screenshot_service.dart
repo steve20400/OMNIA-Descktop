@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../models/app_preferences.dart';
 import '../utils/screenshot_naming.dart';
 import 'local_storage.dart';
 import 'settings_store.dart';
@@ -24,14 +25,25 @@ class ScreenshotService {
     return _defaultFolder();
   }
 
-  /// Écrit [png] et retourne le chemin du fichier créé.
+  /// Écrit [png] et retourne le chemin du fichier créé. Le nom suit le motif
+  /// des préférences ([position] sert au jeton `{position}`).
   ///
   /// Lève une [FileSystemException] si le dossier est inaccessible : c'est à
   /// l'appelant d'en faire un message.
-  Future<String> save(Uint8List png, {required String mediaPath, DateTime? now}) async {
+  Future<String> save(
+    Uint8List png, {
+    required String mediaPath,
+    Duration position = Duration.zero,
+    DateTime? now,
+  }) async {
     final dir = await folder();
     await dir.create(recursive: true);
-    var path = p.join(dir.path, screenshotFileName(mediaPath, now ?? DateTime.now()));
+    final pattern =
+        settings?.preferences.screenshotNamePattern ?? AppPreferences.defaultScreenshotPattern;
+    var path = p.join(
+      dir.path,
+      screenshotFileName(mediaPath, now ?? DateTime.now(), pattern: pattern, position: position),
+    );
     // Deux captures dans la même seconde : on suffixe plutôt que d'écraser.
     var attempt = 1;
     while (await File(path).exists()) {

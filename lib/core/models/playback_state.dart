@@ -4,6 +4,7 @@ import 'equalizer.dart';
 import 'media_file.dart';
 import 'media_type.dart';
 import 'playback_status.dart';
+import 'resume_offer.dart';
 import 'track_info.dart';
 import 'video_adjust.dart';
 
@@ -46,6 +47,8 @@ class PlaybackState {
     this.equalizerGains = Equalizer.flat,
     this.equalizerEnabled = false,
     this.lastScreenshot,
+    this.screenshotFailed = false,
+    this.resumeOffer,
     this.miniPlayer = false,
     this.endMode = EndOfPlaybackMode.next,
     this.fullscreen = false,
@@ -155,6 +158,12 @@ class PlaybackState {
   /// Chemin de la dernière capture d'écran enregistrée.
   final String? lastScreenshot;
 
+  /// La dernière tentative de capture a échoué (dossier inaccessible).
+  final bool screenshotFailed;
+
+  /// Reprise proposée à l'utilisateur (politique « demander »), `null` sinon.
+  final ResumeOffer? resumeOffer;
+
   /// Mode mini-lecteur (fenêtre compacte au premier plan).
   final bool miniPlayer;
 
@@ -235,6 +244,10 @@ class PlaybackState {
     List<double>? equalizerGains,
     bool? equalizerEnabled,
     String? lastScreenshot,
+    bool clearLastScreenshot = false,
+    bool? screenshotFailed,
+    ResumeOffer? resumeOffer,
+    bool clearResumeOffer = false,
     bool? miniPlayer,
     EndOfPlaybackMode? endMode,
     bool? fullscreen,
@@ -276,7 +289,9 @@ class PlaybackState {
       videoAdjust: videoAdjust ?? this.videoAdjust,
       equalizerGains: equalizerGains ?? this.equalizerGains,
       equalizerEnabled: equalizerEnabled ?? this.equalizerEnabled,
-      lastScreenshot: lastScreenshot ?? this.lastScreenshot,
+      lastScreenshot: clearLastScreenshot ? null : (lastScreenshot ?? this.lastScreenshot),
+      screenshotFailed: screenshotFailed ?? this.screenshotFailed,
+      resumeOffer: clearResumeOffer ? null : (resumeOffer ?? this.resumeOffer),
       miniPlayer: miniPlayer ?? this.miniPlayer,
       endMode: endMode ?? this.endMode,
       fullscreen: fullscreen ?? this.fullscreen,
@@ -320,6 +335,8 @@ class PlaybackState {
         'equalizerGains': equalizerGains,
         'equalizerEnabled': equalizerEnabled,
         'lastScreenshot': lastScreenshot,
+        'screenshotFailed': screenshotFailed,
+        'resumeOffer': resumeOffer?.toJson(),
         'miniPlayer': miniPlayer,
         'endMode': endMode.name,
         'fullscreen': fullscreen,
@@ -376,6 +393,8 @@ class PlaybackState {
       ),
       equalizerEnabled: json['equalizerEnabled'] as bool? ?? false,
       lastScreenshot: json['lastScreenshot'] as String?,
+      screenshotFailed: json['screenshotFailed'] as bool? ?? false,
+      resumeOffer: ResumeOffer.fromJson(json['resumeOffer']),
       miniPlayer: json['miniPlayer'] as bool? ?? false,
       endMode: EndOfPlaybackMode.fromJson(json['endMode']),
       fullscreen: json['fullscreen'] as bool? ?? false,

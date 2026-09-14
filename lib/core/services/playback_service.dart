@@ -9,10 +9,14 @@ import '../commands/player_command_bus.dart';
 import '../controllers/frame_capturer.dart';
 import '../controllers/media_controller.dart';
 import '../controllers/media_router.dart';
+import '../models/app_preferences.dart';
 import '../models/end_of_playback_mode.dart';
+import '../models/history_entry.dart';
 import '../models/media_file.dart';
+import '../models/media_type.dart';
 import '../models/playback_state.dart';
 import '../models/playback_status.dart';
+import '../models/resume_offer.dart';
 import 'history_store.dart';
 import 'playlist_service.dart';
 import 'screenshot_service.dart';
@@ -37,14 +41,42 @@ class PlaybackService implements PlaybackStateSink {
     this.system = const NoopSystemIntegration(),
     PlaybackState initialState = const PlaybackState(),
   }) : _state = initialState {
-    // Le mode de fin de lecture choisi survit d'une session à l'autre.
-    final storedMode = settings?.endOfPlaybackMode;
-    if (storedMode != null) {
-      _state = _state.copyWith(endMode: EndOfPlaybackMode.fromJson(storedMode));
+    final store = settings;
+    if (store != null) {
+      // Ce que l'utilisateur a choisi survit d'une session à l'autre : mode de
+      // fin de lecture, volume, vitesse, sous-titres, égaliseur, documents.
+      final storedMode = store.endOfPlaybackMode;
+      final prefs = store.preferences;
+      final volume = prefs.startupVolume == StartupVolume.fixed
+          ? prefs.fixedVolume
+          : (store.lastVolume ?? _state.volume);
+      _state = _state.copyWith(
+        endMode: storedMode == null ? null : EndOfPlaybackMode.fromJson(storedMode),
+        volume: volume.clamp(PlaybackState.minVolume, PlaybackState.maxVolume),
+        speed: prefs.defaultSpeed,
+        subtitleScale: prefs.subtitleScale,
+        equalizerEnabled: prefs.equalizerEnabled,
+        equalizerGains: prefs.equalizerGains,
+        readingDark: prefs.readingDark,
+        documentLayout: prefs.pdfLayout,
+      );
     }
     _subscription = bus.stream.listen(_onCommand);
     _playlistSubscription = playlist.stream.listen(_onPlaylistChanged);
   }
+
+  /// Préférences courantes (valeurs par défaut sans stockage).
+  AppPreferences get preferences => settings?.preferences ?? AppPreferences.defaults;
+
+  /// Émet les préférences après chaque modification enregistrée.
+  Stream<AppPreferences> get preferencesChanges => _preferencesChanges.stream;
+
+  final StreamController<AppPreferences> _preferencesChanges =
+      StreamController<AppPreferences>.broadcast();
+
+  /// Sauvegarde différée des réglages suivis en direct (volume, égaliseur…) :
+  /// un glissement de curseur produit des dizaines de changements.
+  Timer? _preferencesSave;
 
   /// Routeur type → contrôleur.
   final MediaRouter router;
@@ -194,6 +226,20 @@ class PlaybackService implements PlaybackStateSink {
       );
     }
 
+    // Réglages suivis en direct : ce que l'utilisateur change pendant la
+    // lecture devient sa préférence (dernier volume, taille des sous-titres,
+    // égaliseur, mode sombre de lecture, mise en page, taille du texte).
+    if (settings != null &&
+        (before.volume != after.volume ||
+            before.equalizerEnabled != after.equalizerEnabled ||
+            !_listEquals(before.equalizerGains, after.equalizerGains) ||
+            before.subtitleScale != after.subtitleScale ||
+            before.readingDark != after.readingDark ||
+            before.documentLayout != after.documentLayout ||
+            (after.mediaType == MediaType.text && before.zoom != after.zoom))) {
+      _schedulePreferencesSave();
+    }
+
     // On réagit à la TRANSITION vers « terminé », pas à son niveau : tant que
     // le fichier suivant n'a pas commencé, d'autres mises à jour d'état (la
     // playlist qui change de fichier courant, par exemple) arrivent avec un
@@ -228,12 +274,153 @@ class PlaybackService implements PlaybackStateSink {
     update((st) => st.copyWith(playlist: visible, playlistIndex: index));
   }
 
-  static bool _listEquals(List<String> a, List<String> b) {
+  static bool _listEquals<T>(List<T> a, List<T> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
       if (a[i] != b[i]) return false;
     }
     return true;
+  }
+
+  // --- Préférences -------------------------------------------------------------
+
+  void _schedulePreferencesSave() {
+    _preferencesSave?.cancel();
+    _preferencesSave = Timer(const Duration(milliseconds: 500), _savePreferencesNow);
+  }
+
+  /// Recopie dans les préférences les réglages suivis en direct.
+  Future<void> _savePreferencesNow() async {
+    _preferencesSave?.cancel();
+    _preferencesSave = null;
+    final store = settings;
+    if (store == null) return;
+
+    final s = _state;
+    if (store.lastVolume != s.volume) await store.setLastVolume(s.volume);
+
+    final current = store.preferences;
+    final next = current.copyWith(
+      equalizerEnabled: s.equalizerEnabled,
+      equalizerGains: s.equalizerGains,
+      subtitleScale: s.subtitleScale,
+      readingDark: s.readingDark,
+      pdfLayout: s.documentLayout,
+      textScale: s.mediaType == MediaType.text ? s.zoom : null,
+    );
+    if (next != current) {
+      await store.setPreferences(next);
+      if (!_preferencesChanges.isClosed) _preferencesChanges.add(next);
+    }
+  }
+
+  /// Applique des préférences venues de l'écran Paramètres.
+  ///
+  /// Ce qui est en cours est aligné AVANT l'enregistrement : la sauvegarde
+  /// différée des réglages suivis en direct recopiera alors les mêmes
+  /// valeurs, au lieu d'annuler le changement.
+  Future<void> _applyPreferences(AppPreferences next) async {
+    await _alignLiveState(next);
+    await settings?.setPreferences(next);
+    if (!_preferencesChanges.isClosed) _preferencesChanges.add(next);
+  }
+
+  Future<void> _alignLiveState(AppPreferences p) async {
+    final active = _active;
+
+    Future<bool> tryHandle(PlayerCommand command) async =>
+        await active?.handle(command) ?? false;
+
+    if (_state.subtitleScale != p.subtitleScale &&
+        !await tryHandle(SetSubtitleScale(p.subtitleScale))) {
+      update((st) => st.copyWith(subtitleScale: p.subtitleScale));
+    }
+
+    if (!_listEquals(_state.equalizerGains, p.equalizerGains) ||
+        _state.equalizerEnabled != p.equalizerEnabled) {
+      var handled = await tryHandle(SetEqualizerGains(p.equalizerGains));
+      if (handled && _state.equalizerEnabled != p.equalizerEnabled) {
+        handled = await tryHandle(const ToggleEqualizer());
+      }
+      if (!handled) {
+        update(
+          (st) => st.copyWith(
+            equalizerGains: p.equalizerGains,
+            equalizerEnabled: p.equalizerEnabled,
+          ),
+        );
+      }
+    }
+
+    if (_state.readingDark != p.readingDark &&
+        !await tryHandle(const ToggleReadingDarkMode())) {
+      update((st) => st.copyWith(readingDark: p.readingDark));
+    }
+
+    if (_state.documentLayout != p.pdfLayout &&
+        !await tryHandle(SetDocumentLayout(p.pdfLayout))) {
+      update((st) => st.copyWith(documentLayout: p.pdfLayout));
+    }
+
+    if (_state.mediaType == MediaType.text && _state.zoom != p.textScale) {
+      await tryHandle(SetZoom(p.textScale));
+    }
+  }
+
+  // --- Reprise de lecture --------------------------------------------------------
+
+  /// Ce qu'il y aurait à reprendre pour ce fichier, selon son type.
+  static ResumeOffer? _offerFrom(MediaType type, HistoryEntry? entry) {
+    if (entry == null) return null;
+    if (type.isDocument) {
+      final page = entry.resumePage;
+      if (page != null) return ResumeOffer(page: page);
+      final scroll = entry.resumeScroll;
+      return scroll == null ? null : ResumeOffer(scroll: scroll);
+    }
+    final position = entry.resumePosition;
+    return position == null ? null : ResumeOffer(position: position);
+  }
+
+  void _clearPendingResume() {
+    _pendingResume = null;
+    _pendingResumePath = null;
+    _pendingResumePage = null;
+    _pendingResumeScroll = null;
+  }
+
+  /// Applique une reprise : tout de suite si le fichier est prêt, sinon dès
+  /// qu'il le sera (voir [_reactToStateChange]).
+  Future<void> _resumeTo(ResumeOffer offer) async {
+    final path = _state.file?.path;
+    if (path == null) return;
+
+    if (_state.isDocument) {
+      if (_state.status == PlaybackStatus.playing) {
+        final page = offer.page;
+        final scroll = offer.scroll;
+        if (page != null && (_state.totalPages == 0 || page <= _state.totalPages)) {
+          await _active?.handle(GoToPage(page));
+        } else if (scroll != null) {
+          await _active?.handle(ScrollTo(scroll));
+        }
+      } else {
+        _pendingResumePage = offer.page;
+        _pendingResumeScroll = offer.scroll;
+        _pendingResumePath = path;
+      }
+      return;
+    }
+
+    final position = offer.position;
+    if (position == null) return;
+    final ready = _state.duration > Duration.zero && _state.status != PlaybackStatus.loading;
+    if (ready) {
+      if (position < _state.duration) await _active?.handle(SeekAbsolute(position));
+    } else {
+      _pendingResume = position;
+      _pendingResumePath = path;
+    }
   }
 
   void _onCommand(DispatchedCommand dispatched) {
@@ -283,10 +470,26 @@ class PlaybackService implements PlaybackStateSink {
         await system.revealInFileManager(path);
       case ClearHistory():
         await history?.clear();
-        // Les pastilles du panneau reflètent l'historique : on les rafraîchit.
-        for (final entry in playlist.state.entries) {
-          playlist.refreshEntry(entry.path);
+        _refreshPlaylistBadges();
+      case ClearRecentFiles():
+        await history?.clearRecent();
+      case ClearResumePositions():
+        await history?.clearPositions();
+        _refreshPlaylistBadges();
+      case AcceptResume():
+        final offer = _state.resumeOffer;
+        if (offer != null) {
+          update((st) => st.copyWith(clearResumeOffer: true));
+          await _resumeTo(offer);
         }
+      case DeclineResume():
+        if (_state.resumeOffer != null) {
+          update((st) => st.copyWith(clearResumeOffer: true));
+        }
+      case UpdatePreferences(:final preferences):
+        await _applyPreferences(preferences);
+      case SetScreenshotFolder(:final path):
+        await settings?.setScreenshotFolder(path);
       case TakeScreenshot():
         await _takeScreenshot();
       case ToggleMiniPlayer():
@@ -322,6 +525,13 @@ class PlaybackService implements PlaybackStateSink {
   static double _clampVolume(double value) =>
       value.clamp(PlaybackState.minVolume, PlaybackState.maxVolume);
 
+  /// Les pastilles du panneau reflètent l'historique : on les relit.
+  void _refreshPlaylistBadges() {
+    for (final entry in playlist.state.entries) {
+      playlist.refreshEntry(entry.path);
+    }
+  }
+
   Future<void> _setFullscreen(bool value) async {
     await window.setFullscreen(value);
     update((st) => st.copyWith(fullscreen: value));
@@ -335,15 +545,19 @@ class PlaybackService implements PlaybackStateSink {
     final Object? capturer = _active;
     final store = screenshots;
     final file = _state.file;
+    // L'état décrit le résultat de CETTE tentative : sans cela, une capture
+    // impossible (fichier audio) afficherait le chemin de la précédente.
+    update((st) => st.copyWith(clearLastScreenshot: true, screenshotFailed: false));
     if (capturer is! FrameCapturer || store == null || file == null) return;
     final png = await capturer.captureFrame();
     if (png == null) return;
     try {
-      final path = await store.save(png, mediaPath: file.path);
+      final path = await store.save(png, mediaPath: file.path, position: _state.position);
       update((st) => st.copyWith(lastScreenshot: path));
     } on FileSystemException {
-      // Dossier inaccessible : la lecture continue, rien n'est publié. Le
-      // choix du dossier arrive dans les paramètres (Phase 6).
+      // Dossier inaccessible : la lecture continue, l'OSD le signale, et le
+      // dossier se change dans les paramètres.
+      update((st) => st.copyWith(screenshotFailed: true));
     }
   }
 
@@ -400,24 +614,30 @@ class PlaybackService implements PlaybackStateSink {
       await _active!.close();
     }
     _active = controller;
-    final remembered = history?.entryFor(path);
-    if (type.isDocument) {
-      _pendingResume = null;
-      _pendingResumePage = remembered?.resumePage;
-      _pendingResumeScroll = remembered?.resumeScroll;
-      _pendingResumePath =
-          (_pendingResumePage ?? _pendingResumeScroll) == null ? null : path;
-    } else {
-      _pendingResumePage = null;
-      _pendingResumeScroll = null;
-      _pendingResume = remembered?.resumePosition;
-      _pendingResumePath = _pendingResume == null ? null : path;
+
+    // Reprise : automatique, proposée, ou jamais, selon les préférences.
+    final offer = _offerFrom(type, history?.entryFor(path));
+    final policy = preferences.resumePolicy;
+    _clearPendingResume();
+    if (offer != null && policy == ResumePolicy.auto) {
+      _pendingResume = offer.position;
+      _pendingResumePage = offer.page;
+      _pendingResumeScroll = offer.scroll;
+      _pendingResumePath = path;
     }
+    if (_state.resumeOffer != null) {
+      update((st) => st.copyWith(clearResumeOffer: true));
+    }
+
     // Inscrit le fichier dans les récents dès maintenant, avant même que la
     // lecture ait commencé.
     await history?.touch(path);
 
     await controller.open(file, this);
+
+    if (offer != null && policy == ResumePolicy.ask && _state.file?.path == path) {
+      update((st) => st.copyWith(resumeOffer: offer));
+    }
   }
 
   /// Ouvre un dossier : scan, puis lecture du premier fichier de la liste, dans
@@ -500,10 +720,10 @@ class PlaybackService implements PlaybackStateSink {
     await _savePositionOfCurrentFile();
     final active = _active;
     _active = null;
-    _pendingResume = null;
-    _pendingResumePath = null;
-    _pendingResumePage = null;
-    _pendingResumeScroll = null;
+    _clearPendingResume();
+    if (_state.resumeOffer != null) {
+      update((st) => st.copyWith(clearResumeOffer: true));
+    }
     if (clearCurrent) playlist.setCurrent(null);
     if (active != null) {
       await active.close();
@@ -523,6 +743,10 @@ class PlaybackService implements PlaybackStateSink {
   Future<void> dispose() async {
     await _subscription.cancel();
     await _playlistSubscription.cancel();
+    // Une sauvegarde de réglages en attente est faite tout de suite, pour ne
+    // pas perdre le dernier volume à la fermeture.
+    if (_preferencesSave != null) await _savePreferencesNow();
     await _states.close();
+    await _preferencesChanges.close();
   }
 }

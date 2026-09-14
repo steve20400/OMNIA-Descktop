@@ -95,6 +95,11 @@ final class OsdScreenshot extends OsdMessage {
   final String path;
 }
 
+/// La capture n'a pas pu être enregistrée (dossier inaccessible).
+final class OsdScreenshotFailed extends OsdMessage {
+  const OsdScreenshotFailed();
+}
+
 final class OsdAspect extends OsdMessage {
   const OsdAspect(this.mode);
   final AspectMode mode;
@@ -194,6 +199,7 @@ OsdMessage? osdFor(PlayerCommand command, PlaybackState after) {
             '',
       ),
     CycleAbLoop() || ClearAbLoop() when hasMedia => OsdAbLoop(a: after.loopA, b: after.loopB),
+    TakeScreenshot() when after.screenshotFailed => const OsdScreenshotFailed(),
     TakeScreenshot() when after.lastScreenshot != null => OsdScreenshot(after.lastScreenshot!),
     SetAspectMode() when hasMedia => OsdAspect(after.aspectMode),
     VideoZoomRelative() || ResetVideoZoom() when hasMedia => OsdVideoZoom(after.videoZoom),

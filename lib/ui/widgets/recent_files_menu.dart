@@ -53,7 +53,9 @@ class OpenMenuButton extends ConsumerWidget {
           OmniaMenuItem(
             icon: Icons.delete_sweep_outlined,
             label: l10n.clearRecent,
-            onPressed: () => ref.dispatch(const ClearHistory()),
+            // Vide la liste sans oublier où l'on s'était arrêté dans chaque
+            // fichier : les positions s'effacent à part, dans les paramètres.
+            onPressed: () => ref.dispatch(const ClearRecentFiles()),
           ),
         ],
       ],

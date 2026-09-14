@@ -209,6 +209,47 @@ void main() {
       expect(restored.pageCount, 9);
     });
 
+    test('effacer les récents garde les positions', () async {
+      await store.savePosition(film,
+          position: const Duration(minutes: 12), duration: const Duration(minutes: 90), now: t0);
+      await store.clearRecent();
+
+      expect(store.recent(), isEmpty);
+      expect(store.entryFor(film)!.resumePosition, const Duration(minutes: 12));
+    });
+
+    test('rouvrir un fichier le remet dans les récents', () async {
+      await store.touch(film, now: t0);
+      await store.clearRecent();
+      await store.touch(film, now: t0.add(const Duration(hours: 1)));
+      expect(store.recent().map((e) => e.path), [film]);
+    });
+
+    test('effacer les positions garde les récents', () async {
+      await store.savePosition(film,
+          position: const Duration(minutes: 12), duration: const Duration(minutes: 90), now: t0);
+      await store.markCompleted('/b.mkv', now: t0);
+      await store.saveDocumentPosition('/doc.pdf', page: 12, pageCount: 40, now: t0);
+
+      await store.clearPositions();
+
+      expect(store.recent(), hasLength(3));
+      expect(store.entryFor(film)!.resumePosition, isNull);
+      expect(store.entryFor(film)!.duration, const Duration(minutes: 90),
+          reason: 'la durée est un fait sur le fichier, pas sur la lecture');
+      expect(store.entryFor('/b.mkv')!.completed, isFalse);
+      expect(store.entryFor('/doc.pdf')!.resumePage, isNull);
+      expect(store.entryFor('/doc.pdf')!.pageCount, 40);
+    });
+
+    test('le drapeau « listé » survit au JSON, et vaut vrai par défaut', () async {
+      await store.touch(film, now: t0);
+      await store.clearRecent();
+      final json = store.entryFor(film)!.toJson();
+      expect(HistoryEntry.fromJson(json).listed, isFalse);
+      expect(HistoryEntry.fromJson({'path': film}).listed, isTrue);
+    });
+
     test('oublier un fichier, puis tout effacer', () async {
       await store.savePosition('/a.mkv',
           position: const Duration(minutes: 5), duration: const Duration(minutes: 90), now: t0);

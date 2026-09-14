@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 
 import '../commands/player_command.dart';
+import '../models/app_preferences.dart';
 import '../models/media_file.dart';
 import '../models/media_type.dart';
 import '../models/playback_status.dart';
@@ -39,7 +40,12 @@ class TextDocument {
 /// document pour la vue. Le zoom est ici une échelle de police ; le défilement
 /// est mémorisé en fraction (0–1), la vue étant seule à connaître ses pixels.
 class TextController implements MediaController {
-  TextController();
+  TextController({AppPreferences Function()? preferences})
+      : _preferences = preferences ?? (() => AppPreferences.defaults);
+
+  /// Taille de texte préférée, appliquée à chaque ouverture. Elle suit le
+  /// dernier réglage de l'utilisateur (le service de lecture la met à jour).
+  final AppPreferences Function() _preferences;
 
   /// Bornes de l'échelle de police.
   static const double minScale = 0.6;
@@ -82,6 +88,7 @@ class TextController implements MediaController {
         currentPage: 0,
         totalPages: 0,
         scrollFraction: 0,
+        zoom: _clampScale(_preferences().textScale),
         clearError: true,
       ),
     );

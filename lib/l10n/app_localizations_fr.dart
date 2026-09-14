@@ -575,4 +575,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get closePanel => 'Fermer';
+
+  @override
+  String get screenshotFailed => 'Capture impossible';
+
+  @override
+  String get screenshotFailedHint =>
+      'Le dossier des captures est inaccessible. Choisissez-en un autre dans les paramètres.';
 }

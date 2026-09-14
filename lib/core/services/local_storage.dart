@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+import '../models/app_preferences.dart';
 
 /// Initialise Hive dans le dossier de données applicatives du système.
 ///
@@ -29,3 +32,33 @@ Future<Directory> localStorageDirectory() async {
 }
 
 bool _initialised = false;
+
+/// Copie des préférences en clair, lisible sans Hive.
+///
+/// Hive verrouille ses fichiers : quand l'instance unique est désactivée, une
+/// seconde fenêtre ne peut pas ouvrir la base tenue par la première. Elle
+/// démarre alors avec des réglages en mémoire, relus depuis cette copie, pour
+/// garder au moins le thème, la langue et les réglages de lecture.
+const String preferencesSnapshotName = 'preferences.json';
+
+Future<void> writePreferencesSnapshot(Directory dir, AppPreferences prefs) async {
+  try {
+    await dir.create(recursive: true);
+    await File(p.join(dir.path, preferencesSnapshotName))
+        .writeAsString(jsonEncode(prefs.toJson()), flush: true);
+  } on FileSystemException {
+    // Copie de secours seulement : son absence n'empêche rien.
+  }
+}
+
+AppPreferences? readPreferencesSnapshot(Directory dir) {
+  try {
+    final file = File(p.join(dir.path, preferencesSnapshotName));
+    if (!file.existsSync()) return null;
+    final json = jsonDecode(file.readAsStringSync());
+    if (json is! Map) return null;
+    return AppPreferences.fromJson(Map<String, Object?>.from(json));
+  } on Object {
+    return null;
+  }
+}

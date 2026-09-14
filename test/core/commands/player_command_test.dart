@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/commands/player_command.dart';
+import 'package:omnia/core/models/app_preferences.dart';
 import 'package:omnia/core/models/document_layout.dart';
 import 'package:omnia/core/models/end_of_playback_mode.dart';
+import 'package:omnia/core/models/equalizer.dart';
 import 'package:omnia/core/models/playlist_sort.dart';
 import 'package:omnia/core/models/video_adjust.dart';
 
@@ -75,6 +77,14 @@ void main() {
       SetEqualizerPreset('rock'),
       ToggleEqualizer(),
       ToggleMiniPlayer(),
+      // Phase 6
+      ClearRecentFiles(),
+      ClearResumePositions(),
+      AcceptResume(),
+      DeclineResume(),
+      UpdatePreferences(AppPreferences(seekStepSeconds: 10, equalizerGains: Equalizer.flat)),
+      SetScreenshotFolder('/captures'),
+      SetScreenshotFolder(null),
     ];
 
     for (final command in samples) {

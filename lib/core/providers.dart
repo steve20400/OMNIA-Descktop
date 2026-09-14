@@ -7,6 +7,7 @@ import 'controllers/av_controller.dart';
 import 'controllers/media_router.dart';
 import 'controllers/pdf_controller.dart';
 import 'controllers/text_controller.dart';
+import 'models/app_preferences.dart';
 import 'models/playback_state.dart';
 import 'models/playlist_state.dart';
 import 'services/audio_metadata_service.dart';
@@ -68,7 +69,8 @@ final audioMetadataServiceProvider =
 /// Moteur audio/vidéo. Ce provider possède le cycle de vie de mpv : il est le
 /// seul à le libérer.
 final avControllerProvider = Provider<AvController>((ref) {
-  final controller = AvController();
+  final settings = ref.watch(settingsStoreProvider);
+  final controller = AvController(preferences: () => settings.preferences);
   ref.onDispose(controller.dispose);
   return controller;
 });
@@ -79,7 +81,8 @@ final videoControllerProvider =
 
 /// Fichiers texte et Markdown.
 final textControllerProvider = Provider<TextController>((ref) {
-  final controller = TextController();
+  final settings = ref.watch(settingsStoreProvider);
+  final controller = TextController(preferences: () => settings.preferences);
   ref.onDispose(controller.dispose);
   return controller;
 });
@@ -140,6 +143,22 @@ class PlaybackStateNotifier extends Notifier<PlaybackState> {
     final sub = service.stream.listen((s) => state = s);
     ref.onDispose(sub.cancel);
     return service.state;
+  }
+}
+
+/// Préférences observables par l'interface (thème, langue, écran Paramètres).
+///
+/// Lecture seule : on les modifie en publiant `UpdatePreferences` sur le bus.
+final preferencesProvider =
+    NotifierProvider<PreferencesNotifier, AppPreferences>(PreferencesNotifier.new);
+
+class PreferencesNotifier extends Notifier<AppPreferences> {
+  @override
+  AppPreferences build() {
+    final service = ref.watch(playbackServiceProvider);
+    final sub = service.preferencesChanges.listen((p) => state = p);
+    ref.onDispose(sub.cancel);
+    return service.preferences;
   }
 }
 

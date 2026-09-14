@@ -43,6 +43,12 @@ abstract interface class HistoryStore {
   /// Oublie un fichier.
   Future<void> forget(String path);
 
+  /// Vide la liste des récents, en gardant les positions mémorisées.
+  Future<void> clearRecent();
+
+  /// Oublie toutes les positions, en gardant la liste des récents.
+  Future<void> clearPositions();
+
   /// Efface tout l'historique.
   Future<void> clear();
 }
@@ -135,7 +141,7 @@ class HiveHistoryStore implements HistoryStore {
   Future<void> touch(String path, {DateTime? now}) async {
     final existing = entryFor(path);
     await _put(
-      existing?.copyWith(lastOpened: now ?? DateTime.now()) ??
+      existing?.copyWith(lastOpened: now ?? DateTime.now(), listed: true) ??
           HistoryEntry(
             path: path,
             position: Duration.zero,
@@ -143,6 +149,29 @@ class HiveHistoryStore implements HistoryStore {
             lastOpened: now ?? DateTime.now(),
           ),
     );
+  }
+
+  List<HistoryEntry> _all() {
+    final entries = <HistoryEntry>[];
+    for (final key in _box.keys) {
+      final entry = entryFor(key as String);
+      if (entry != null) entries.add(entry);
+    }
+    return entries;
+  }
+
+  @override
+  Future<void> clearRecent() async {
+    for (final entry in _all()) {
+      if (entry.listed) await _put(entry.copyWith(listed: false));
+    }
+  }
+
+  @override
+  Future<void> clearPositions() async {
+    for (final entry in _all()) {
+      await _put(entry.withoutProgress());
+    }
   }
 
   @override
@@ -176,12 +205,8 @@ class HiveHistoryStore implements HistoryStore {
 
   @override
   List<HistoryEntry> recent({int limit = 20}) {
-    final entries = <HistoryEntry>[];
-    for (final key in _box.keys) {
-      final entry = entryFor(key as String);
-      if (entry != null) entries.add(entry);
-    }
-    entries.sort((a, b) => b.lastOpened.compareTo(a.lastOpened));
+    final entries = _all().where((e) => e.listed).toList()
+      ..sort((a, b) => b.lastOpened.compareTo(a.lastOpened));
     return entries.take(limit).toList();
   }
 
@@ -248,13 +273,23 @@ class MemoryHistoryStore implements HistoryStore {
   @override
   Future<void> touch(String path, {DateTime? now}) async {
     final stamp = now ?? DateTime.now();
-    entries[path] = entries[path]?.copyWith(lastOpened: stamp) ??
+    entries[path] = entries[path]?.copyWith(lastOpened: stamp, listed: true) ??
         HistoryEntry(
           path: path,
           position: Duration.zero,
           duration: Duration.zero,
           lastOpened: stamp,
         );
+  }
+
+  @override
+  Future<void> clearRecent() async {
+    entries.updateAll((_, e) => e.copyWith(listed: false));
+  }
+
+  @override
+  Future<void> clearPositions() async {
+    entries.updateAll((_, e) => e.withoutProgress());
   }
 
   @override
@@ -286,7 +321,7 @@ class MemoryHistoryStore implements HistoryStore {
 
   @override
   List<HistoryEntry> recent({int limit = 20}) {
-    final list = entries.values.toList()
+    final list = entries.values.where((e) => e.listed).toList()
       ..sort((a, b) => b.lastOpened.compareTo(a.lastOpened));
     return list.take(limit).toList();
   }

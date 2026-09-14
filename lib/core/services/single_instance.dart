@@ -5,6 +5,36 @@ import 'dart:math';
 
 import 'package:path/path.dart' as p;
 
+/// Nom du fichier marqueur : sa présence désactive l'instance unique.
+///
+/// Le réglage « instance unique » doit être connu avant l'ouverture de la base
+/// de préférences — c'est justement elle qu'une seconde instance ne doit pas
+/// ouvrir en même temps que la première. Un fichier vide dans le dossier de
+/// données se lit sans aucune base.
+const String multiInstanceMarkerName = 'multi-instance';
+
+/// Vrai si l'instance unique est active (réglage par défaut).
+bool singleInstanceEnabled(Directory dataDirectory) =>
+    !File(p.join(dataDirectory.path, multiInstanceMarkerName)).existsSync();
+
+/// Reflète le réglage dans le fichier marqueur.
+Future<void> writeSingleInstancePreference(
+  Directory dataDirectory, {
+  required bool enabled,
+}) async {
+  final marker = File(p.join(dataDirectory.path, multiInstanceMarkerName));
+  try {
+    if (enabled) {
+      if (await marker.exists()) await marker.delete();
+    } else {
+      await dataDirectory.create(recursive: true);
+      await marker.writeAsString('');
+    }
+  } on FileSystemException {
+    // Dossier en lecture seule : le réglage sera repris à la prochaine écriture.
+  }
+}
+
 /// Message qu'une seconde instance envoie à la première : « ouvre ceci ».
 class InstanceMessage {
   const InstanceMessage({required this.token, required this.args});
@@ -156,9 +186,14 @@ class SingleInstanceService {
   /// Port de la première instance, `null` si ce processus ne sert pas.
   int? get port => _server?.port;
 
+  /// Libère le port et le verrou — seulement si ce processus les tient : une
+  /// fenêtre secondaire (instance unique désactivée) ne doit pas effacer, en
+  /// se fermant, le verrou de la première.
   Future<void> dispose() async {
+    final serving = _server != null;
     await _server?.close();
     _server = null;
+    if (!serving) return;
     try {
       if (await lockFile.exists()) await lockFile.delete();
     } on FileSystemException {

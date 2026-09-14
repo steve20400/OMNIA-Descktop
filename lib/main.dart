@@ -7,6 +7,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'core/commands/player_command_bus.dart';
+import 'core/models/app_preferences.dart';
 import 'core/providers.dart';
 import 'core/services/history_store.dart';
 import 'core/services/local_storage.dart';
@@ -23,12 +24,16 @@ Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
 
-  // Instance unique : si OMNIA tourne déjà, on lui confie le fichier et on
-  // se retire, plutôt que d'ouvrir une seconde fenêtre.
+  // Instance unique (réglable) : si OMNIA tourne déjà, on lui confie le
+  // fichier et on se retire, plutôt que d'ouvrir une seconde fenêtre.
+  final Directory dataDirectory;
   final SingleInstanceService instance;
+  final bool single;
   try {
-    instance = SingleInstanceService(directory: await localStorageDirectory());
-    if (await instance.delegateToExisting(args)) {
+    dataDirectory = await localStorageDirectory();
+    single = singleInstanceEnabled(dataDirectory);
+    instance = SingleInstanceService(directory: dataDirectory);
+    if (single && await instance.delegateToExisting(args)) {
       exit(0);
     }
   } on Object catch (error) {
@@ -39,15 +44,24 @@ Future<void> main(List<String> args) async {
 
   // Le stockage local peut échouer (dossier de données inaccessible, disque
   // plein). Plutôt que de mourir sans fenêtre, OMNIA affiche l'erreur.
-  final SettingsStore settings;
-  final HistoryStore history;
+  SettingsStore settings;
+  HistoryStore history;
   try {
     settings = await HiveSettingsStore.open();
     history = await HiveHistoryStore.open();
   } on Object catch (error) {
-    await _showWindow(bounds: null, maximized: false);
-    runApp(StartupFailureApp(detail: error.toString()));
-    return;
+    if (single) {
+      await _showWindow(bounds: null, maximized: false);
+      runApp(StartupFailureApp(detail: error.toString()));
+      return;
+    }
+    // Plusieurs fenêtres autorisées : la première tient la base (Hive la
+    // verrouille). Celle-ci démarre avec des réglages en mémoire, relus depuis
+    // la copie en clair ; son historique ne sera pas conservé.
+    settings = MemorySettingsStore(
+      preferences: readPreferencesSnapshot(dataDirectory) ?? const AppPreferences(),
+    );
+    history = MemoryHistoryStore();
   }
 
   final container = ProviderContainer(
@@ -60,17 +74,19 @@ Future<void> main(List<String> args) async {
 
   // Devenir la première instance : les suivantes nous enverront leurs
   // arguments, qu'on traite comme une ouverture depuis le système.
-  try {
-    await instance.serve((remoteArgs) {
-      final command = commandForLaunchArguments(remoteArgs);
-      unawaited(container.read(windowServiceProvider).focus());
-      if (command != null) {
-        container.read(commandBusProvider).dispatch(command, source: CommandSource.system);
-      }
-    });
-  } on Object {
-    // Port local indisponible : on fonctionne sans instance unique, ce qui
-    // vaut mieux que de ne pas démarrer.
+  if (single) {
+    try {
+      await instance.serve((remoteArgs) {
+        final command = commandForLaunchArguments(remoteArgs);
+        unawaited(container.read(windowServiceProvider).focus());
+        if (command != null) {
+          container.read(commandBusProvider).dispatch(command, source: CommandSource.system);
+        }
+      });
+    } on Object {
+      // Port local indisponible : on fonctionne sans instance unique, ce qui
+      // vaut mieux que de ne pas démarrer.
+    }
   }
 
   await _showWindow(

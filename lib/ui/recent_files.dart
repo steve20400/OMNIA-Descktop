@@ -38,7 +38,7 @@ class RecentFilesNotifier extends Notifier<List<RecentFile>> {
     _subscription = bus.commands.listen((command) async {
       switch (command) {
         case OpenFile() || OpenFolder() || NextFile() || PreviousFile() ||
-              Stop() || ClearHistory():
+              Stop() || ClearHistory() || ClearRecentFiles() || ClearResumePositions():
           await service.idle;
           refresh();
         default:

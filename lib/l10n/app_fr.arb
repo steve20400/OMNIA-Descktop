@@ -278,5 +278,7 @@
   "miniPlayer": "Mini-lecteur",
   "miniPlayerExit": "Quitter le mini-lecteur",
   "unknownArtist": "Artiste inconnu",
-  "closePanel": "Fermer"
+  "closePanel": "Fermer",
+  "screenshotFailed": "Capture impossible",
+  "screenshotFailedHint": "Le dossier des captures est inaccessible. Choisissez-en un autre dans les paramètres."
 }

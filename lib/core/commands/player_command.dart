@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 
+import '../models/app_preferences.dart';
 import '../models/document_layout.dart';
 import '../models/end_of_playback_mode.dart';
 import '../models/playlist_sort.dart';
@@ -68,6 +69,19 @@ sealed class PlayerCommand {
       'rescanFolder' => const RescanFolder(),
       'revealInFolder' => RevealInFolder(_string(json, 'path')),
       'clearHistory' => const ClearHistory(),
+      'clearRecentFiles' => const ClearRecentFiles(),
+      'clearResumePositions' => const ClearResumePositions(),
+      'acceptResume' => const AcceptResume(),
+      'declineResume' => const DeclineResume(),
+      'updatePreferences' => UpdatePreferences(
+          AppPreferences.fromJson(
+            Map<String, Object?>.from(
+              json['preferences'] as Map? ??
+                  (throw const FormatException('Argument manquant : preferences')),
+            ),
+          ),
+        ),
+      'setScreenshotFolder' => SetScreenshotFolder(json['path'] as String?),
       'zoomRelative' => ZoomRelative(_num(json, 'factor').toDouble()),
       'fitZoom' => FitZoom(FitMode.fromJson(json['mode'])),
       'rotateDocument' => RotateDocument(_num(json, 'quarterTurns').toInt()),
@@ -428,6 +442,58 @@ final class ClearHistory extends PlayerCommand {
   const ClearHistory();
   @override
   String get type => 'clearHistory';
+}
+
+/// Vide la liste des fichiers récents, sans oublier les positions.
+final class ClearRecentFiles extends PlayerCommand {
+  const ClearRecentFiles();
+  @override
+  String get type => 'clearRecentFiles';
+}
+
+/// Oublie toutes les positions de lecture, sans toucher aux récents.
+final class ClearResumePositions extends PlayerCommand {
+  const ClearResumePositions();
+  @override
+  String get type => 'clearResumePositions';
+}
+
+/// Accepte la reprise proposée (politique « demander »).
+final class AcceptResume extends PlayerCommand {
+  const AcceptResume();
+  @override
+  String get type => 'acceptResume';
+}
+
+/// Refuse la reprise proposée : le fichier continue depuis le début.
+final class DeclineResume extends PlayerCommand {
+  const DeclineResume();
+  @override
+  String get type => 'declineResume';
+}
+
+// --- Paramètres --------------------------------------------------------------
+
+/// Remplace les préférences. L'écran Paramètres passe par le bus comme le
+/// reste : le service de lecture enregistre, et aligne ce qui est en cours
+/// (taille des sous-titres, égaliseur, mode sombre de lecture…).
+final class UpdatePreferences extends PlayerCommand {
+  const UpdatePreferences(this.preferences);
+  final AppPreferences preferences;
+  @override
+  String get type => 'updatePreferences';
+  @override
+  Map<String, Object?> get arguments => {'preferences': preferences.toJson()};
+}
+
+/// Dossier des captures d'écran ; `null` revient au dossier par défaut.
+final class SetScreenshotFolder extends PlayerCommand {
+  const SetScreenshotFolder(this.path);
+  final String? path;
+  @override
+  String get type => 'setScreenshotFolder';
+  @override
+  Map<String, Object?> get arguments => {'path': path};
 }
 
 // --- Documents -------------------------------------------------------------

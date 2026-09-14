@@ -571,4 +571,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get closePanel => 'Close';
+
+  @override
+  String get screenshotFailed => 'Screenshot failed';
+
+  @override
+  String get screenshotFailedHint =>
+      'The screenshot folder cannot be written to. Pick another one in Settings.';
 }

@@ -114,6 +114,19 @@ void main() {
       expect(osdFor(const NextFile(), idle), isNull);
     });
 
+    test('capture : chemin enregistré, ou échec signalé', () {
+      expect(
+        osdFor(const TakeScreenshot(), playing.copyWith(lastScreenshot: '/c/a.png')),
+        isA<OsdScreenshot>(),
+      );
+      expect(
+        osdFor(const TakeScreenshot(), playing.copyWith(screenshotFailed: true)),
+        isA<OsdScreenshotFailed>(),
+      );
+      // Rien d'enregistré (fichier audio) : pas de message.
+      expect(osdFor(const TakeScreenshot(), playing), isNull);
+    });
+
     test('les commandes sans retour visuel ne produisent rien', () {
       expect(osdFor(const OpenFile('/x.mkv'), playing), isNull);
       expect(osdFor(const SetPlaylistQuery('a'), playing), isNull);

@@ -1129,6 +1129,18 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Fermer'**
   String get closePanel;
+
+  /// No description provided for @screenshotFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Capture impossible'**
+  String get screenshotFailed;
+
+  /// No description provided for @screenshotFailedHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le dossier des captures est inaccessible. Choisissez-en un autre dans les paramètres.'**
+  String get screenshotFailedHint;
 }
 
 class _AppLocalizationsDelegate

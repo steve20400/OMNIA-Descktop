@@ -13,6 +13,7 @@ class HistoryEntry {
     this.pageCount = 0,
     this.page = 0,
     this.scrollFraction = 0,
+    this.listed = true,
   });
 
   /// Sous ce seuil, la position n'est pas mémorisée : on vient à peine de
@@ -44,6 +45,10 @@ class HistoryEntry {
 
   /// Dernière position de défilement, 0–1. Texte.
   final double scrollFraction;
+
+  /// Figure dans la liste des récents. « Effacer les récents » retire les
+  /// fichiers de la liste sans oublier leurs positions.
+  final bool listed;
 
   /// Page à rouvrir, `null` si l'on repart du début : première page, ou
   /// document déjà lu jusqu'à la dernière page.
@@ -88,6 +93,7 @@ class HistoryEntry {
     int? pageCount,
     int? page,
     double? scrollFraction,
+    bool? listed,
   }) {
     return HistoryEntry(
       path: path,
@@ -98,8 +104,21 @@ class HistoryEntry {
       pageCount: pageCount ?? this.pageCount,
       page: page ?? this.page,
       scrollFraction: scrollFraction ?? this.scrollFraction,
+      listed: listed ?? this.listed,
     );
   }
+
+  /// La même entrée, sans aucune position mémorisée (« effacer les positions »).
+  /// La durée et le nombre de pages restent : ce sont des faits sur le
+  /// fichier, pas sur la lecture.
+  HistoryEntry withoutProgress() => HistoryEntry(
+        path: path,
+        position: Duration.zero,
+        duration: duration,
+        lastOpened: lastOpened,
+        pageCount: pageCount,
+        listed: listed,
+      );
 
   Map<String, Object?> toJson() => {
         'path': path,
@@ -110,6 +129,7 @@ class HistoryEntry {
         'pageCount': pageCount,
         'page': page,
         'scrollFraction': scrollFraction,
+        'listed': listed,
       };
 
   factory HistoryEntry.fromJson(Map<String, Object?> json) => HistoryEntry(
@@ -124,6 +144,7 @@ class HistoryEntry {
         page: (json['page'] as num?)?.toInt() ?? 0,
         scrollFraction:
             ((json['scrollFraction'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0),
+        listed: json['listed'] as bool? ?? true,
       );
 
   @override

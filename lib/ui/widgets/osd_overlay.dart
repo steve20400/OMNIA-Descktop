@@ -215,6 +215,21 @@ class _OsdPill extends StatelessWidget {
             ),
           ),
         ),
+      OsdScreenshotFailed() => (
+          Icons.no_photography_outlined,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.screenshotFailed, style: type.osdLabel),
+                const SizedBox(height: 3),
+                Text(l10n.screenshotFailedHint, style: type.caption),
+              ],
+            ),
+          ),
+        ),
       OsdAspect(:final mode) => (
           Icons.aspect_ratio_rounded,
           Text(

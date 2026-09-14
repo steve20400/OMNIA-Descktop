@@ -4,6 +4,7 @@ import 'dart:ui' show AppExitResponse;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/models/app_preferences.dart';
 import '../core/providers.dart';
 import '../core/utils/platform_session.dart';
 import '../l10n/app_localizations.dart';
@@ -79,14 +80,27 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
       ref.read(windowServiceProvider).setTitle(title);
     });
 
+    final themeMode = ref.watch(preferencesProvider.select((p) => p.themeMode));
+    final language = ref.watch(preferencesProvider.select((p) => p.language));
+
     return MaterialApp(
       title: 'OMNIA',
       debugShowCheckedModeBanner: false,
       theme: buildOmniaTheme(Brightness.light),
       darkTheme: buildOmniaTheme(Brightness.dark),
-      // Le thème sombre est le thème d'OMNIA ; le clair devient sélectionnable
-      // dans les paramètres (Phase 6).
-      themeMode: ThemeMode.dark,
+      // Le sombre est le thème d'OMNIA ; clair et système se choisissent
+      // dans les paramètres.
+      themeMode: switch (themeMode) {
+        AppThemeMode.dark => ThemeMode.dark,
+        AppThemeMode.light => ThemeMode.light,
+        AppThemeMode.system => ThemeMode.system,
+      },
+      // Langue imposée par les paramètres, sinon celle du système.
+      locale: switch (language) {
+        AppLanguage.system => null,
+        AppLanguage.fr => const Locale('fr'),
+        AppLanguage.en => const Locale('en'),
+      },
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       // Français par défaut si la langue du système n'est pas prise en charge.
