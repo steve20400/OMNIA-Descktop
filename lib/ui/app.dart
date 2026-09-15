@@ -79,9 +79,13 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
     final window = ref.read(windowServiceProvider);
     final settings = ref.read(settingsStoreProvider);
     final bounds = await window.getBounds();
+    // Un mini-lecteur agrandi par le système (Win+↑, double clic) n'a rien à
+    // retenir : place et taille seraient celles de l'écran, reprises à
+    // l'entrée suivante.
+    final maximized = await window.isMaximized();
     // Relu après l'attente : pendant la sortie du mini-lecteur, la fenêtre a
     // déjà repris sa taille.
-    if (!mounted) return;
+    if (!mounted || maximized) return;
     final state = ref.read(playbackStateProvider);
     if (!state.miniPlayer) return;
     // Sous Wayland, la position rapportée est toujours (0, 0).

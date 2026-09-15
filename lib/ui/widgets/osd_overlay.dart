@@ -17,43 +17,63 @@ import 'floating_surface.dart';
 /// Une seule pastille, en haut de la scène, qui apparaît en glissant de
 /// quelques pixels et s'efface d'elle-même. Les chiffres sont en mono pour ne
 /// pas trembler quand la valeur change.
+///
+/// La pastille ne dépasse jamais [pillMaxWidth], ni la scène moins une marge
+/// de chaque côté : un texte trop long s'abrège.
 class OsdOverlay extends ConsumerWidget {
   const OsdOverlay({super.key});
+
+  /// Largeur de la pastille quand la place ne manque pas.
+  static const double pillMaxWidth = 480;
+
+  /// Largeur permise à la pastille sur une scène de [available] pixels.
+  static double maxPillWidth(double available) =>
+      math.min(pillMaxWidth, math.max(0.0, available - 2 * OmniaMetrics.space4));
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final message = ref.watch(osdProvider);
 
     return IgnorePointer(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: const EdgeInsets.only(top: OmniaMetrics.space5),
-          child: AnimatedSwitcher(
-            duration: OmniaMotion.reveal,
-            switchInCurve: OmniaMotion.revealCurve,
-            switchOutCurve: OmniaMotion.concealCurve,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, -0.25),
-                  end: Offset.zero,
-                ).animate(animation),
-                child: child,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final available = constraints.hasBoundedWidth
+              ? constraints.maxWidth
+              : MediaQuery.sizeOf(context).width;
+          return Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: OmniaMetrics.space5),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxPillWidth(available)),
+                child: AnimatedSwitcher(
+                  duration: OmniaMotion.reveal,
+                  switchInCurve: OmniaMotion.revealCurve,
+                  switchOutCurve: OmniaMotion.concealCurve,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, -0.25),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: message == null
+                      ? const SizedBox.shrink(key: ValueKey('osd-none'))
+                      : _OsdPill(
+                          // Une clé par nature de message : deux volumes
+                          // successifs se mettent à jour en place, un volume
+                          // puis une vitesse se remplacent en fondu.
+                          key: ValueKey(message.runtimeType),
+                          message: message,
+                        ),
+                ),
               ),
             ),
-            child: message == null
-                ? const SizedBox.shrink(key: ValueKey('osd-none'))
-                : _OsdPill(
-                    // Une clé par nature de message : deux volumes successifs
-                    // se mettent à jour en place, un volume puis une vitesse
-                    // se remplacent en fondu.
-                    key: ValueKey(message.runtimeType),
-                    message: message,
-                  ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -80,9 +100,11 @@ class _OsdPill extends StatelessWidget {
                 Text(_signed(deltaSeconds), style: type.osdValue),
                 Text('  ·  ', style: type.osdLabel),
               ],
-              Text(
-                formatTimecode(position, reference: duration),
-                style: type.osdLabel,
+              Flexible(
+                child: Text(
+                  formatTimecode(position, reference: duration),
+                  style: type.osdLabel,
+                ),
               ),
             ],
           ),
@@ -98,9 +120,11 @@ class _OsdPill extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                muted ? l10n.osdMuted : l10n.osdVolume(volume.round()),
-                style: muted ? type.osdLabel : type.osdValue,
+              Flexible(
+                child: Text(
+                  muted ? l10n.osdMuted : l10n.osdVolume(volume.round()),
+                  style: muted ? type.osdLabel : type.osdValue,
+                ),
               ),
               const SizedBox(width: OmniaMetrics.space3),
               _LevelBar(level: muted ? 0 : volume / 100),

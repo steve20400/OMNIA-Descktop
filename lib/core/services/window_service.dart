@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:window_manager/window_manager.dart';
@@ -37,7 +38,9 @@ abstract interface class WindowService {
   /// fenêtres l'applique aussi aux tailles demandées par le programme.
   Future<void> setAspectRatio(double ratio);
 
-  /// Agrandit la fenêtre, ou lui rend sa taille normale.
+  /// Agrandit la fenêtre, ou lui rend sa taille normale. Se termine une fois
+  /// le changement fait : le mini-lecteur lit et pose la géométrie juste
+  /// après.
   Future<void> setMaximized(bool value);
 
   /// Émet à chaque déplacement/redimensionnement/maximisation.
@@ -118,11 +121,30 @@ class WindowManagerService with WindowListener implements WindowService {
       windowManager.setAspectRatio(ratio > 0 ? ratio : _noAspectRatio);
 
   @override
-  Future<void> setMaximized(bool value) =>
-      value ? windowManager.maximize() : windowManager.unmaximize();
+  Future<void> setMaximized(bool value) async {
+    await (value ? windowManager.maximize() : windowManager.unmaximize());
+    // window_manager 0.5.2 ne fait que DEMANDER le changement : message posté
+    // sous Windows (SC_MAXIMIZE, SC_RESTORE), requête au gestionnaire de
+    // fenêtres sous Linux. On attend qu'il ait eu lieu (un tiers de seconde au
+    // plus) : la géométrie lue ou posée juste après viserait sinon la fenêtre
+    // encore agrandie.
+    for (var i = 0; i < 10 && await windowManager.isMaximized() != value; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
+  }
 
   @override
   void onWindowMoved() => _geometry.add(null);
+
+  /// Sous Linux, window_manager 0.5.2 n'émet jamais « moved » ni « resized »
+  /// (macOS et Windows seulement), mais « move » à chaque configure-event :
+  /// déplacement comme redimensionnement. Sans lui, rien n'y serait
+  /// enregistré après un geste à la souris ; sa cadence est absorbée par la
+  /// sauvegarde différée de l'application.
+  @override
+  void onWindowMove() {
+    if (Platform.isLinux) _geometry.add(null);
+  }
 
   @override
   void onWindowResized() => _geometry.add(null);

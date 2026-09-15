@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -14,10 +15,58 @@ import '../theme/omnia_theme.dart';
 ///
 /// Sans pochette : un vinyle stylisé aux couleurs de la salle. La transition
 /// d'une pochette à l'autre est un fondu, jamais un saut.
+///
+/// La pochette suit la taille de la scène ([coverSideFor]) et laisse aux
+/// textes la place qu'il leur faut ; trop petite, elle s'efface. La vue ne
+/// défile qu'en dernier recours, quand même les textes seuls ne tiennent pas.
 class AudioStage extends ConsumerWidget {
   const AudioStage({super.key, required this.file});
 
   final MediaFile file;
+
+  /// Pochette la plus grande.
+  static const double maxCoverSide = 420;
+
+  /// En deçà, la pochette s'efface : mieux vaut des textes lisibles qu'une
+  /// vignette.
+  static const double minCoverSide = 96;
+
+  /// La pochette dans l'arbre (tests).
+  static const Key coverKey = ValueKey('audio-stage-cover');
+
+  /// Largeur des textes quand la place ne manque pas.
+  static const double _textMaxWidth = 560;
+
+  /// Scène assez grande pour les marges pleines.
+  static const double _roomyWidth = 480;
+  static const double _roomyHeight = 360;
+
+  /// Côté idéal de la pochette sur une scène de [size] : 55 % de la hauteur
+  /// ou 45 % de la largeur, le plus petit des deux, [maxCoverSide] au plus.
+  static double coverSideFor(Size size) =>
+      math.min(size.height * 0.55, size.width * 0.45).clamp(0.0, maxCoverSide).toDouble();
+
+  /// Hauteur d'un texte centré de [maxLines] lignes au plus, mise à l'échelle
+  /// du texte comprise.
+  static double _textHeight(
+    BuildContext context,
+    String text,
+    TextStyle style,
+    double maxWidth,
+    int maxLines,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: maxLines,
+      ellipsis: '…',
+    )..layout(maxWidth: maxWidth);
+    final height = painter.height.ceilToDouble();
+    painter.dispose();
+    return height;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -59,29 +108,72 @@ class AudioStage extends ConsumerWidget {
           ),
         ),
         ColoredBox(color: colors.velvet.withValues(alpha: cover == null ? 0 : 0.72)),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(OmniaMetrics.space6),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _Cover(cover: cover, keyPath: file.path),
-                const SizedBox(height: OmniaMetrics.space5),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
-                  child: Text(
-                    title,
-                    style: type.viewTitle,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final screen = MediaQuery.sizeOf(context);
+            final size = Size(
+              constraints.hasBoundedWidth ? constraints.maxWidth : screen.width,
+              constraints.hasBoundedHeight ? constraints.maxHeight : screen.height,
+            );
+            final roomy = size.width >= _roomyWidth && size.height >= _roomyHeight;
+            final padding = roomy ? OmniaMetrics.space6 : OmniaMetrics.space4;
+            final lineWidth = math.max(0.0, size.width - 2 * padding);
+            final textHeight =
+                _textHeight(context, title, type.viewTitle, math.min(_textMaxWidth, lineWidth), 2) +
+                    OmniaMetrics.space2 +
+                    _textHeight(context, subtitle, type.secondary, lineWidth, 1);
+            // La pochette prend ce que les textes lui laissent, sans dépasser
+            // sa taille idéale.
+            final side = math.min(
+              coverSideFor(size),
+              size.height - 2 * padding - textHeight - OmniaMetrics.space5,
+            );
+            final showCover = side >= minCoverSide;
+
+            // Centré quand tout tient ; sinon, en dernier recours, la vue
+            // défile plutôt que de rogner les textes.
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: size.width, minHeight: size.height),
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(padding),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (showCover) ...[
+                          SizedBox.square(
+                            key: coverKey,
+                            dimension: side,
+                            child: _Cover(cover: cover, keyPath: file.path, size: side),
+                          ),
+                          const SizedBox(height: OmniaMetrics.space5),
+                        ],
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: _textMaxWidth),
+                          child: Text(
+                            title,
+                            style: type.viewTitle,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: OmniaMetrics.space2),
+                        Text(
+                          subtitle,
+                          style: type.secondary,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: OmniaMetrics.space2),
-                Text(subtitle, style: type.secondary, textAlign: TextAlign.center),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -89,12 +181,11 @@ class AudioStage extends ConsumerWidget {
 }
 
 class _Cover extends StatelessWidget {
-  const _Cover({required this.cover, required this.keyPath});
+  const _Cover({required this.cover, required this.keyPath, required this.size});
 
   final Uint8List? cover;
   final String keyPath;
-
-  static const double size = 260;
+  final double size;
 
   @override
   Widget build(BuildContext context) {

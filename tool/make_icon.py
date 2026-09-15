@@ -248,14 +248,18 @@ def small_layers(size):
     s_top = max(snap(116), p_top + px)
     s_bottom = min(snap(186), p_bottom - px)
 
+    # Lampe : un carré de deux pixels aux coins adoucis, centré sur un coin de
+    # pixel. Un disque d'un pixel de rayon ne couvrirait aucun des quatre
+    # pixels en entier : la lampe tournerait au gris.
     lamp_x, lamp_y = snap(62), snap(110)
+    lamp = box(lamp_x - px, lamp_y - px, lamp_x + px, lamp_y + px, px / 2)
     return [
         (monitor, (CURTAIN, 1.0)),
         (Ring(monitor, box(m_left, m_top, m_right, m_bottom, 20.5, -px)), (WHITE, 1.0)),
         (box(neck_left, m_bottom, neck_right, base_top, 0), (WHITE, 1.0)),
         (box(base_left, base_top, base_right, base_top + px, px / 2), (WHITE, 1.0)),
         (Polygon((lamp_x, lamp_y), (158, 76), (158, 144)), fade(AMBER, lamp_x, 158, 0.95, 0.08)),
-        (Circle(lamp_x, lamp_y, px), (WHITE, 1.0)),
+        (lamp, (WHITE, 1.0)),
         (box(p_left, p_top, p_right, p_bottom, 11.5, px), (VELVET, 1.0)),
         (phone, (AMBER, 1.0)),
         (box(s_left, s_top, s_right, s_bottom, 0), (VELVET, 1.0)),
