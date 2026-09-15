@@ -46,8 +46,10 @@ def main():
             )
     lines.append('; END EXTENSIONS')
 
-    with io.open(ISS, encoding='utf-8') as f:
-        iss = f.read()
+    # utf-8-sig : le BOM déjà présent est retiré à la lecture, sans quoi
+    # l'écriture en ajouterait un second, qu'Inno Setup refuse.
+    with io.open(ISS, encoding='utf-8-sig') as f:
+        iss = f.read().lstrip('﻿')
     block = re.compile(r'; BEGIN EXTENSIONS.*?; END EXTENSIONS', re.S)
     if not block.search(iss):
         raise SystemExit('marqueurs BEGIN/END EXTENSIONS absents de omnia.iss')

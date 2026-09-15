@@ -113,10 +113,18 @@ jobs:
             choco install innosetup --no-progress -y
             $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           }
-          & $iscc "/DAppVersion=$env:OMNIA_VERSION" windows\installer\omnia.iss
-          if ($LASTEXITCODE -ne 0) {
-            Write-Output "::error title=Installateur Windows::ISCC a échoué (code $LASTEXITCODE)."
-            exit $LASTEXITCODE
+          # Sortie d'ISCC gardée : sa fin (ligne et message de l'erreur de
+          # compilation) va dans l'annotation, lisible sans le journal.
+          $ErrorActionPreference = 'Continue'
+          $log = & $iscc "/DAppVersion=$env:OMNIA_VERSION" windows\installer\omnia.iss 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          Write-Output $log
+          if ($code -ne 0) {
+            $tail = ($log -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 12) -join "`n"
+            if ($tail.Length -gt 3000) { $tail = $tail.Substring($tail.Length - 3000) }
+            $tail = $tail.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Installateur Windows::ISCC a échoué (code $code).%0A$tail"
+            exit $code
           }
 
       - name: Téléverser l'installateur

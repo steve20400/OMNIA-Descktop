@@ -1,4 +1,4 @@
-﻿﻿; Installateur Windows d'OMNIA (Inno Setup 6).
+﻿; Installateur Windows d'OMNIA (Inno Setup 6).
 ;
 ; 1. flutter build windows --release
 ; 2. iscc windows\installer\omnia.iss
