@@ -100,6 +100,24 @@ final class OsdScreenshotFailed extends OsdMessage {
   const OsdScreenshotFailed();
 }
 
+/// Un extrait commence à s'enregistrer.
+final class OsdRecordingStarted extends OsdMessage {
+  const OsdRecordingStarted();
+}
+
+/// Extrait enregistré : fichier et durée approximative.
+final class OsdRecordingSaved extends OsdMessage {
+  const OsdRecordingSaved(this.path, {this.length});
+  final String path;
+  final Duration? length;
+}
+
+/// Rien n'a pu être enregistré (lecture restée en pause, dossier
+/// inaccessible, format refusé).
+final class OsdRecordingFailed extends OsdMessage {
+  const OsdRecordingFailed();
+}
+
 final class OsdAspect extends OsdMessage {
   const OsdAspect(this.mode);
   final AspectMode mode;
@@ -131,12 +149,12 @@ final class OsdMiniPlayer extends OsdMessage {
 /// Décide si une action mérite un retour à l'écran.
 ///
 /// Une action au clavier, en ligne de commande ou depuis la télécommande n'a
-/// aucun contrôle visible qui bouge : l'OSD est son seul retour. Un clic sur
-/// la barre de contrôles, lui, fait déjà bouger le contrôle cliqué — sauf en
-/// plein écran, où la barre peut être masquée.
-bool osdWantedFor(CommandSource source, {required bool fullscreen}) =>
+/// aucun contrôle visible qui bouge : l'OSD est son seul retour. Un clic ou
+/// la molette, eux, font bouger un contrôle de la barre, sauf quand elle est
+/// masquée ([controlsHidden]) : pendant la lecture, dans tous les modes.
+bool osdWantedFor(CommandSource source, {required bool controlsHidden}) =>
     switch (source) {
-      CommandSource.ui => fullscreen,
+      CommandSource.ui => controlsHidden,
       CommandSource.keyboard ||
       CommandSource.cli ||
       CommandSource.system ||
@@ -201,6 +219,9 @@ OsdMessage? osdFor(PlayerCommand command, PlaybackState after) {
     CycleAbLoop() || ClearAbLoop() when hasMedia => OsdAbLoop(a: after.loopA, b: after.loopB),
     TakeScreenshot() when after.screenshotFailed => const OsdScreenshotFailed(),
     TakeScreenshot() when after.lastScreenshot != null => OsdScreenshot(after.lastScreenshot!),
+    // L'arrêt (et l'échec) sont annoncés par OsdController, qui suit l'état :
+    // un extrait s'arrête aussi tout seul, en changeant de fichier.
+    ToggleRecording() when after.recording => const OsdRecordingStarted(),
     SetAspectMode() when hasMedia => OsdAspect(after.aspectMode),
     VideoZoomRelative() || ResetVideoZoom() when hasMedia => OsdVideoZoom(after.videoZoom),
     RotateVideo() when hasMedia => OsdVideoRotation(after.videoRotation),

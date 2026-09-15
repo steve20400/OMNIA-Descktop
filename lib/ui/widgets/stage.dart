@@ -5,6 +5,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../core/models/media_file.dart';
 import '../../core/models/media_type.dart';
 import '../../core/models/playback_status.dart';
+import '../../core/models/video_adjust.dart';
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../document_search.dart';
@@ -97,13 +98,35 @@ class _VideoStage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.watch(videoControllerProvider);
+    final aspect = ref.watch(playbackStateProvider.select((s) => s.aspectMode));
     return Video(
       controller: controller,
       controls: NoVideoControls,
-      fill: context.colors.velvet,
+      // La scène peint déjà le fond velours derrière la vidéo.
+      fill: Colors.transparent,
+      fit: videoFitFor(aspect),
+      aspectRatio: videoAspectRatioFor(aspect),
+      // Bicubique : l'image est mise à la taille de la fenêtre par Flutter, et
+      // le bilinéaire par défaut la rend floue ou crénelée.
+      filterQuality: FilterQuality.high,
+      // La mise en veille de l'écran est gérée par OMNIA (ScreenWake) : deux
+      // gestionnaires se contrediraient.
+      wakelock: false,
     );
   }
 }
+
+/// Ajustement de la vidéo dans la scène : « Remplir » couvre toute la scène
+/// (en rognant les bords), les autres modes montrent l'image entière.
+BoxFit videoFitFor(AspectMode mode) =>
+    mode == AspectMode.fill ? BoxFit.cover : BoxFit.contain;
+
+/// Ratio imposé par l'utilisateur, `null` pour celui de la vidéo.
+double? videoAspectRatioFor(AspectMode mode) => switch (mode) {
+      AspectMode.wide => 16 / 9,
+      AspectMode.standard => 4 / 3,
+      AspectMode.auto || AspectMode.fill => null,
+    };
 
 class _EmptyStage extends ConsumerWidget {
   const _EmptyStage({super.key});

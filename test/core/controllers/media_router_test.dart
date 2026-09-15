@@ -38,6 +38,15 @@ void main() {
       }
     });
 
+    test('formats haute résolution, Blu-ray, diffusion et sans perte', () {
+      for (final ext in ['m2ts', 'mts', 'hevc', 'h265', 'mxf', 'mk3d', 'wtv', 'ogm', 'y4m']) {
+        expect(MediaRouter.typeForPath('/films/a.$ext'), MediaType.video, reason: ext);
+      }
+      for (final ext in ['dsf', 'dff', 'truehd', 'eac3', 'dtshd', 'm4b', 'weba', 'tak', 'caf']) {
+        expect(MediaRouter.typeForPath('/musique/a.$ext'), MediaType.audio, reason: ext);
+      }
+    });
+
     test('documents', () {
       expect(MediaRouter.typeForPath('/docs/a.pdf'), MediaType.pdf);
       expect(MediaRouter.typeForPath('/docs/a.txt'), MediaType.text);
@@ -84,6 +93,15 @@ void main() {
       expect(router.controllerForPath('/a/b.pdf'), same(pdf));
       expect(router.controllerForPath('/a/b.bin'), isNull);
     });
+  });
+
+  test('chaque extension est en minuscules, lettres et chiffres seulement', () {
+    // Le dialogue d'ouverture, l'installateur Windows (généré par
+    // tool/make_installer_assoc.py) et son test relisent ces listes avec ce
+    // motif : une extension avec tiret ou majuscule y serait perdue.
+    for (final ext in MediaRouter.allExtensions) {
+      expect(ext, matches(RegExp(r'^[a-z0-9]+$')), reason: ext);
+    }
   });
 
   test('allExtensions couvre toutes les familles sans doublon', () {

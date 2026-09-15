@@ -9,7 +9,8 @@ import '../utils/screenshot_naming.dart';
 import 'local_storage.dart';
 import 'settings_store.dart';
 
-/// Enregistre les captures d'écran sur disque.
+/// Enregistre les captures d'écran sur disque, et choisit où écrire les
+/// extraits enregistrés : même dossier, même motif de nom.
 class ScreenshotService {
   ScreenshotService({this.settings, Future<Directory> Function()? defaultFolder})
       : _defaultFolder = defaultFolder ?? defaultScreenshotFolder;
@@ -40,18 +41,52 @@ class ScreenshotService {
     await dir.create(recursive: true);
     final pattern =
         settings?.preferences.screenshotNamePattern ?? AppPreferences.defaultScreenshotPattern;
-    var path = p.join(
-      dir.path,
+    final path = await _freePath(
+      dir,
       screenshotFileName(mediaPath, now ?? DateTime.now(), pattern: pattern, position: position),
+      'png',
     );
-    // Deux captures dans la même seconde : on suffixe plutôt que d'écraser.
+    await File(path).writeAsBytes(png, flush: true);
+    return path;
+  }
+
+  /// Chemin libre pour un extrait : dossier et motif de nom des captures,
+  /// conteneur Matroska, qui accepte tous les codecs (`.mkv`, ou `.mka` pour
+  /// un son seul). Crée le dossier ; lève une [FileSystemException] s'il est
+  /// inaccessible.
+  Future<String> recordingPath({
+    required String mediaPath,
+    required bool audioOnly,
+    Duration position = Duration.zero,
+    DateTime? now,
+  }) async {
+    final dir = await folder();
+    await dir.create(recursive: true);
+    final pattern =
+        settings?.preferences.screenshotNamePattern ?? AppPreferences.defaultScreenshotPattern;
+    final extension = audioOnly ? 'mka' : 'mkv';
+    return _freePath(
+      dir,
+      screenshotFileName(
+        mediaPath,
+        now ?? DateTime.now(),
+        pattern: pattern,
+        position: position,
+        extension: extension,
+      ),
+      extension,
+    );
+  }
+
+  /// Deux fichiers dans la même seconde : on suffixe plutôt que d'écraser.
+  static Future<String> _freePath(Directory dir, String fileName, String extension) async {
+    var path = p.join(dir.path, fileName);
     var attempt = 1;
     while (await File(path).exists()) {
       attempt++;
-      final base = p.basenameWithoutExtension(path).replaceFirst(RegExp(r' \(\d+\)$'), '');
-      path = p.join(dir.path, '$base ($attempt).png');
+      final base = p.basenameWithoutExtension(fileName).replaceFirst(RegExp(r' \(\d+\)$'), '');
+      path = p.join(dir.path, '$base ($attempt).$extension');
     }
-    await File(path).writeAsBytes(png, flush: true);
     return path;
   }
 }

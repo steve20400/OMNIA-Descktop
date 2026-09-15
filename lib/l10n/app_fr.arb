@@ -437,5 +437,14 @@
   "resumeDecline": "Depuis le début",
   "keyWheel": "Molette",
   "startupFailureTitle": "OMNIA n’a pas pu préparer ses données",
-  "startupFailureBody": "Le dossier de données de l’application est inaccessible. Vérifiez l’espace disque et les droits sur votre dossier personnel, puis relancez OMNIA."
+  "startupFailureBody": "Le dossier de données de l’application est inaccessible. Vérifiez l’espace disque et les droits sur votre dossier personnel, puis relancez OMNIA.",
+  "recordClip": "Enregistrer un extrait",
+  "stopRecording": "Arrêter l'enregistrement",
+  "recordingStarted": "Enregistrement en cours",
+  "recordingSaved": "Extrait enregistré",
+  "recordingFailed": "Aucun extrait enregistré",
+  "recordingFailedHint": "La lecture n'a pas avancé, ou le dossier des captures est inaccessible.",
+  "moreControls": "Plus de commandes",
+  "controlBarResize": "Glisser pour régler la largeur. Double-clic : largeur automatique.",
+  "volumeLabel": "Volume"
 }

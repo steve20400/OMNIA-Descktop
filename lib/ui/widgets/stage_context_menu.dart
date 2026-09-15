@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
@@ -8,9 +9,11 @@ import '../../core/models/video_adjust.dart';
 import '../../core/providers.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
+import '../chrome_controller.dart';
 import '../file_dialogs.dart';
 import '../help_overlay_controller.dart';
 import '../panel_controller.dart';
+import '../player_focus.dart';
 import '../settings/settings_controller.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
@@ -35,7 +38,24 @@ class StageContextMenu extends ConsumerStatefulWidget {
 class _StageContextMenuState extends ConsumerState<StageContextMenu> {
   final MenuController _controller = MenuController();
 
-  static const _speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+  /// Menu ouvert : un voile couvre la scène pour le fermer au clic.
+  bool _menuOpen = false;
+
+  late final ChromeController _chrome;
+  late final PlayerFocus _focus;
+
+  @override
+  void initState() {
+    super.initState();
+    _chrome = ref.read(chromeProvider.notifier);
+    _focus = ref.read(playerFocusProvider);
+  }
+
+  @override
+  void dispose() {
+    _chrome.release(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,15 +113,7 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
           icon: Icons.speed_rounded,
           label: l10n.menuSpeed,
           trailing: l10n.speedValue(_formatSpeed(state.speed)),
-          children: [
-            for (final speed in _speeds)
-              OmniaMenuItem(
-                label: l10n.speedValue(_formatSpeed(speed)),
-                active: (state.speed - speed).abs() < 0.001,
-                icon: (state.speed - speed).abs() < 0.001 ? Icons.check_rounded : null,
-                onPressed: () => ref.dispatch(SetSpeed(speed)),
-              ),
-          ],
+          children: speedMenuItems(context, ref, state.speed),
         ),
         OmniaSubmenu(
           icon: Icons.repeat_rounded,
@@ -186,6 +198,13 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
         ],
         if (hasMedia) ...[
           OmniaMenuItem(
+            icon: Icons.fiber_manual_record_rounded,
+            label: state.recording ? l10n.stopRecording : l10n.recordClip,
+            trailing: ref.shortcutOf(ShortcutAction.recordClip, l10n),
+            active: state.recording,
+            onPressed: () => ref.dispatch(const ToggleRecording()),
+          ),
+          OmniaMenuItem(
             icon: Icons.repeat_rounded,
             label: l10n.abLoop,
             trailing: ref.shortcutOf(ShortcutAction.abLoop, l10n),
@@ -259,12 +278,52 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
           onPressed: () => ref.read(helpVisibleProvider.notifier).toggle(),
         ),
       ],
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onSecondaryTapUp: (details) => _controller.open(position: details.localPosition),
-        child: widget.child,
+      onOpen: () => _setMenuOpen(true),
+      onClose: () => _setMenuOpen(false),
+      // L'ancre est la scène entière : pour MenuAnchor, un clic sur la scène
+      // est donc un clic « dans » le menu, qui ne le ferme pas. Tant que le
+      // menu est ouvert, un voile posé sur la scène s'en charge.
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onSecondaryTapUp: (details) => _controller.open(position: details.localPosition),
+            child: widget.child,
+          ),
+          if (_menuOpen)
+            Positioned.fill(
+              child: GestureDetector(
+                key: const ValueKey('stage-menu-dismiss'),
+                behavior: HitTestBehavior.opaque,
+                // Comme un menu du système : le clic qui ferme le menu ne
+                // lance ni n'arrête la lecture.
+                onTapDown: (_) => _controller.close(),
+                onSecondaryTapUp: (details) => _controller.open(position: details.localPosition),
+              ),
+            ),
+        ],
       ),
     );
+  }
+
+  void _setMenuOpen(bool open) {
+    // Menu ouvert : les contrôles restent affichés ; fermé, le clavier
+    // revient au lecteur.
+    if (open) {
+      _chrome.hold(this);
+    } else {
+      _chrome.release(this);
+      _focus.restore();
+    }
+    if (!mounted || _menuOpen == open) return;
+    // Le menu peut se fermer pendant une reconstruction (écran qui change) :
+    // l'état suit alors à l'image suivante.
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _setMenuOpen(open));
+      return;
+    }
+    setState(() => _menuOpen = open);
   }
 
   static String _formatSpeed(double speed) => formatSpeed(speed);

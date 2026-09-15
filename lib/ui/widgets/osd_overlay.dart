@@ -230,6 +230,50 @@ class _OsdPill extends StatelessWidget {
             ),
           ),
         ),
+      OsdRecordingStarted() => (
+          Icons.fiber_manual_record_rounded,
+          Text(l10n.recordingStarted, style: type.osdLabel),
+        ),
+      OsdRecordingSaved(:final path, :final length) => (
+          Icons.video_file_outlined,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  length == null
+                      ? l10n.recordingSaved
+                      : '${l10n.recordingSaved} · ${formatTimecode(length)}',
+                  style: type.osdLabel,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  path,
+                  style: type.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      OsdRecordingFailed() => (
+          Icons.error_outline_rounded,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.recordingFailed, style: type.osdLabel),
+                const SizedBox(height: 3),
+                Text(l10n.recordingFailedHint, style: type.caption),
+              ],
+            ),
+          ),
+        ),
       OsdAspect(:final mode) => (
           Icons.aspect_ratio_rounded,
           Text(

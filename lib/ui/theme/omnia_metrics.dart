@@ -29,6 +29,13 @@ abstract final class OmniaMetrics {
   static const double controlBarMargin = 16;
   static const double controlBarPadding = 12;
   static const double controlBarMaxWidth = 1120;
+
+  /// Largeur minimale choisie à la souris : lecture, temps et menu « ⋯ ».
+  static const double controlBarMinWidth = 300;
+
+  /// Zone de saisie des poignées de redimensionnement, sur les bords de la
+  /// barre (dans sa marge intérieure, hors des commandes).
+  static const double controlBarGripWidth = 12;
   static const double iconButtonSize = 34;
   static const double iconSize = 20;
   static const double iconSizeLarge = 26;
@@ -36,6 +43,9 @@ abstract final class OmniaMetrics {
 
   // Faisceau (barre de progression).
   static const double beamHitHeight = 28;
+  /// Hauteur de la bande qui réagit au clic, centrée sur le trait : assez
+  /// pour viser sans peine, trop peu pour qu'un clic à côté déplace la lecture.
+  static const double beamGrabHeight = 16;
   static const double beamRestThickness = 2;
   static const double beamHoverThickness = 6;
   static const double beamLampRadiusRest = 3;

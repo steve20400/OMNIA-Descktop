@@ -5,10 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/commands/player_command.dart';
 import '../../core/models/playback_state.dart';
 import '../../core/providers.dart';
+import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
-import '../theme/omnia_theme.dart';
+import 'chrome_menu_anchor.dart';
 import 'omnia_icon_button.dart';
 import 'omnia_menu.dart';
 
@@ -114,6 +115,38 @@ List<Widget> audioTrackMenuItems(BuildContext context, WidgetRef ref, PlaybackSt
   ];
 }
 
+/// Contenu du menu des vitesses. Partagé par l'indicateur de vitesse de la
+/// barre de contrôles et le menu contextuel.
+List<Widget> speedMenuItems(BuildContext context, WidgetRef ref, double current) {
+  final l10n = AppLocalizations.of(context);
+  return [
+    for (final speed in PlaybackState.speedPresets)
+      OmniaMenuItem(
+        label: l10n.speedValue(formatSpeed(speed)),
+        active: (current - speed).abs() < 0.001,
+        icon: (current - speed).abs() < 0.001 ? Icons.check_rounded : null,
+        // La vitesse normale rappelle son raccourci : la touche qui y revient.
+        trailing: speed == 1.0 ? ref.shortcutOf(ShortcutAction.speedReset, l10n) : null,
+        onPressed: () => ref.dispatch(SetSpeed(speed)),
+      ),
+    const OmniaMenuDivider(),
+    OmniaMenuItem(
+      icon: Icons.remove_rounded,
+      label: l10n.scSpeedDown,
+      trailing: ref.shortcutOf(ShortcutAction.speedDown, l10n),
+      enabled: current > PlaybackState.minSpeed,
+      onPressed: () => ref.dispatch(const SpeedRelative(-PlaybackState.speedStep)),
+    ),
+    OmniaMenuItem(
+      icon: Icons.add_rounded,
+      label: l10n.scSpeedUp,
+      trailing: ref.shortcutOf(ShortcutAction.speedUp, l10n),
+      enabled: current < PlaybackState.maxSpeed,
+      onPressed: () => ref.dispatch(const SpeedRelative(PlaybackState.speedStep)),
+    ),
+  ];
+}
+
 /// Dialogue de choix d'un fichier de sous-titres, puis chargement.
 Future<void> pickSubtitleFile(WidgetRef ref) async {
   final bus = ref.read(commandBusProvider);
@@ -139,9 +172,7 @@ class SubtitleMenuButton extends ConsumerWidget {
     final state = ref.watch(playbackStateProvider);
     final active = state.subtitlesVisible && state.subtitleTrackId != null;
 
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      alignmentOffset: const Offset(0, -OmniaMetrics.space2),
+    return ChromeMenuAnchor(
       menuChildren: enabled ? subtitleMenuItems(context, ref, state) : const [],
       builder: (context, controller, _) => OmniaIconButton(
         icon: active ? Icons.subtitles_rounded : Icons.subtitles_outlined,
@@ -164,9 +195,7 @@ class AudioTrackMenuButton extends ConsumerWidget {
     final state = ref.watch(playbackStateProvider);
     if (state.audioTracks.length < 2) return const SizedBox.shrink();
 
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      alignmentOffset: const Offset(0, -OmniaMetrics.space2),
+    return ChromeMenuAnchor(
       menuChildren: audioTrackMenuItems(context, ref, state),
       builder: (context, controller, _) => OmniaIconButton(
         icon: Icons.audiotrack_rounded,

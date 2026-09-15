@@ -1,9 +1,11 @@
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/utils/time_format.dart';
 import '../theme/omnia_theme.dart';
+import '../wheel_steps.dart';
 
 /// La signature visuelle d'OMNIA : la barre de progression comme faisceau de
 /// projecteur (DESIGN.md §5).
@@ -11,6 +13,10 @@ import '../theme/omnia_theme.dart';
 /// - Le temps écoulé est un trait ambre qui porte un halo.
 /// - La tête de lecture est une lampe qui s'allume au survol.
 /// - Au survol, la piste s'épaissit et affiche le timecode pointé.
+///
+/// Seule une bande étroite autour du trait réagit au clic et au survol :
+/// cliquer à côté, dans l'espace réservé au timecode, ne déplace pas la
+/// lecture. La molette, elle, agit sur toute la hauteur du trait.
 class BeamProgressBar extends StatefulWidget {
   const BeamProgressBar({
     super.key,
@@ -20,6 +26,9 @@ class BeamProgressBar extends StatefulWidget {
     this.enabled = true,
     this.loopA,
     this.loopB,
+    this.onScrollSeek,
+    this.onInteractionStart,
+    this.onInteractionEnd,
   });
 
   /// Progression 0–1.
@@ -37,6 +46,15 @@ class BeamProgressBar extends StatefulWidget {
   final double? loopA;
   final double? loopB;
 
+  /// Molette au-dessus de la barre : 1 pour avancer, -1 pour reculer.
+  /// Sans elle, la molette est laissée à l'écran (le volume).
+  final ValueChanged<int>? onScrollSeek;
+
+  /// Début et fin d'un glissement sur la barre : les contrôles restent
+  /// affichés tant qu'on cherche un passage.
+  final VoidCallback? onInteractionStart;
+  final VoidCallback? onInteractionEnd;
+
   @override
   State<BeamProgressBar> createState() => _BeamProgressBarState();
 }
@@ -45,6 +63,7 @@ class _BeamProgressBarState extends State<BeamProgressBar> {
   bool _hovering = false;
   bool _dragging = false;
   double? _hoverX;
+  final WheelSteps _wheel = WheelSteps();
 
   static const double _labelWidth = 64;
 
@@ -52,6 +71,21 @@ class _BeamProgressBarState extends State<BeamProgressBar> {
     if (!widget.enabled || width <= 0) return;
     final fraction = (dx / width).clamp(0.0, 1.0);
     widget.onSeek(widget.duration * fraction);
+  }
+
+  /// La molette réclame l'événement auprès du résolveur : l'écran, qui règle
+  /// le volume, ne le reçoit alors pas en plus.
+  void _onPointerSignal(PointerSignalEvent event) {
+    final onScroll = widget.onScrollSeek;
+    if (event is! PointerScrollEvent || onScroll == null || !widget.enabled) return;
+    final dy = event.scrollDelta.dy;
+    if (dy == 0) return;
+    // L'événement est réclamé même quand le cran n'est pas atteint : le
+    // volume ne doit pas bouger pendant qu'on cherche un passage.
+    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+      final step = _wheel.add(dy);
+      if (step != 0) onScroll(step);
+    });
   }
 
   @override
@@ -67,7 +101,25 @@ class _BeamProgressBarState extends State<BeamProgressBar> {
         final hoverDuration =
             hoverX == null || width <= 0 ? null : widget.duration * (hoverX / width);
 
-        return MouseRegion(
+        final painter = TweenAnimationBuilder<double>(
+          tween: Tween(end: lit ? 1 : 0),
+          duration: OmniaMotion.hover,
+          curve: OmniaMotion.hoverCurve,
+          builder: (context, t, _) => CustomPaint(
+            painter: _BeamPainter(
+              progress: widget.enabled ? widget.progress : 0,
+              lit: t,
+              hoverFraction: lit && hoverX != null && width > 0 ? hoverX / width : null,
+              loopA: widget.loopA,
+              loopB: widget.loopB,
+              colors: colors,
+            ),
+          ),
+        );
+
+        // Bande sensible : le trait et quelques pixels de marge, centrée sur
+        // la piste que dessine le peintre.
+        final grabBand = MouseRegion(
           cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
           onEnter: (e) => setState(() {
             _hovering = true;
@@ -86,70 +138,84 @@ class _BeamProgressBarState extends State<BeamProgressBar> {
                 _dragging = true;
                 _hoverX = d.localPosition.dx;
               });
+              widget.onInteractionStart?.call();
               _seekAt(d.localPosition.dx, width);
             },
             onHorizontalDragUpdate: (d) {
               setState(() => _hoverX = d.localPosition.dx);
               _seekAt(d.localPosition.dx, width);
             },
-            onHorizontalDragEnd: (_) => setState(() {
-              _dragging = false;
-              if (!_hovering) _hoverX = null;
-            }),
-            onHorizontalDragCancel: () => setState(() => _dragging = false),
-            child: SizedBox(
-              height: OmniaMetrics.beamHitHeight + OmniaMetrics.beamTooltipHeight,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: OmniaMetrics.beamHitHeight,
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(end: lit ? 1 : 0),
-                      duration: OmniaMotion.hover,
-                      curve: OmniaMotion.hoverCurve,
-                      builder: (context, t, _) => CustomPaint(
-                        painter: _BeamPainter(
-                          progress: widget.enabled ? widget.progress : 0,
-                          lit: t,
-                          hoverFraction: lit && hoverX != null && width > 0
-                              ? hoverX / width
-                              : null,
-                          loopA: widget.loopA,
-                          loopB: widget.loopB,
-                          colors: colors,
+            onHorizontalDragEnd: (_) {
+              setState(() {
+                _dragging = false;
+                if (!_hovering) _hoverX = null;
+              });
+              widget.onInteractionEnd?.call();
+            },
+            onHorizontalDragCancel: () {
+              setState(() => _dragging = false);
+              widget.onInteractionEnd?.call();
+            },
+          ),
+        );
+
+        return SizedBox(
+          height: OmniaMetrics.beamHitHeight + OmniaMetrics.beamTooltipHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: OmniaMetrics.beamHitHeight,
+                // Opaque : un clic dans cette zone, hors de la bande, ne
+                // traverse pas jusqu'à l'écran (lecture/pause).
+                child: Listener(
+                  key: const ValueKey('beam-scroll-zone'),
+                  behavior: HitTestBehavior.opaque,
+                  onPointerSignal: _onPointerSignal,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      painter,
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        top: (OmniaMetrics.beamHitHeight - OmniaMetrics.beamGrabHeight) / 2,
+                        height: OmniaMetrics.beamGrabHeight,
+                        child: KeyedSubtree(key: const ValueKey('beam-grab-band'), child: grabBand),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (lit && hoverX != null && hoverDuration != null)
+                Positioned(
+                  top: 0,
+                  left: (hoverX - _labelWidth / 2)
+                      .clamp(0.0, (width - _labelWidth).clamp(0.0, double.infinity)),
+                  width: _labelWidth,
+                  height: OmniaMetrics.beamTooltipHeight - 4,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colors.curtain,
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(OmniaMetrics.radiusSmall),
+                        ),
+                        border: Border.all(color: colors.seam),
+                      ),
+                      child: Center(
+                        child: Text(
+                          formatTimecode(hoverDuration, reference: widget.duration),
+                          style: type.timecode.copyWith(fontSize: 11),
                         ),
                       ),
                     ),
                   ),
-                  if (lit && hoverX != null && hoverDuration != null)
-                    Positioned(
-                      top: 0,
-                      left: (hoverX - _labelWidth / 2).clamp(0.0, (width - _labelWidth).clamp(0.0, double.infinity)),
-                      width: _labelWidth,
-                      height: OmniaMetrics.beamTooltipHeight - 4,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: colors.curtain,
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(OmniaMetrics.radiusSmall),
-                          ),
-                          border: Border.all(color: colors.seam),
-                        ),
-                        child: Center(
-                          child: Text(
-                            formatTimecode(hoverDuration, reference: widget.duration),
-                            style: type.timecode.copyWith(fontSize: 11),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                ),
+            ],
           ),
         );
       },

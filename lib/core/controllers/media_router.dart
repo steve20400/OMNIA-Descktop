@@ -14,14 +14,36 @@ class MediaRouter {
 
   final List<MediaController> _controllers;
 
+  // Vidéo et audio passent par mpv (FFmpeg), qui lit bien plus de formats
+  // que le seul MP4 : la liste couvre ce que l'on croise réellement, du
+  // fichier de téléphone au disque Blu-ray. Pas de guillemets dans ces
+  // commentaires : tool/make_installer_assoc.py lit les chaînes de la liste.
   static const Set<String> videoExtensions = {
-    'mp4', 'mkv', 'avi', 'webm', 'mov', 'flv', 'wmv', 'ts', 'm2ts', 'mts',
-    'm4v', '3gp', 'mpg', 'mpeg', 'vob', 'ogv', 'divx', 'rm', 'rmvb', 'asf',
+    // Conteneurs courants.
+    'mp4', 'm4v', 'mkv', 'mk3d', 'webm', 'avi', 'mov', 'qt', 'wmv', 'asf',
+    'flv', 'f4v', 'ogv', 'ogm', '3gp', '3g2', 'divx', 'xvid',
+    // MPEG : DVD, caméscopes, enregistrements et diffusion TV.
+    'mpg', 'mpeg', 'mpe', 'mpv', 'm1v', 'm2v', 'm2p', 'vob', 'evo',
+    'ts', 'm2ts', 'mts', 'm2t', 'tp', 'trp', 'tod', 'wtv',
+    // Flux bruts et formats professionnels.
+    'h264', 'h265', 'hevc', '264', '265', 'ivf', 'y4m', 'dv', 'mxf', 'nut',
+    'gxf',
+    // Anciens formats.
+    'rm', 'rmvb', 'amv', 'bik',
   };
 
   static const Set<String> audioExtensions = {
-    'mp3', 'flac', 'wav', 'ogg', 'oga', 'aac', 'm4a', 'opus', 'wma', 'aiff',
-    'aif', 'ape', 'ac3', 'dts', 'mka', 'wv', 'amr',
+    // Formats courants.
+    'mp3', 'aac', 'm4a', 'm4b', 'm4r', 'flac', 'wav', 'wave', 'ogg', 'oga',
+    'opus', 'wma', 'weba',
+    // Sans perte et haute résolution, DSD compris.
+    'aiff', 'aif', 'aifc', 'ape', 'wv', 'tta', 'tak', 'w64', 'dsf', 'dff',
+    'caf', 'shn', 'ofr',
+    // Cinéma, Blu-ray et diffusion.
+    'ac3', 'eac3', 'ec3', 'dts', 'dtshd', 'mlp', 'thd', 'truehd', 'mka',
+    'mp2', 'mp1', 'mpa', 'adts',
+    // Voix et anciens formats.
+    'amr', 'awb', 'spx', 'gsm', 'au', 'snd', 'voc', 'ra', 'mpc', 'oma',
   };
 
   static const Set<String> pdfExtensions = {'pdf'};

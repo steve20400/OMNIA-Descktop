@@ -15,6 +15,7 @@ class OmniaIconButton extends StatefulWidget {
     this.size = OmniaMetrics.iconButtonSize,
     this.iconSize = OmniaMetrics.iconSize,
     this.active = false,
+    this.activeColor,
     this.danger = false,
     this.borderRadius = OmniaMetrics.controlRadius,
   });
@@ -25,6 +26,10 @@ class OmniaIconButton extends StatefulWidget {
   final double size;
   final double iconSize;
   final bool active;
+
+  /// Couleur de l'icône active ; projecteur par défaut. L'enregistrement en
+  /// cours, par exemple, s'allume en rouge.
+  final Color? activeColor;
   final bool danger;
   final BorderRadius borderRadius;
 
@@ -41,8 +46,9 @@ class _OmniaIconButtonState extends State<OmniaIconButton> {
     final colors = context.colors;
     final enabled = widget.onPressed != null;
 
-    final restIcon = widget.active ? colors.projector : colors.dust;
-    final hoverIcon = widget.active ? colors.projector : colors.screen;
+    final activeColor = widget.activeColor ?? colors.projector;
+    final restIcon = widget.active ? activeColor : colors.dust;
+    final hoverIcon = widget.active ? activeColor : colors.screen;
     final hoverBg = widget.danger ? colors.alert : colors.hover;
     final hoverIconFinal = widget.danger ? colors.screen : hoverIcon;
 

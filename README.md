@@ -94,8 +94,8 @@ iscc windows\installer\omnia.iss
 ```
 
 L'installateur `build\installer\OMNIA-Setup-<version>.exe` propose l'installation pour tous ou pour soi seul,
-un raccourci de bureau, et inscrit OMNIA dans **« Ouvrir avec »** pour chaque format lisible (42
-extensions). Il ne détourne pas l'application par défaut : Windows 10 et 11 laissent ce choix à
+un raccourci de bureau, et inscrit OMNIA dans **« Ouvrir avec »** pour chaque format lisible, soit
+plus d'une centaine d'extensions. Il ne détourne pas l'application par défaut : Windows 10 et 11 laissent ce choix à
 l'utilisateur, dans *Paramètres › Applications › Applications par défaut*. La désinstallation retire
 les associations.
 

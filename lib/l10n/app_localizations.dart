@@ -1747,6 +1747,60 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Le dossier de données de l’application est inaccessible. Vérifiez l’espace disque et les droits sur votre dossier personnel, puis relancez OMNIA.'**
   String get startupFailureBody;
+
+  /// No description provided for @recordClip.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enregistrer un extrait'**
+  String get recordClip;
+
+  /// No description provided for @stopRecording.
+  ///
+  /// In fr, this message translates to:
+  /// **'Arrêter l\'enregistrement'**
+  String get stopRecording;
+
+  /// No description provided for @recordingStarted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enregistrement en cours'**
+  String get recordingStarted;
+
+  /// No description provided for @recordingSaved.
+  ///
+  /// In fr, this message translates to:
+  /// **'Extrait enregistré'**
+  String get recordingSaved;
+
+  /// No description provided for @recordingFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun extrait enregistré'**
+  String get recordingFailed;
+
+  /// No description provided for @recordingFailedHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'La lecture n\'a pas avancé, ou le dossier des captures est inaccessible.'**
+  String get recordingFailedHint;
+
+  /// No description provided for @moreControls.
+  ///
+  /// In fr, this message translates to:
+  /// **'Plus de commandes'**
+  String get moreControls;
+
+  /// No description provided for @controlBarResize.
+  ///
+  /// In fr, this message translates to:
+  /// **'Glisser pour régler la largeur. Double-clic : largeur automatique.'**
+  String get controlBarResize;
+
+  /// No description provided for @volumeLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Volume'**
+  String get volumeLabel;
 }
 
 class _AppLocalizationsDelegate

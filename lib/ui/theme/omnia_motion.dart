@@ -22,8 +22,11 @@ abstract final class OmniaMotion {
   static const stage = Duration(milliseconds: 250);
   static const stageCurve = Curves.easeOutCubic;
 
-  /// Délai d'inactivité avant masquage des contrôles en plein écran.
-  static const idleHide = Duration(seconds: 3);
+  /// Délai d'inactivité avant masquage des contrôles, dans tous les modes.
+  static const idleHide = Duration(seconds: 2);
+
+  /// Délai de masquage quand le pointeur quitte la zone du média.
+  static const chromeLeaveHide = Duration(milliseconds: 600);
 
   /// Durée d'affichage d'un message OSD après la dernière action.
   static const osdLinger = Duration(milliseconds: 1100);

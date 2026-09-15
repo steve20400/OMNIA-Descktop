@@ -27,14 +27,14 @@ void main() {
         CommandSource.system,
         CommandSource.remote,
       ]) {
-        expect(osdWantedFor(source, fullscreen: false), isTrue, reason: source.name);
-        expect(osdWantedFor(source, fullscreen: true), isTrue, reason: source.name);
+        expect(osdWantedFor(source, controlsHidden: false), isTrue, reason: source.name);
+        expect(osdWantedFor(source, controlsHidden: true), isTrue, reason: source.name);
       }
     });
 
-    test('souris : seulement en plein écran', () {
-      expect(osdWantedFor(CommandSource.ui, fullscreen: false), isFalse);
-      expect(osdWantedFor(CommandSource.ui, fullscreen: true), isTrue);
+    test('souris : seulement quand la barre de contrôles est masquée', () {
+      expect(osdWantedFor(CommandSource.ui, controlsHidden: false), isFalse);
+      expect(osdWantedFor(CommandSource.ui, controlsHidden: true), isTrue);
     });
   });
 
@@ -125,6 +125,16 @@ void main() {
       );
       // Rien d'enregistré (fichier audio) : pas de message.
       expect(osdFor(const TakeScreenshot(), playing), isNull);
+    });
+
+    test('extrait : le début s’annonce à la commande ; la fin, par l’état', () {
+      expect(
+        osdFor(const ToggleRecording(), playing.copyWith(recordingPath: '/c/a.mkv')),
+        isA<OsdRecordingStarted>(),
+      );
+      // L'arrêt (réussi ou non) est annoncé par OsdController, qui suit l'état :
+      // un extrait s'arrête aussi en changeant de fichier, sans commande.
+      expect(osdFor(const ToggleRecording(), playing.copyWith(lastRecording: '/c/a.mkv')), isNull);
     });
 
     test('les commandes sans retour visuel ne produisent rien', () {

@@ -437,5 +437,14 @@
   "resumeDecline": "From the start",
   "keyWheel": "Wheel",
   "startupFailureTitle": "OMNIA could not prepare its data",
-  "startupFailureBody": "The application data folder cannot be accessed. Check the free disk space and the permissions on your home folder, then start OMNIA again."
+  "startupFailureBody": "The application data folder cannot be accessed. Check the free disk space and the permissions on your home folder, then start OMNIA again.",
+  "recordClip": "Record a clip",
+  "stopRecording": "Stop recording",
+  "recordingStarted": "Recording",
+  "recordingSaved": "Clip saved",
+  "recordingFailed": "No clip recorded",
+  "recordingFailedHint": "Playback did not move, or the capture folder cannot be written to.",
+  "moreControls": "More controls",
+  "controlBarResize": "Drag to adjust the width. Double-click: automatic width.",
+  "volumeLabel": "Volume"
 }

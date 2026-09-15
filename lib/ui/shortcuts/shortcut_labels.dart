@@ -85,6 +85,7 @@ String actionLabel(ShortcutAction action, AppLocalizations l10n, AppPreferences 
     ShortcutAction.cycleEndMode => l10n.endModeLabel,
     ShortcutAction.toggleSidePanel => l10n.helpPanelToggle,
     ShortcutAction.screenshot => l10n.screenshot,
+    ShortcutAction.recordClip => l10n.recordClip,
     ShortcutAction.abLoop => l10n.abLoop,
     ShortcutAction.toggleSubtitles => l10n.scToggleSubtitles,
     ShortcutAction.toggleFullscreen => l10n.fullscreen,
@@ -124,6 +125,7 @@ enum ShortcutGroup {
     ShortcutAction.abLoop,
     ShortcutAction.toggleSubtitles,
     ShortcutAction.screenshot,
+    ShortcutAction.recordClip,
   ]),
   navigation([
     ShortcutAction.nextFile,

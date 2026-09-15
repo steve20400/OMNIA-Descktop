@@ -914,4 +914,33 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get startupFailureBody =>
       'Le dossier de données de l’application est inaccessible. Vérifiez l’espace disque et les droits sur votre dossier personnel, puis relancez OMNIA.';
+
+  @override
+  String get recordClip => 'Enregistrer un extrait';
+
+  @override
+  String get stopRecording => 'Arrêter l\'enregistrement';
+
+  @override
+  String get recordingStarted => 'Enregistrement en cours';
+
+  @override
+  String get recordingSaved => 'Extrait enregistré';
+
+  @override
+  String get recordingFailed => 'Aucun extrait enregistré';
+
+  @override
+  String get recordingFailedHint =>
+      'La lecture n\'a pas avancé, ou le dossier des captures est inaccessible.';
+
+  @override
+  String get moreControls => 'Plus de commandes';
+
+  @override
+  String get controlBarResize =>
+      'Glisser pour régler la largeur. Double-clic : largeur automatique.';
+
+  @override
+  String get volumeLabel => 'Volume';
 }

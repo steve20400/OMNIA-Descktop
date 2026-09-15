@@ -6,7 +6,9 @@
 // Celui-ci monte OmniaApp sans rien ajouter et parcourt les états visibles.
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/commands/player_command.dart';
@@ -33,6 +35,7 @@ import 'package:omnia/ui/settings/settings_controller.dart';
 import 'package:omnia/ui/widgets/find_bar.dart';
 import 'package:omnia/ui/widgets/mini_player.dart';
 import 'package:omnia/ui/widgets/resume_prompt.dart';
+import 'package:omnia/ui/widgets/stage.dart';
 import 'package:path/path.dart' as p;
 
 /// Lecteur audio factice : quatre minutes, sans son.
@@ -184,6 +187,40 @@ void main() {
     await _drain(tester);
     expect(container.read(playbackStateProvider).file?.path, tracks[0]);
     _expectWellFormed(tester, 'lecture audio');
+
+    // Menu du clic droit : un clic gauche sur la scène le ferme, sans lancer
+    // ni arrêter la lecture.
+    final commands = <PlayerCommand>[];
+    final subscription = bus.commands.listen(commands.add);
+    addTearDown(subscription.cancel);
+    final stage = tester.getRect(find.byType(Stage));
+    await tester.tapAt(stage.center, buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    expect(find.byType(MenuItemButton), findsWidgets, reason: 'menu ouvert');
+    // Trop haut pour tenir sous le clic, le menu remonte et couvre le centre :
+    // le clic gauche tombe à côté, sur la scène.
+    final beside = Offset(stage.left + 40, stage.center.dy);
+    expect(tester.getRect(find.byType(MenuItemButton).first).left, greaterThan(beside.dx));
+    commands.clear();
+    await tester.tapAt(beside);
+    await tester.pumpAndSettle();
+    expect(find.byType(MenuItemButton), findsNothing, reason: 'menu fermé');
+    expect(commands.whereType<TogglePlay>(), isEmpty);
+    _expectWellFormed(tester, 'menu du clic droit');
+
+    // Fenêtre étroite : les commandes qui ne tiennent plus passent dans le
+    // menu « ⋯ », sans débordement.
+    tester.view.physicalSize = const Size(800, 600);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Plus de commandes'), findsOneWidget);
+    _expectWellFormed(tester, 'barre de contrôles étroite');
+    await tester.tap(find.byTooltip('Plus de commandes'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MenuItemButton), findsWidgets, reason: 'menu « ⋯ » ouvert');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(1280, 800);
+    await tester.pumpAndSettle();
 
     // Fichier à reprendre : l'invite propose de reprendre ou de recommencer.
     bus.dispatch(OpenFile(tracks[1]));

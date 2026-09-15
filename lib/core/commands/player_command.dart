@@ -50,12 +50,14 @@ sealed class PlayerCommand {
       'toggleFullscreen' => const ToggleFullscreen(),
       'exitFullscreen' => const ExitFullscreen(),
       'takeScreenshot' => const TakeScreenshot(),
+      'toggleRecording' => const ToggleRecording(),
       'setLoopMode' => SetLoopMode(EndOfPlaybackMode.fromJson(json['mode'])),
       'cycleLoopMode' => const CycleLoopMode(),
       'toggleAlwaysOnTop' => const ToggleAlwaysOnTop(),
       'toggleSidePanel' => const ToggleSidePanel(),
       'setSidePanelVisible' => SetSidePanelVisible(_bool(json, 'visible')),
       'setSidePanelWidth' => SetSidePanelWidth(_num(json, 'width').toDouble()),
+      'setControlBarWidth' => SetControlBarWidth(_num(json, 'width').toDouble()),
       'openFile' => OpenFile(_string(json, 'path')),
       'openFolder' => OpenFolder(_string(json, 'path')),
       'setPlaylistSort' => SetPlaylistSort(
@@ -309,6 +311,14 @@ final class TakeScreenshot extends PlayerCommand {
   String get type => 'takeScreenshot';
 }
 
+/// Démarre ou arrête l'enregistrement d'un extrait du média en cours : le
+/// flux lu est recopié tel quel dans un fichier, sans réencodage.
+final class ToggleRecording extends PlayerCommand {
+  const ToggleRecording();
+  @override
+  String get type => 'toggleRecording';
+}
+
 final class SetLoopMode extends PlayerCommand {
   const SetLoopMode(this.mode);
   final EndOfPlaybackMode mode;
@@ -350,6 +360,17 @@ final class SetSidePanelWidth extends PlayerCommand {
   final double width;
   @override
   String get type => 'setSidePanelWidth';
+  @override
+  Map<String, Object?> get arguments => {'width': width};
+}
+
+/// Largeur de la barre de contrôles, en pixels logiques. 0 rend la largeur
+/// automatique (toute la place disponible, dans la limite du design).
+final class SetControlBarWidth extends PlayerCommand {
+  const SetControlBarWidth(this.width);
+  final double width;
+  @override
+  String get type => 'setControlBarWidth';
   @override
   Map<String, Object?> get arguments => {'width': width};
 }

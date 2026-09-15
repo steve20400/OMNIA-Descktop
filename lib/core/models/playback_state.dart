@@ -48,6 +48,10 @@ class PlaybackState {
     this.equalizerEnabled = false,
     this.lastScreenshot,
     this.screenshotFailed = false,
+    this.recordingPath,
+    this.recordingStartedAt,
+    this.lastRecording,
+    this.recordingFailed = false,
     this.resumeOffer,
     this.miniPlayer = false,
     this.endMode = EndOfPlaybackMode.next,
@@ -66,6 +70,9 @@ class PlaybackState {
   static const double minSpeed = 0.25;
   static const double maxSpeed = 4.0;
   static const double speedStep = 0.25;
+
+  /// Vitesses proposées par les menus (barre de contrôles, clic droit).
+  static const List<double> speedPresets = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0];
 
   /// Bornes de zoom des documents.
   static const double minZoom = 0.25;
@@ -161,6 +168,23 @@ class PlaybackState {
   /// La dernière tentative de capture a échoué (dossier inaccessible).
   final bool screenshotFailed;
 
+  /// Fichier de l'extrait en cours d'enregistrement, `null` sinon.
+  final String? recordingPath;
+
+  /// Début de l'enregistrement en cours (horloge murale), pour afficher sa
+  /// durée.
+  final DateTime? recordingStartedAt;
+
+  /// Chemin du dernier extrait enregistré.
+  final String? lastRecording;
+
+  /// Le dernier enregistrement n'a rien écrit (dossier inaccessible, format
+  /// refusé par l'enregistreur).
+  final bool recordingFailed;
+
+  /// Un extrait est en cours d'enregistrement.
+  bool get recording => recordingPath != null;
+
   /// Reprise proposée à l'utilisateur (politique « demander »), `null` sinon.
   final ResumeOffer? resumeOffer;
 
@@ -246,6 +270,12 @@ class PlaybackState {
     String? lastScreenshot,
     bool clearLastScreenshot = false,
     bool? screenshotFailed,
+    String? recordingPath,
+    DateTime? recordingStartedAt,
+    bool clearRecording = false,
+    String? lastRecording,
+    bool clearLastRecording = false,
+    bool? recordingFailed,
     ResumeOffer? resumeOffer,
     bool clearResumeOffer = false,
     bool? miniPlayer,
@@ -291,6 +321,10 @@ class PlaybackState {
       equalizerEnabled: equalizerEnabled ?? this.equalizerEnabled,
       lastScreenshot: clearLastScreenshot ? null : (lastScreenshot ?? this.lastScreenshot),
       screenshotFailed: screenshotFailed ?? this.screenshotFailed,
+      recordingPath: clearRecording ? null : (recordingPath ?? this.recordingPath),
+      recordingStartedAt: clearRecording ? null : (recordingStartedAt ?? this.recordingStartedAt),
+      lastRecording: clearLastRecording ? null : (lastRecording ?? this.lastRecording),
+      recordingFailed: recordingFailed ?? this.recordingFailed,
       resumeOffer: clearResumeOffer ? null : (resumeOffer ?? this.resumeOffer),
       miniPlayer: miniPlayer ?? this.miniPlayer,
       endMode: endMode ?? this.endMode,
@@ -336,6 +370,10 @@ class PlaybackState {
         'equalizerEnabled': equalizerEnabled,
         'lastScreenshot': lastScreenshot,
         'screenshotFailed': screenshotFailed,
+        'recordingPath': recordingPath,
+        'recordingStartedAt': recordingStartedAt?.toIso8601String(),
+        'lastRecording': lastRecording,
+        'recordingFailed': recordingFailed,
         'resumeOffer': resumeOffer?.toJson(),
         'miniPlayer': miniPlayer,
         'endMode': endMode.name,
@@ -394,6 +432,10 @@ class PlaybackState {
       equalizerEnabled: json['equalizerEnabled'] as bool? ?? false,
       lastScreenshot: json['lastScreenshot'] as String?,
       screenshotFailed: json['screenshotFailed'] as bool? ?? false,
+      recordingPath: json['recordingPath'] as String?,
+      recordingStartedAt: DateTime.tryParse(json['recordingStartedAt'] as String? ?? ''),
+      lastRecording: json['lastRecording'] as String?,
+      recordingFailed: json['recordingFailed'] as bool? ?? false,
       resumeOffer: ResumeOffer.fromJson(json['resumeOffer']),
       miniPlayer: json['miniPlayer'] as bool? ?? false,
       endMode: EndOfPlaybackMode.fromJson(json['endMode']),

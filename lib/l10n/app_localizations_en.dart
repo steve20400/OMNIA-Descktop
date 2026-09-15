@@ -909,4 +909,33 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get startupFailureBody =>
       'The application data folder cannot be accessed. Check the free disk space and the permissions on your home folder, then start OMNIA again.';
+
+  @override
+  String get recordClip => 'Record a clip';
+
+  @override
+  String get stopRecording => 'Stop recording';
+
+  @override
+  String get recordingStarted => 'Recording';
+
+  @override
+  String get recordingSaved => 'Clip saved';
+
+  @override
+  String get recordingFailed => 'No clip recorded';
+
+  @override
+  String get recordingFailedHint =>
+      'Playback did not move, or the capture folder cannot be written to.';
+
+  @override
+  String get moreControls => 'More controls';
+
+  @override
+  String get controlBarResize =>
+      'Drag to adjust the width. Double-click: automatic width.';
+
+  @override
+  String get volumeLabel => 'Volume';
 }

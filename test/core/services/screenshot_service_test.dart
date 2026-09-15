@@ -50,4 +50,31 @@ void main() {
     expect(p.basename(second), 'ep1 2026-09-07 21-04-05 (2).png');
     expect(p.basename(third), 'ep1 2026-09-07 21-04-05 (3).png');
   });
+
+  group('Extraits', () {
+    test('même dossier et même motif que les captures, conteneur Matroska', () async {
+      final service = ScreenshotService(defaultFolder: () async => dir);
+      final video = await service.recordingPath(mediaPath: '/films/ep1.mkv', audioOnly: false, now: when);
+      final audio = await service.recordingPath(mediaPath: '/musique/a.flac', audioOnly: true, now: when);
+
+      expect(p.dirname(video), dir.path);
+      expect(p.basename(video), 'ep1 2026-09-07 21-04-05.mkv');
+      expect(p.basename(audio), 'a 2026-09-07 21-04-05.mka');
+    });
+
+    test('un extrait existant n’est jamais écrasé', () async {
+      final service = ScreenshotService(defaultFolder: () async => dir);
+      final first = await service.recordingPath(mediaPath: '/films/ep1.mkv', audioOnly: false, now: when);
+      File(first).writeAsStringSync('déjà là');
+      final second = await service.recordingPath(mediaPath: '/films/ep1.mkv', audioOnly: false, now: when);
+      expect(p.basename(second), 'ep1 2026-09-07 21-04-05 (2).mkv');
+    });
+
+    test('le dossier est créé s’il manque', () async {
+      final nested = Directory(p.join(dir.path, 'extraits', 'OMNIA'));
+      final service = ScreenshotService(defaultFolder: () async => nested);
+      await service.recordingPath(mediaPath: '/films/ep1.mkv', audioOnly: false, now: when);
+      expect(nested.existsSync(), isTrue);
+    });
+  });
 }

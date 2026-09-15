@@ -9,6 +9,7 @@ import '../commands/player_command_bus.dart';
 import '../controllers/frame_capturer.dart';
 import '../controllers/media_controller.dart';
 import '../controllers/media_router.dart';
+import '../controllers/stream_recorder.dart';
 import '../models/app_preferences.dart';
 import '../models/end_of_playback_mode.dart';
 import '../models/history_entry.dart';
@@ -39,6 +40,7 @@ class PlaybackService implements PlaybackStateSink {
     this.settings,
     this.screenshots,
     this.system = const NoopSystemIntegration(),
+    this.recordingCheckDelay = const Duration(milliseconds: 150),
     PlaybackState initialState = const PlaybackState(),
   }) : _state = initialState {
     final store = settings;
@@ -492,6 +494,8 @@ class PlaybackService implements PlaybackStateSink {
         await settings?.setScreenshotFolder(path);
       case TakeScreenshot():
         await _takeScreenshot();
+      case ToggleRecording():
+        await (_state.recording ? _stopRecording() : _startRecording());
       case ToggleMiniPlayer():
         await _setMiniPlayer(!_state.miniPlayer);
       case SetVolume() || VolumeRelative() || ToggleMute() when _active == null:
@@ -589,6 +593,9 @@ class PlaybackService implements PlaybackStateSink {
   ///
   /// La lecture ne dépend jamais du scan : celui-ci se poursuit en arrière-plan.
   Future<void> openPath(String path) async {
+    // Un extrait en cours s'arrête avec son fichier : il ne continue pas sur
+    // le suivant.
+    await _stopRecording();
     await _savePositionOfCurrentFile();
 
     final type = MediaRouter.typeForPath(path);
@@ -688,6 +695,7 @@ class PlaybackService implements PlaybackStateSink {
   }
 
   Future<void> _handleEndOfPlayback() async {
+    await _stopRecording();
     final mode = _state.endMode;
     final next = playlist.nextForEndMode(mode);
 
@@ -721,6 +729,7 @@ class PlaybackService implements PlaybackStateSink {
   }
 
   Future<void> _closeActive({bool clearCurrent = true}) async {
+    await _stopRecording();
     await _savePositionOfCurrentFile();
     final active = _active;
     _active = null;
@@ -742,11 +751,85 @@ class PlaybackService implements PlaybackStateSink {
     }
   }
 
+  // --- Extraits ----------------------------------------------------------
+
+  /// Délai entre deux vérifications du fichier d'un extrait arrêté.
+  /// Surchargeable dans les tests.
+  final Duration recordingCheckDelay;
+
+  /// Commence un extrait du média audio ou vidéo en cours, dans le dossier
+  /// et sous le motif de nom des captures.
+  Future<void> _startRecording() async {
+    // Comme pour la capture : passage par `Object?` pour la promotion de type.
+    final Object? recorder = _active;
+    final store = screenshots;
+    final file = _state.file;
+    if (recorder is! StreamRecorder || store == null || file == null || !file.type.isAv) return;
+    if (_state.status == PlaybackStatus.error) return;
+
+    update((st) => st.copyWith(recordingFailed: false, clearLastRecording: true));
+    try {
+      final path = await store.recordingPath(
+        mediaPath: file.path,
+        audioOnly: !_state.hasVideo,
+        position: _state.position,
+      );
+      if (await recorder.startRecording(path)) {
+        update((st) => st.copyWith(recordingPath: path, recordingStartedAt: DateTime.now()));
+        return;
+      }
+    } on FileSystemException {
+      // Dossier des captures inaccessible : même message qu'une capture.
+    }
+    update((st) => st.copyWith(recordingFailed: true));
+  }
+
+  /// Arrête l'extrait en cours, s'il y en a un, et vérifie qu'il a bien été
+  /// écrit. Un fichier vide (lecture restée en pause, format refusé par
+  /// l'enregistreur) est supprimé et signalé.
+  Future<void> _stopRecording() async {
+    final path = _state.recordingPath;
+    if (path == null) return;
+    final Object? recorder = _active;
+    if (recorder is StreamRecorder) await recorder.stopRecording();
+
+    final saved = await _recordingWritten(path);
+    if (!saved) {
+      try {
+        final f = File(path);
+        if (await f.exists()) await f.delete();
+      } on FileSystemException {
+        // Fichier vide impossible à retirer : sans conséquence.
+      }
+    }
+    update(
+      (st) => st.copyWith(
+        clearRecording: true,
+        lastRecording: saved ? path : null,
+        clearLastRecording: !saved,
+        recordingFailed: !saved,
+      ),
+    );
+  }
+
+  /// mpv finalise le fichier juste après l'arrêt : on lui laisse un court
+  /// délai avant de conclure qu'il n'a rien écrit.
+  Future<bool> _recordingWritten(String path) async {
+    for (var attempt = 0; attempt < 10; attempt++) {
+      final f = File(path);
+      if (await f.exists() && await f.length() > 0) return true;
+      await Future<void>.delayed(recordingCheckDelay);
+    }
+    return false;
+  }
+
   /// Libère ce service. Les contrôleurs de média ne sont pas libérés ici :
   /// leur cycle de vie appartient au provider qui les a créés.
   Future<void> dispose() async {
     await _subscription.cancel();
     await _playlistSubscription.cancel();
+    // Un extrait en cours est finalisé : le fichier resterait sinon illisible.
+    await _stopRecording();
     // Une sauvegarde de réglages en attente est faite tout de suite, pour ne
     // pas perdre le dernier volume à la fermeture.
     if (_preferencesSave != null) await _savePreferencesNow();

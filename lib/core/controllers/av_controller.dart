@@ -18,6 +18,7 @@ import '../models/video_adjust.dart';
 import '../utils/os_errors.dart';
 import 'frame_capturer.dart';
 import 'media_controller.dart';
+import 'stream_recorder.dart';
 
 /// Contrôleur audio/vidéo basé sur media_kit (libmpv).
 ///
@@ -28,9 +29,12 @@ import 'media_controller.dart';
 /// externes automatiques, boucle A-B, image, égaliseur) passe par les
 /// propriétés mpv, derrière [_setProperty] qui n'échoue jamais bruyamment :
 /// une propriété refusée par une version de mpv laisse la lecture intacte.
-class AvController implements MediaController, FrameCapturer {
+class AvController implements MediaController, FrameCapturer, StreamRecorder {
   AvController({Player? player, AppPreferences Function()? preferences})
-      : player = player ?? Player(),
+      // libass : mpv dessine les sous-titres dans l'image, et media_kit retire
+      // sa propre couche de texte. Sans cela, activer une piste les
+      // affichait deux fois, et « masquer » laissait la copie de media_kit.
+      : player = player ?? Player(configuration: const PlayerConfiguration(libass: true)),
         _preferences = preferences ?? (() => AppPreferences.defaults) {
     videoController = VideoController(this.player);
     _listen();
@@ -62,15 +66,45 @@ class AvController implements MediaController, FrameCapturer {
   Set<MediaType> get supportedTypes => const {MediaType.video, MediaType.audio};
 
   /// Réglages mpv valables pour toute la session.
+  ///
+  /// media_kit impose des réglages de rendu économiques (mise à l'échelle
+  /// bilinéaire, aucun tramage). On rétablit ceux d'un mpv autonome : le
+  /// tramage évite les dégradés en escalier (ciel, scènes sombres) des vidéos
+  /// 10 bits affichées en 8 bits, et les filtres de mise à l'échelle ne
+  /// coûtent rien tant que l'image est rendue à sa taille d'origine.
   Future<void> _applyBaseProperties() async {
     // Une seule image demandée à la capture, pas de bande-son de clic.
     await _setProperty('screenshot-format', 'png');
+    await _setProperty('dither', 'fruit');
+    await _setProperty('dither-depth', 'auto');
+    await _setProperty('scale', 'spline36');
+    await _setProperty('dscale', 'mitchell');
+    await _setProperty('correct-downscaling', 'yes');
+  }
+
+  // Position : mpv la publie à chaque image affichée, soit 25 à 60 fois par
+  // seconde (et deux fois plus à 2×). L'interface n'en a pas besoin d'autant,
+  // et chaque mise à jour la reconstruit : on en garde six par seconde au
+  // plus. Un saut (recherche, nouveau fichier) passe tout de suite.
+  final Stopwatch _positionClock = Stopwatch()..start();
+  Duration _lastPosition = Duration.zero;
+
+  void _onPosition(Duration position) {
+    final jump = (position - _lastPosition).abs() > const Duration(milliseconds: 900);
+    if (!jump && _positionClock.elapsedMilliseconds < 150) return;
+    _publishPosition(position);
+  }
+
+  void _publishPosition(Duration position) {
+    _positionClock.reset();
+    _lastPosition = position;
+    _update((st) => st.copyWith(position: position));
   }
 
   void _listen() {
     final s = player.stream;
     _subscriptions.addAll([
-      s.position.listen((position) => _update((st) => st.copyWith(position: position))),
+      s.position.listen(_onPosition),
       s.duration.listen((duration) => _update((st) => st.copyWith(duration: duration))),
       s.buffering.listen((buffering) => _update((st) => st.copyWith(buffering: buffering))),
       s.volume.listen((volume) => _update((st) => st.copyWith(volume: volume))),
@@ -100,6 +134,9 @@ class AvController implements MediaController, FrameCapturer {
       }),
       s.playing.listen((playing) {
         if (playing) _opening = false;
+        // À la pause, la position affichée est l'exacte, pas la dernière
+        // retenue par le filtre de fréquence.
+        if (!playing) _publishPosition(player.state.position);
         _update((st) {
           if (st.status == PlaybackStatus.error) return st;
           if (!playing && _opening) return st;
@@ -241,7 +278,7 @@ class AvController implements MediaController, FrameCapturer {
       await _setMuted(state.muted);
       await _setProperty('sub-visibility', state.subtitlesVisible ? 'yes' : 'no');
       await _setProperty('sub-scale', state.subtitleScale.toStringAsFixed(2));
-      await _applyAspect(state.aspectMode);
+      await _applyNeutralAspect();
       await _applyAdjust(state.videoAdjust);
       await _applyEqualizer(state.equalizerEnabled ? state.equalizerGains : Equalizer.flat);
     } on Object catch (e) {
@@ -324,7 +361,8 @@ class AvController implements MediaController, FrameCapturer {
 
       // Image
       case SetAspectMode(:final mode):
-        await _applyAspect(mode);
+        // Appliqué par l'interface (ajustement du widget vidéo) : la texture
+        // garde sa taille, et « Remplir » fonctionne réellement.
         _update((st) => st.copyWith(aspectMode: mode));
       case VideoZoomRelative(:final delta):
         final z = (state.videoZoom + delta)
@@ -411,6 +449,9 @@ class AvController implements MediaController, FrameCapturer {
     final s = (steps * PlaybackState.speedStep)
         .clamp(PlaybackState.minSpeed, PlaybackState.maxSpeed);
     await player.setRate(s);
+    // En lecture rapide, mpv peut sauter des images en retard dès le
+    // décodage : le mouvement est moins fluide, mais l'image ne décroche pas.
+    await _setProperty('framedrop', s >= 1.75 ? 'decoder+vo' : 'vo');
     _update((st) => st.copyWith(speed: s));
   }
 
@@ -458,12 +499,13 @@ class AvController implements MediaController, FrameCapturer {
   /// A absent → A = position ; B absent → B = position ; les deux → effacer.
   /// mpv boucle lui-même entre `ab-loop-a` et `ab-loop-b`, à l'image près.
   Future<void> _cycleAbLoop(PlaybackState state) async {
+    // Position exacte du moteur : celle de l'état est filtrée (six par seconde).
     if (state.loopA == null) {
-      final a = state.position;
+      final a = player.state.position;
       await _setProperty('ab-loop-a', _seconds(a));
       _update((st) => st.copyWith(loopA: a));
     } else if (state.loopB == null) {
-      final b = state.position;
+      final b = player.state.position;
       if (b <= state.loopA! + const Duration(milliseconds: 500)) {
         // Un point B avant A (ou collé à A) ne ferait pas une boucle.
         return;
@@ -485,9 +527,13 @@ class AvController implements MediaController, FrameCapturer {
 
   // --- Image ------------------------------------------------------------------
 
-  Future<void> _applyAspect(AspectMode mode) async {
-    await _setProperty('video-aspect-override', mode.mpvAspect);
-    await _setProperty('panscan', mode.mpvPanscan);
+  /// Le ratio et le remplissage sont appliqués par l'interface. Côté mpv, on
+  /// garde l'image telle quelle : changer le ratio y recréerait la texture
+  /// (un éclair noir), et `panscan` n'a rien à rogner dans une texture qui a
+  /// déjà le ratio de la vidéo.
+  Future<void> _applyNeutralAspect() async {
+    await _setProperty('video-aspect-override', AspectMode.auto.mpvAspect);
+    await _setProperty('panscan', AspectMode.auto.mpvPanscan);
   }
 
   Future<void> _applyAdjust(VideoAdjust adjust) async {
@@ -503,9 +549,31 @@ class AvController implements MediaController, FrameCapturer {
     await _setProperty('af', Equalizer.filterFor(gains));
   }
 
+  /// Enregistrement d'extrait : propriété `stream-record` de mpv. Elle
+  /// recopie les paquets lus par le démultiplexeur dans un fichier dont
+  /// l'extension fixe le format, sans réencoder : qualité intacte et presque
+  /// aucun coût processeur.
+  @override
+  Future<bool> startRecording(String path) async {
+    final platform = player.platform;
+    if (platform is! NativePlayer) return false;
+    try {
+      await platform.setProperty('stream-record', path);
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  /// Une chaîne vide ferme l'enregistreur, qui finalise le fichier.
+  @override
+  Future<void> stopRecording() => _setProperty('stream-record', '');
+
   @override
   Future<void> close() async {
     _opening = false;
+    // Un extrait en cours ne doit pas continuer sur le fichier suivant.
+    await stopRecording();
     await player.stop();
     _tracks = const Tracks();
     _sink?.update(

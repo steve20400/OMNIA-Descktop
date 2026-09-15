@@ -29,8 +29,13 @@ class _SlimSliderState extends State<SlimSlider> {
   bool _hovered = false;
   bool _dragging = false;
 
+  /// Position du pointeur rapportée à la largeur RÉELLE du curseur : étiré
+  /// dans un panneau (réglages d'image) ou pivoté (égaliseur), il n'a pas la
+  /// largeur demandée, et la valeur saturait avant la fin de la course.
   void _set(double dx) {
-    widget.onChanged((dx / widget.width).clamp(0.0, 1.0));
+    final width = context.size?.width ?? widget.width;
+    if (width <= 0) return;
+    widget.onChanged((dx / width).clamp(0.0, 1.0));
   }
 
   @override
