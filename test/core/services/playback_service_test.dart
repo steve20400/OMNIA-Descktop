@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' show Offset, Rect;
+import 'dart:ui' show Offset, Rect, Size;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/commands/player_command.dart';
@@ -20,6 +20,7 @@ import 'package:omnia/core/models/playback_status.dart';
 import 'package:omnia/core/models/resume_offer.dart';
 import 'package:omnia/core/models/track_info.dart';
 import 'package:omnia/core/models/video_adjust.dart';
+import 'package:omnia/core/models/window_sizes.dart';
 import 'package:omnia/core/services/folder_scanner.dart';
 import 'package:omnia/core/services/history_store.dart';
 import 'package:omnia/core/services/playback_service.dart';
@@ -39,6 +40,12 @@ class FakeAvController implements MediaController, FrameCapturer, StreamRecorder
 
   /// Durée annoncée à l'ouverture.
   Duration duration = const Duration(minutes: 10);
+
+  /// Image annoncée à l'ouverture : présence et dimensions d'affichage (0 :
+  /// pas encore connues, comme au début d'une vraie ouverture).
+  bool hasVideo = false;
+  int videoWidth = 0;
+  int videoHeight = 0;
 
   /// Image renvoyée par la capture ; `null` simule un flux sans vidéo.
   Uint8List? frame = Uint8List.fromList([1, 2, 3]);
@@ -81,6 +88,9 @@ class FakeAvController implements MediaController, FrameCapturer, StreamRecorder
         status: PlaybackStatus.playing,
         position: Duration.zero,
         duration: duration,
+        hasVideo: hasVideo,
+        videoWidth: videoWidth,
+        videoHeight: videoHeight,
         clearError: true,
       ),
     );
@@ -108,6 +118,13 @@ class FakeAvController implements MediaController, FrameCapturer, StreamRecorder
   /// Simule l'avancée de la lecture.
   void advanceTo(Duration position) {
     sink?.update((s) => s.copyWith(position: position));
+  }
+
+  /// Simule l'arrivée des dimensions de l'image, après l'ouverture.
+  void reportVideoSize(int width, int height) {
+    sink?.update(
+      (s) => s.copyWith(hasVideo: width > 0, videoWidth: width, videoHeight: height),
+    );
   }
 
   @override
@@ -174,6 +191,20 @@ class FakeDocController implements MediaController {
 Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
 
 MediaFile mf(String path, MediaType type) => MediaFile(path: path, type: type);
+
+/// Compare une géométrie à la tolérance près : les tailles du mini-lecteur
+/// viennent de divisions par le ratio de l'image.
+void expectRect(Rect actual, double left, double top, double width, double height) {
+  expect(actual.left, closeTo(left, 1e-6), reason: 'gauche');
+  expect(actual.top, closeTo(top, 1e-6), reason: 'haut');
+  expect(actual.width, closeTo(width, 1e-6), reason: 'largeur');
+  expect(actual.height, closeTo(height, 1e-6), reason: 'hauteur');
+}
+
+void expectSize(Size actual, double width, double height) {
+  expect(actual.width, closeTo(width, 1e-6), reason: 'largeur');
+  expect(actual.height, closeTo(height, 1e-6), reason: 'hauteur');
+}
 
 void main() {
   late PlayerCommandBus bus;
@@ -978,9 +1009,11 @@ void main() {
       expect(service.state.miniPlayer, isTrue);
       expect(service.state.alwaysOnTop, isTrue);
       expect(window.alwaysOnTop, isTrue);
-      expect(window.bounds.topLeft, const Offset(100, 80));
-      expect(window.bounds.size, PlaybackService.miniPlayerSize);
-      expect(window.minimumSize, PlaybackService.miniPlayerSize);
+      // Sans image : le bandeau, dans le coin bas-droit de la fenêtre d'avant
+      // (à 24 px des bords), sans verrou de ratio.
+      expect(window.bounds, const Rect.fromLTWH(876, 684, 400, 132));
+      expect(window.minimumSize, WindowSizes.miniAudioMinimum);
+      expect(window.aspectRatio, 0);
 
       bus.dispatch(const ToggleMiniPlayer());
       await settle();
@@ -989,7 +1022,7 @@ void main() {
       expect(service.state.alwaysOnTop, isFalse);
       expect(window.alwaysOnTop, isFalse);
       expect(window.bounds, const Rect.fromLTWH(100, 80, 1200, 760));
-      expect(window.minimumSize, PlaybackService.mainMinimumSize);
+      expect(window.minimumSize, WindowSizes.mainMinimum);
     });
 
     test('le premier plan choisi avant est conservé à la sortie', () async {
@@ -1025,7 +1058,256 @@ void main() {
       await service.openPath('/serie/notes.pdf');
       expect(service.state.miniPlayer, isFalse);
       expect(window.bounds, const Rect.fromLTWH(100, 80, 1200, 760));
-      expect(window.minimumSize, PlaybackService.mainMinimumSize);
+      expect(window.minimumSize, WindowSizes.mainMinimum);
+    });
+
+    group('à la forme de l’image', () {
+      // Bus, fenêtre et réglages propres : le service du setUp général écoute
+      // le bus partagé et réagirait aussi aux commandes.
+      late PlayerCommandBus ownBus;
+      late FakeAvController ownAv;
+      late FakeWindowService ownWindow;
+      late MemorySettingsStore store;
+      late PlaylistService ownPlaylist;
+      late PlaybackService ownService;
+
+      const mainBounds = Rect.fromLTWH(100, 80, 1200, 760);
+
+      setUp(() {
+        ownBus = PlayerCommandBus();
+        // Une vidéo 16:9 dont l'image est connue dès l'ouverture.
+        ownAv = FakeAvController()
+          ..hasVideo = true
+          ..videoWidth = 1920
+          ..videoHeight = 1080;
+        ownWindow = FakeWindowService()..bounds = mainBounds;
+        store = MemorySettingsStore();
+        ownPlaylist = PlaylistService(bus: ownBus, scanner: FakeFolderScanner(folders));
+        ownService = PlaybackService(
+          bus: ownBus,
+          router: MediaRouter([ownAv]),
+          window: ownWindow,
+          playlist: ownPlaylist,
+          settings: store,
+        );
+      });
+
+      tearDown(() async {
+        await ownService.dispose();
+        await ownPlaylist.dispose();
+        await ownBus.dispose();
+      });
+
+      Future<void> drain() async {
+        await settle();
+        await ownService.idle;
+      }
+
+      Future<void> send(PlayerCommand command) async {
+        ownBus.dispatch(command);
+        await drain();
+      }
+
+      Future<void> play([String path = '/serie/ep1.mkv']) async {
+        await ownService.openPath(path);
+        await drain();
+      }
+
+      test('une vidéo 16:9 : 400 × 225 dans le coin bas-droit, ratio verrouillé', () async {
+        await play();
+        await send(const ToggleMiniPlayer());
+
+        expect(ownService.state.miniPlayer, isTrue);
+        expect(ownService.state.alwaysOnTop, isTrue);
+        // (1300 - 400 - 24, 840 - 225 - 24) : à 24 px des bords de la fenêtre
+        // d'avant.
+        expectRect(ownWindow.bounds, 876, 591, 400, 225);
+        expect(ownWindow.aspectRatio, closeTo(16 / 9, 1e-9));
+        expectSize(ownWindow.minimumSize, 200, 112.5);
+      });
+
+      test('une vidéo verticale 9:16 : 225 × 400', () async {
+        ownAv
+          ..videoWidth = 1080
+          ..videoHeight = 1920;
+        await play();
+        await send(const ToggleMiniPlayer());
+
+        expectRect(ownWindow.bounds, 1051, 416, 225, 400);
+        expect(ownWindow.aspectRatio, closeTo(9 / 16, 1e-9));
+        expectSize(ownWindow.minimumSize, 112.5, 200);
+      });
+
+      test('sortir : verrou levé, géométrie et plancher rendus', () async {
+        await play();
+        await send(const ToggleMiniPlayer());
+        await send(const ToggleMiniPlayer());
+
+        expect(ownService.state.miniPlayer, isFalse);
+        expect(ownWindow.aspectRatio, 0);
+        expect(ownWindow.bounds, mainBounds);
+        expect(ownWindow.minimumSize, WindowSizes.mainMinimum);
+        expect(ownWindow.alwaysOnTop, isFalse);
+      });
+
+      test('une fenêtre agrandie est désagrandie, puis agrandie de nouveau à la sortie', () async {
+        ownWindow
+          ..maximized = true
+          ..bounds = const Rect.fromLTWH(0, 0, 1920, 1040);
+        await play();
+        await send(const ToggleMiniPlayer());
+
+        expect(ownWindow.maximized, isFalse);
+        // Rangé dans le coin de l'écran qu'occupait la fenêtre agrandie.
+        expectRect(ownWindow.bounds, 1496, 791, 400, 225);
+
+        await send(const ToggleMiniPlayer());
+        expect(ownWindow.maximized, isTrue);
+        expect(ownWindow.bounds, const Rect.fromLTWH(0, 0, 1920, 1040));
+        expect(ownWindow.aspectRatio, 0);
+      });
+
+      test('entrer avant que l’image soit connue : le bandeau, puis la forme de l’image', () async {
+        ownAv
+          ..videoWidth = 0
+          ..videoHeight = 0;
+        await play();
+        await send(const ToggleMiniPlayer());
+        expectRect(ownWindow.bounds, 876, 684, 400, 132);
+        expect(ownWindow.aspectRatio, 0);
+
+        ownAv.reportVideoSize(1920, 1080);
+        await drain();
+        // Le coin bas-droit ne bouge pas : le mini-lecteur reste rangé.
+        expectRect(ownWindow.bounds, 876, 591, 400, 225);
+        expect(ownWindow.aspectRatio, closeTo(16 / 9, 1e-9));
+        expectSize(ownWindow.minimumSize, 200, 112.5);
+      });
+
+      test('l’image change de ratio : même grand côté, nouveau verrou, coin gardé', () async {
+        await play();
+        await send(const ToggleMiniPlayer());
+
+        ownAv.reportVideoSize(1080, 1920);
+        await drain();
+
+        expectRect(ownWindow.bounds, 1051, 416, 225, 400);
+        expect(ownWindow.aspectRatio, closeTo(9 / 16, 1e-9));
+        expectSize(ownWindow.minimumSize, 112.5, 200);
+      });
+
+      test('fichier suivant : pas de bandeau en attendant son image, puis sa forme au grand côté choisi',
+          () async {
+        await play();
+        await send(const ToggleMiniPlayer());
+        // L'utilisateur agrandit le mini-lecteur (ratio gardé, coin bas-droit
+        // en place).
+        ownWindow.bounds = const Rect.fromLTWH(676, 478.5, 600, 337.5);
+
+        // Vidéo suivante : son image n'est pas connue à l'ouverture.
+        ownAv
+          ..videoWidth = 0
+          ..videoHeight = 0;
+        await play('/serie/ep2.mkv');
+        expect(ownWindow.bounds, const Rect.fromLTWH(676, 478.5, 600, 337.5));
+        expect(ownWindow.aspectRatio, closeTo(16 / 9, 1e-9));
+
+        // Elle arrive en 4:3 : même grand côté, même coin.
+        ownAv.reportVideoSize(1440, 1080);
+        await drain();
+        expectRect(ownWindow.bounds, 676, 366, 600, 450);
+        expect(ownWindow.aspectRatio, closeTo(4 / 3, 1e-9));
+      });
+
+      test('les battements de position ne touchent pas la fenêtre', () async {
+        await play();
+        await send(const ToggleMiniPlayer());
+        var changes = 0;
+        final sub = ownWindow.geometryChanges.listen((_) => changes++);
+
+        ownAv
+          ..advanceTo(const Duration(seconds: 5))
+          ..advanceTo(const Duration(seconds: 6))
+          // Mêmes dimensions republiées : même forme, rien à faire.
+          ..reportVideoSize(1920, 1080);
+        await drain();
+
+        expect(changes, 0);
+        expectRect(ownWindow.bounds, 876, 591, 400, 225);
+        await sub.cancel();
+      });
+
+      test('de la vidéo au son : le bandeau, sans verrou', () async {
+        await play();
+        await send(const ToggleMiniPlayer());
+
+        ownAv
+          ..hasVideo = false
+          ..videoWidth = 0
+          ..videoHeight = 0;
+        await play('/serie/generique.mp3');
+
+        expect(ownService.state.miniPlayer, isTrue);
+        expectRect(ownWindow.bounds, 876, 684, 400, 132);
+        expect(ownWindow.aspectRatio, 0);
+        expect(ownWindow.minimumSize, WindowSizes.miniAudioMinimum);
+      });
+
+      test('du son à la vidéo : la forme de l’image, au grand côté des réglages', () async {
+        await store.setMiniLongSide(480);
+        ownAv
+          ..hasVideo = false
+          ..videoWidth = 0
+          ..videoHeight = 0;
+        await play('/serie/generique.mp3');
+        await send(const ToggleMiniPlayer());
+        expectRect(ownWindow.bounds, 876, 684, 400, 132);
+
+        ownAv
+          ..hasVideo = true
+          ..videoWidth = 1920
+          ..videoHeight = 1080;
+        await play('/serie/ep1.mkv');
+        expectRect(ownWindow.bounds, 796, 546, 480, 270);
+        expect(ownWindow.aspectRatio, closeTo(16 / 9, 1e-9));
+      });
+
+      test('la place et la taille retenues sont reprises', () async {
+        await store.setMiniPosition(const Offset(50, 60));
+        await store.setMiniLongSide(600);
+        await play();
+        await send(const ToggleMiniPlayer());
+
+        expectRect(ownWindow.bounds, 50, 60, 600, 337.5);
+        expect(ownWindow.aspectRatio, closeTo(16 / 9, 1e-9));
+      });
+
+      test('le plein écran depuis le mini-lecteur passe par la fenêtre entière', () async {
+        await play();
+        await send(const ToggleMiniPlayer());
+        await send(const ToggleFullscreen());
+
+        expect(ownService.state.miniPlayer, isFalse);
+        expect(ownService.state.fullscreen, isTrue);
+        expect(ownWindow.fullscreen, isTrue);
+        expect(ownWindow.aspectRatio, 0);
+        expect(ownWindow.bounds, mainBounds);
+        expect(ownWindow.minimumSize, WindowSizes.mainMinimum);
+      });
+
+      test('des bascules rapprochées ne s’entremêlent pas', () async {
+        await play();
+        for (var i = 0; i < 4; i++) {
+          ownBus.dispatch(const ToggleMiniPlayer());
+        }
+        await drain();
+
+        expect(ownService.state.miniPlayer, isFalse);
+        expect(ownWindow.bounds, mainBounds);
+        expect(ownWindow.aspectRatio, 0);
+        expect(ownWindow.minimumSize, WindowSizes.mainMinimum);
+        expect(ownWindow.alwaysOnTop, isFalse);
+      });
     });
   });
 

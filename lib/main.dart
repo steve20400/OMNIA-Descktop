@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'core/commands/player_command_bus.dart';
 import 'core/models/app_preferences.dart';
+import 'core/models/window_sizes.dart';
 import 'core/providers.dart';
 import 'core/services/history_store.dart';
 import 'core/services/local_storage.dart';
@@ -113,8 +114,8 @@ Future<void> _showWindow({required Rect? bounds, required bool maximized}) async
   await windowManager.ensureInitialized();
 
   final options = WindowOptions(
-    size: bounds?.size ?? OmniaMetrics.defaultWindowSize,
-    minimumSize: OmniaMetrics.minimumWindowSize,
+    size: bounds?.size ?? WindowSizes.mainDefault,
+    minimumSize: WindowSizes.mainMinimum,
     center: bounds == null || isWaylandSession,
     backgroundColor: OmniaColors.dark.velvet,
     titleBarStyle: TitleBarStyle.hidden,

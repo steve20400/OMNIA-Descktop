@@ -109,9 +109,31 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
       s.buffering.listen((buffering) => _update((st) => st.copyWith(buffering: buffering))),
       s.volume.listen((volume) => _update((st) => st.copyWith(volume: volume))),
       s.rate.listen((rate) => _update((st) => st.copyWith(speed: rate))),
+      // Dimensions d'affichage de l'image : media_kit les tire de
+      // `video-out-params` (dw, dh), rapport d'aspect et rotation compris.
+      // Largeur et hauteur arrivent sur deux flux, mais l'état du moteur tient
+      // déjà les deux : on publie la paire, sans ratio intermédiaire (nouvelle
+      // largeur, ancienne hauteur) qui redimensionnerait le mini-lecteur pour
+      // rien. `null` : moteur remis à zéro entre deux fichiers, ce que
+      // `open()` et `close()` ont déjà reporté dans l'état.
       s.width.listen((width) {
         if (width == null) return;
-        _update((st) => st.copyWith(hasVideo: width > 0));
+        _update(
+          (st) => st.copyWith(
+            hasVideo: width > 0,
+            videoWidth: width,
+            videoHeight: player.state.height ?? st.videoHeight,
+          ),
+        );
+      }),
+      s.height.listen((height) {
+        if (height == null) return;
+        _update(
+          (st) => st.copyWith(
+            videoWidth: player.state.width ?? st.videoWidth,
+            videoHeight: height,
+          ),
+        );
       }),
       s.tracks.listen((tracks) {
         _tracks = tracks;
@@ -227,6 +249,8 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
           position: Duration.zero,
           duration: Duration.zero,
           hasVideo: false,
+          videoWidth: 0,
+          videoHeight: 0,
           error: const PlaybackError(PlaybackErrorCode.fileNotFound),
         ),
       );
@@ -247,6 +271,10 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
         position: Duration.zero,
         duration: Duration.zero,
         hasVideo: file.type == MediaType.video,
+        // Dimensions de l'image : connues seulement une fois la première image
+        // décodée. Jusque-là, le mini-lecteur garde sa forme.
+        videoWidth: 0,
+        videoHeight: 0,
         // Propres à chaque fichier : pistes, boucle A-B, décalage des
         // sous-titres, zoom et rotation de l'image.
         subtitleTracks: const [],
@@ -583,6 +611,8 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
         position: Duration.zero,
         duration: Duration.zero,
         hasVideo: false,
+        videoWidth: 0,
+        videoHeight: 0,
         subtitleTracks: const [],
         audioTracks: const [],
         clearSubtitleTrack: true,

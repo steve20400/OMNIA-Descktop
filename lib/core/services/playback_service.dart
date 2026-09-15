@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show Rect, Size;
+import 'dart:ui' show Offset, Rect, Size;
 
 import 'package:collection/collection.dart';
 
@@ -18,6 +18,7 @@ import '../models/media_type.dart';
 import '../models/playback_state.dart';
 import '../models/playback_status.dart';
 import '../models/resume_offer.dart';
+import '../models/window_sizes.dart';
 import 'history_store.dart';
 import 'playlist_service.dart';
 import 'screenshot_service.dart';
@@ -102,13 +103,27 @@ class PlaybackService implements PlaybackStateSink {
   /// Enregistrement des captures d'écran. `null` désactive la capture.
   final ScreenshotService? screenshots;
 
-  /// Géométrie et état de premier plan à restaurer en quittant le mini-lecteur.
+  /// Géométrie, agrandissement et premier plan à rendre en quittant le
+  /// mini-lecteur.
   Rect? _boundsBeforeMini;
+  bool _maximizedBeforeMini = false;
   bool _alwaysOnTopBeforeMini = false;
 
-  /// Taille du mini-lecteur et minimum de fenêtre du lecteur principal.
-  static const Size miniPlayerSize = Size(400, 132);
-  static const Size mainMinimumSize = Size(720, 460);
+  /// Fenêtre telle que l'utilisateur la voyait avant le mini-lecteur (l'écran
+  /// entier si elle était agrandie) : le mini-lecteur se range dans son coin.
+  Rect? _miniArea;
+
+  /// Forme appliquée au mini-lecteur : ratio de l'image, 0 pour le bandeau.
+  double _miniShape = 0;
+
+  /// Un verrou de ratio est posé sur la fenêtre.
+  bool _aspectLocked = false;
+
+  /// Une remise en forme du mini-lecteur attend son tour dans la file.
+  bool _miniRefitScheduled = false;
+
+  /// Écart entre le mini-lecteur et les bords de la fenêtre d'avant.
+  static const double _miniMargin = 24;
 
   late final StreamSubscription<DispatchedCommand> _subscription;
   late final StreamSubscription<Object?> _playlistSubscription;
@@ -160,7 +175,8 @@ class PlaybackService implements PlaybackStateSink {
   }
 
   /// Réactions déclenchées par un changement d'état, et non par une commande :
-  /// reprise de lecture, sauvegarde de la position, fin de fichier.
+  /// reprise de lecture, sauvegarde de la position, fin de fichier, forme du
+  /// mini-lecteur.
   void _reactToStateChange(PlaybackState before, PlaybackState after) {
     // Appliquer la position mémorisée dès que la durée du bon fichier est
     // connue.
@@ -260,6 +276,22 @@ class PlaybackService implements PlaybackStateSink {
       _scheduleEndOfPlayback();
     } else if (after.status != PlaybackStatus.ended) {
       _endHandled = false;
+    }
+
+    // Mini-lecteur : la fenêtre suit la forme du média. Les dimensions de
+    // l'image arrivent après l'ouverture et changent avec le fichier suivant.
+    // La remise en forme attend son tour dans la file : elle ne se mêle pas à
+    // une entrée, une sortie ou un plein écran en cours. Les battements de
+    // position, eux, ne changent pas la forme : aucun appel à la fenêtre.
+    if (after.miniPlayer && !_miniRefitScheduled) {
+      final shape = _miniShapeFor(after);
+      if (shape != null && !_sameShape(shape, _miniShape)) {
+        _miniRefitScheduled = true;
+        _queue = _queue.then((_) => _refitMiniPlayer()).catchError((Object _) {
+          // Une fenêtre qui refuse sa nouvelle forme garde l'ancienne : la
+          // lecture n'est pas en cause.
+        });
+      }
     }
   }
 
@@ -454,6 +486,9 @@ class PlaybackService implements PlaybackStateSink {
         // Traitée par PlaylistService ; rien à faire ici.
         break;
       case ToggleFullscreen():
+        // Le plein écran se prend depuis la fenêtre entière : pris depuis le
+        // mini-lecteur, il en garderait la mise en page compacte.
+        if (_state.miniPlayer) await _setMiniPlayer(false);
         await _setFullscreen(!_state.fullscreen);
       case ExitFullscreen():
         if (_state.fullscreen) await _setFullscreen(false);
@@ -565,27 +600,123 @@ class PlaybackService implements PlaybackStateSink {
     }
   }
 
-  /// Mini-lecteur : fenêtre compacte toujours au premier plan. On mémorise la
-  /// géométrie et l'état de premier plan pour les rendre à la sortie.
+  /// Mini-lecteur : fenêtre compacte toujours au premier plan, à la forme de
+  /// l'image (un bandeau pour un son seul). Géométrie, agrandissement et
+  /// premier plan sont mémorisés pour être rendus à la sortie.
+  ///
+  /// Appelé depuis la file de commandes (bascule, plein écran, ouverture d'un
+  /// document) : une entrée et une sortie rapprochées ne s'entremêlent pas.
   Future<void> _setMiniPlayer(bool enabled) async {
     if (enabled == _state.miniPlayer) return;
-    if (enabled) {
-      if (_state.fullscreen) await _setFullscreen(false);
-      _boundsBeforeMini = await window.getBounds();
-      _alwaysOnTopBeforeMini = _state.alwaysOnTop;
-      await window.setMinimumSize(miniPlayerSize);
-      final origin = _boundsBeforeMini!.topLeft;
-      await window.setBounds(origin & miniPlayerSize);
-      await window.setAlwaysOnTop(true);
-      update((st) => st.copyWith(miniPlayer: true, alwaysOnTop: true));
-    } else {
-      await window.setMinimumSize(mainMinimumSize);
-      final previous = _boundsBeforeMini;
-      if (previous != null) await window.setBounds(previous);
-      await window.setAlwaysOnTop(_alwaysOnTopBeforeMini);
-      update((st) => st.copyWith(miniPlayer: false, alwaysOnTop: _alwaysOnTopBeforeMini));
-      _boundsBeforeMini = null;
+    await (enabled ? _enterMiniPlayer() : _exitMiniPlayer());
+  }
+
+  Future<void> _enterMiniPlayer() async {
+    if (_state.fullscreen) await _setFullscreen(false);
+    final maximized = await window.isMaximized();
+    final visible = await window.getBounds();
+    if (maximized) await window.setMaximized(false);
+    _maximizedBeforeMini = maximized;
+    // Une fenêtre agrandie est d'abord rendue à sa taille normale : c'est
+    // celle-là qu'on restaure avant de l'agrandir de nouveau, pour que la
+    // désagrandir plus tard la ramène à sa place.
+    _boundsBeforeMini = maximized ? await window.getBounds() : visible;
+    _miniArea = visible;
+    _alwaysOnTopBeforeMini = _state.alwaysOnTop;
+
+    // Sans dimensions d'image (son seul, ou vidéo qui démarre) : le bandeau.
+    // Il prendra la forme de l'image dès qu'elle sera connue.
+    final shape = _miniShapeFor(_state) ?? 0.0;
+    final size = _miniSize(shape, longSide: settings?.miniLongSide);
+    final origin = settings?.miniPosition ??
+        Offset(
+          visible.right - size.width - _miniMargin,
+          visible.bottom - size.height - _miniMargin,
+        );
+    await _applyMiniShape(shape, origin & size);
+    await window.setAlwaysOnTop(true);
+    update((st) => st.copyWith(miniPlayer: true, alwaysOnTop: true));
+  }
+
+  Future<void> _exitMiniPlayer() async {
+    // Le verrou de ratio d'abord : sous Linux, il rognerait la taille rendue.
+    await window.setAspectRatio(0);
+    _aspectLocked = false;
+    await window.setMinimumSize(WindowSizes.mainMinimum);
+    // Un mini-lecteur agrandi entre-temps par le système (Win+↑) redevient
+    // d'abord normal : la géométrie rendue ne s'appliquerait pas à une
+    // fenêtre agrandie.
+    if (await window.isMaximized()) await window.setMaximized(false);
+    final previous = _boundsBeforeMini;
+    if (previous != null) await window.setBounds(previous);
+    if (_maximizedBeforeMini) await window.setMaximized(true);
+    await window.setAlwaysOnTop(_alwaysOnTopBeforeMini);
+    update((st) => st.copyWith(miniPlayer: false, alwaysOnTop: _alwaysOnTopBeforeMini));
+    _boundsBeforeMini = null;
+    _maximizedBeforeMini = false;
+    _miniArea = null;
+  }
+
+  /// Rend au mini-lecteur la forme du média courant : image d'un autre ratio,
+  /// passage du son à l'image ou l'inverse.
+  Future<void> _refitMiniPlayer() async {
+    _miniRefitScheduled = false;
+    if (_states.isClosed || !_state.miniPlayer) return;
+    final shape = _miniShapeFor(_state);
+    if (shape == null || _sameShape(shape, _miniShape)) return;
+    final current = await window.getBounds();
+    // D'une image à l'autre, le grand côté choisi à la souris est gardé ;
+    // venant du bandeau, l'image reprend celui des réglages.
+    final longSide = _miniShape > 0 ? current.longestSide : settings?.miniLongSide;
+    final size = _miniSize(shape, longSide: longSide);
+    await _applyMiniShape(shape, _resizeAnchored(current, size, _miniArea ?? current));
+  }
+
+  /// Donne au mini-lecteur la forme [shape] (voir [_miniShapeFor]) dans
+  /// [bounds]. Le verrou de ratio est levé pendant le changement : sous Linux,
+  /// le gestionnaire de fenêtres l'applique aussi aux tailles demandées par le
+  /// programme, et rognerait la nouvelle à l'ancien ratio.
+  Future<void> _applyMiniShape(double shape, Rect bounds) async {
+    _miniShape = shape;
+    if (_aspectLocked) {
+      await window.setAspectRatio(0);
+      _aspectLocked = false;
     }
+    await window.setMinimumSize(_miniMinimum(shape));
+    await window.setBounds(bounds);
+    if (shape > 0) {
+      await window.setAspectRatio(shape);
+      _aspectLocked = true;
+    }
+  }
+
+  /// Forme voulue du mini-lecteur pour [s] : le ratio de l'image s'il est
+  /// connu, 0 (bandeau) pour un son seul. `null` pour une vidéo dont l'image
+  /// n'est pas encore connue : la forme actuelle est gardée, sans passer par
+  /// le bandeau entre deux vidéos.
+  static double? _miniShapeFor(PlaybackState s) {
+    final aspect = s.videoAspect;
+    if (aspect != null) return aspect;
+    return s.hasVideo ? null : 0.0;
+  }
+
+  /// Deux ratios qu'aucun redimensionnement ne distinguerait.
+  static bool _sameShape(double a, double b) => (a - b).abs() < 1e-3;
+
+  static Size _miniSize(double shape, {double? longSide}) => shape > 0
+      ? WindowSizes.miniVideoSize(shape, longSide: longSide)
+      : WindowSizes.miniAudio;
+
+  static Size _miniMinimum(double shape) =>
+      shape > 0 ? WindowSizes.miniVideoMinimum(shape) : WindowSizes.miniAudioMinimum;
+
+  /// [current] redimensionné à [size] en gardant le coin le plus proche du
+  /// coin correspondant de [area] : un mini-lecteur rangé en bas à droite y
+  /// reste en changeant de forme, au lieu de déborder sous le bord de l'écran.
+  static Rect _resizeAnchored(Rect current, Size size, Rect area) {
+    final left = current.center.dx > area.center.dx ? current.right - size.width : current.left;
+    final top = current.center.dy > area.center.dy ? current.bottom - size.height : current.top;
+    return Offset(left, top) & size;
   }
 
   /// Ouvre un fichier : scan du dossier parent, choix du contrôleur, reprise

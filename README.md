@@ -129,7 +129,10 @@ gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
 ### Icône
 
 L'icône Windows (`windows/runner/resources/app_icon.ico`, 16 à 256 px) reprend le dessin de
-`linux/dev.omnia.omnia.svg` : le faisceau du projecteur. Elle se régénère sans dépendance :
+`linux/dev.omnia.omnia.svg` : le duo d'écrans, un moniteur et un téléphone ambre reliés — le même
+lecteur sur l'ordinateur et sur le téléphone, et le téléphone qui pilote l'ordinateur. Jusqu'à
+24 px, une variante simplifiée, calée sur les pixels, la garde lisible. L'icône se régénère sans
+dépendance :
 
 ```bash
 python tool/make_icon.py windows/runner/resources

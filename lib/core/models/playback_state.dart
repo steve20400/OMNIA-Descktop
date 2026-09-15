@@ -21,6 +21,8 @@ class PlaybackState {
     this.duration = Duration.zero,
     this.buffering = false,
     this.hasVideo = false,
+    this.videoWidth = 0,
+    this.videoHeight = 0,
     this.volume = 100,
     this.muted = false,
     this.speed = 1.0,
@@ -103,6 +105,12 @@ class PlaybackState {
 
   /// Vrai si le fichier courant possède une piste vidéo.
   final bool hasVideo;
+
+  /// Dimensions d'affichage de l'image en pixels (rapport d'aspect et rotation
+  /// compris) ; 0 tant qu'elles ne sont pas connues : elles arrivent après
+  /// l'ouverture, avec la première image décodée.
+  final int videoWidth;
+  final int videoHeight;
 
   /// Volume 0–100 et sourdine.
   final double volume;
@@ -214,6 +222,11 @@ class PlaybackState {
   /// Un document (PDF ou texte) est affiché.
   bool get isDocument => mediaType.isDocument;
 
+  /// Ratio largeur / hauteur de l'image, `null` sans image ou tant que ses
+  /// dimensions ne sont pas connues. Le mini-lecteur prend cette forme.
+  double? get videoAspect =>
+      (hasVideo && videoWidth > 0 && videoHeight > 0) ? videoWidth / videoHeight : null;
+
   /// Boucle A-B complète et active.
   bool get abLoopActive => loopA != null && loopB != null;
 
@@ -239,6 +252,8 @@ class PlaybackState {
     Duration? duration,
     bool? buffering,
     bool? hasVideo,
+    int? videoWidth,
+    int? videoHeight,
     double? volume,
     bool? muted,
     double? speed,
@@ -294,6 +309,8 @@ class PlaybackState {
       duration: duration ?? this.duration,
       buffering: buffering ?? this.buffering,
       hasVideo: hasVideo ?? this.hasVideo,
+      videoWidth: videoWidth ?? this.videoWidth,
+      videoHeight: videoHeight ?? this.videoHeight,
       volume: volume ?? this.volume,
       muted: muted ?? this.muted,
       speed: speed ?? this.speed,
@@ -343,6 +360,8 @@ class PlaybackState {
         'durationMs': duration.inMilliseconds,
         'buffering': buffering,
         'hasVideo': hasVideo,
+        'videoWidth': videoWidth,
+        'videoHeight': videoHeight,
         'volume': volume,
         'muted': muted,
         'speed': speed,
@@ -401,6 +420,8 @@ class PlaybackState {
       duration: Duration(milliseconds: (json['durationMs'] as num?)?.toInt() ?? 0),
       buffering: json['buffering'] as bool? ?? false,
       hasVideo: json['hasVideo'] as bool? ?? false,
+      videoWidth: (json['videoWidth'] as num?)?.toInt() ?? 0,
+      videoHeight: (json['videoHeight'] as num?)?.toInt() ?? 0,
       volume: (json['volume'] as num?)?.toDouble() ?? 100,
       muted: json['muted'] as bool? ?? false,
       speed: (json['speed'] as num?)?.toDouble() ?? 1.0,

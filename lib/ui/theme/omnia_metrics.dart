@@ -86,7 +86,6 @@ abstract final class OmniaMetrics {
   /// Invite de reprise : au-dessus de la barre de contrôles.
   static const double resumePromptBottom = 128;
 
-  // Fenêtre.
-  static const Size defaultWindowSize = Size(1200, 760);
-  static const Size minimumWindowSize = Size(720, 460);
+  // Fenêtre : voir `WindowSizes` (core), source unique des tailles, partagée
+  // avec le mini-lecteur.
 }

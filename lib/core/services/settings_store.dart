@@ -21,6 +21,9 @@ abstract final class SettingsKeys {
   static const preferences = 'preferences';
   static const lastVolume = 'playback.lastVolume';
   static const keymapOverrides = 'keymap.overrides';
+  static const miniLongSide = 'mini.longSide';
+  static const miniX = 'mini.x';
+  static const miniY = 'mini.y';
 }
 
 /// Préférences persistantes d'OMNIA : réglages de l'utilisateur, et état
@@ -43,6 +46,16 @@ abstract interface class SettingsStore {
 
   bool get windowMaximized;
   Future<void> setWindowMaximized(bool value);
+
+  /// Grand côté du mini-lecteur vidéo choisi à la souris ; `null` = taille
+  /// par défaut.
+  double? get miniLongSide;
+  Future<void> setMiniLongSide(double value);
+
+  /// Dernière position du mini-lecteur (coin haut-gauche) ; `null` = coin
+  /// bas-droit de la fenêtre principale.
+  Offset? get miniPosition;
+  Future<void> setMiniPosition(Offset value);
 
   /// Le panneau de dossier est déployé.
   bool get sidePanelVisible;
@@ -153,6 +166,26 @@ class HiveSettingsStore implements SettingsStore {
       _box.put(SettingsKeys.windowMaximized, value);
 
   @override
+  double? get miniLongSide => (_box.get(SettingsKeys.miniLongSide) as num?)?.toDouble();
+
+  @override
+  Future<void> setMiniLongSide(double value) => _box.put(SettingsKeys.miniLongSide, value);
+
+  @override
+  Offset? get miniPosition {
+    final x = _box.get(SettingsKeys.miniX);
+    final y = _box.get(SettingsKeys.miniY);
+    if (x is! num || y is! num) return null;
+    return Offset(x.toDouble(), y.toDouble());
+  }
+
+  @override
+  Future<void> setMiniPosition(Offset value) async {
+    await _box.put(SettingsKeys.miniX, value.dx);
+    await _box.put(SettingsKeys.miniY, value.dy);
+  }
+
+  @override
   bool get sidePanelVisible =>
       _box.get(SettingsKeys.sidePanelVisible, defaultValue: true) as bool;
 
@@ -255,6 +288,21 @@ class MemorySettingsStore implements SettingsStore {
 
   @override
   Future<void> setWindowMaximized(bool value) async => _maximized = value;
+
+  double? _miniLongSide;
+  Offset? _miniPosition;
+
+  @override
+  double? get miniLongSide => _miniLongSide;
+
+  @override
+  Future<void> setMiniLongSide(double value) async => _miniLongSide = value;
+
+  @override
+  Offset? get miniPosition => _miniPosition;
+
+  @override
+  Future<void> setMiniPosition(Offset value) async => _miniPosition = value;
 
   @override
   bool get sidePanelVisible => _panelVisible;

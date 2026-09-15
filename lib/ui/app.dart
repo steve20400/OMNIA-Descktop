@@ -47,6 +47,15 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
   }
 
   Future<void> _saveGeometry() async {
+    // Le mini-lecteur n'est pas la fenêtre principale : l'enregistrer comme
+    // telle ferait rouvrir OMNIA en vignette. La géométrie principale,
+    // agrandissement compris, reste celle d'avant (le mini-lecteur la rend à
+    // sa sortie) ; lui retient à part sa place et sa taille.
+    if (ref.read(playbackStateProvider).miniPlayer) {
+      await _saveMiniGeometry();
+      return;
+    }
+
     final window = ref.read(windowServiceProvider);
     final settings = ref.read(settingsStoreProvider);
     final maximized = await window.isMaximized();
@@ -62,6 +71,29 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
           ? Rect.fromLTWH(0, 0, bounds.width, bounds.height)
           : bounds,
     );
+  }
+
+  /// Place (coin haut-gauche) et grand côté du mini-lecteur, repris à sa
+  /// prochaine ouverture.
+  Future<void> _saveMiniGeometry() async {
+    final window = ref.read(windowServiceProvider);
+    final settings = ref.read(settingsStoreProvider);
+    final bounds = await window.getBounds();
+    // Relu après l'attente : pendant la sortie du mini-lecteur, la fenêtre a
+    // déjà repris sa taille.
+    if (!mounted) return;
+    final state = ref.read(playbackStateProvider);
+    if (!state.miniPlayer) return;
+    // Sous Wayland, la position rapportée est toujours (0, 0).
+    if (!isWaylandSession) await settings.setMiniPosition(bounds.topLeft);
+    // Le grand côté ne vaut que pour l'image (le bandeau audio a une taille
+    // fixe), et seulement si la fenêtre en a bien la forme.
+    final aspect = state.videoAspect;
+    if (aspect != null &&
+        bounds.height > 0 &&
+        (bounds.width / bounds.height / aspect - 1).abs() < 0.02) {
+      await settings.setMiniLongSide(bounds.longestSide);
+    }
   }
 
   @override

@@ -3,6 +3,8 @@ import 'dart:ui';
 
 import 'package:window_manager/window_manager.dart';
 
+import '../models/window_sizes.dart';
+
 /// Abstraction de la fenêtre native.
 ///
 /// Le core ne dépend jamais directement du plugin : cette interface permet de
@@ -28,6 +30,15 @@ abstract interface class WindowService {
   /// Taille minimale de la fenêtre (le mini-lecteur descend sous celle du
   /// lecteur principal).
   Future<void> setMinimumSize(Size size);
+
+  /// Verrouille le ratio largeur / hauteur de la fenêtre (mini-lecteur
+  /// vidéo) ; `ratio <= 0` lève le verrou. Sous Windows, il ne vaut que pour
+  /// le redimensionnement à la souris ; sous Linux, le gestionnaire de
+  /// fenêtres l'applique aussi aux tailles demandées par le programme.
+  Future<void> setAspectRatio(double ratio);
+
+  /// Agrandit la fenêtre, ou lui rend sa taille normale.
+  Future<void> setMaximized(bool value);
 
   /// Émet à chaque déplacement/redimensionnement/maximisation.
   Stream<void> get geometryChanges;
@@ -92,6 +103,23 @@ class WindowManagerService with WindowListener implements WindowService {
 
   @override
   Future<void> setMinimumSize(Size size) => windowManager.setMinimumSize(size);
+
+  /// Valeur qui lève le verrou de ratio sur les deux plateformes.
+  ///
+  /// window_manager 0.5.2 n'a pas de méthode dédiée, et ses greffons ne lisent
+  /// pas 0 de la même façon : sous Windows, le ratio n'est appliqué (dans
+  /// `WM_SIZING`) que s'il est positif ; sous Linux, toute valeur positive OU
+  /// NULLE pose `GDK_HINT_ASPECT`, et 0 imposerait un ratio nul. Seule une
+  /// valeur négative retire l'indice : -1 lève le verrou partout.
+  static const double _noAspectRatio = -1;
+
+  @override
+  Future<void> setAspectRatio(double ratio) =>
+      windowManager.setAspectRatio(ratio > 0 ? ratio : _noAspectRatio);
+
+  @override
+  Future<void> setMaximized(bool value) =>
+      value ? windowManager.maximize() : windowManager.unmaximize();
 
   @override
   void onWindowMoved() => _geometry.add(null);
@@ -165,8 +193,17 @@ class FakeWindowService implements WindowService {
   @override
   Future<void> focus() async => focusCount++;
 
-  Size minimumSize = const Size(720, 460);
+  Size minimumSize = WindowSizes.mainMinimum;
 
   @override
   Future<void> setMinimumSize(Size size) async => minimumSize = size;
+
+  /// Ratio verrouillé, 0 quand aucun verrou n'est posé.
+  double aspectRatio = 0;
+
+  @override
+  Future<void> setAspectRatio(double ratio) async => aspectRatio = ratio > 0 ? ratio : 0;
+
+  @override
+  Future<void> setMaximized(bool value) async => maximized = value;
 }
