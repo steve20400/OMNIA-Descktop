@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -8,6 +10,7 @@ import '../../core/models/playlist_sort.dart';
 import '../../core/models/playlist_state.dart';
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../chrome_controller.dart';
 import '../document_search_provider.dart';
 import '../panel_controller.dart';
 import '../shortcuts/default_keymap.dart';
@@ -17,13 +20,32 @@ import 'omnia_icon_button.dart';
 import 'pdf_panel_tabs.dart';
 import 'playlist_tile.dart';
 
+/// Vrai si, dans une fenêtre de [windowWidth], le panneau doit s'ouvrir en
+/// tiroir par-dessus la scène plutôt que de s'ancrer à côté d'elle : ancré, il
+/// ne laisserait presque rien au média. En plein écran, toujours.
+bool panelIsDrawer({
+  required double windowWidth,
+  required double panelWidth,
+  required bool fullscreen,
+}) =>
+    fullscreen ||
+    windowWidth - panelWidth - PanelResizeHandle.width < OmniaMetrics.panelDrawerBreakpoint;
+
 /// Le panneau de dossier : la fonctionnalité signature d'OMNIA.
 ///
 /// Il apparaît dès qu'un fichier est ouvert et liste tous les fichiers
 /// lisibles du dossier parent. Recherche, filtre par type, tri, et navigation
 /// au simple clic.
 class SidePanel extends ConsumerStatefulWidget {
-  const SidePanel({super.key});
+  const SidePanel({super.key, this.drawer = false});
+
+  /// Posé par-dessus la scène (fenêtre étroite, plein écran) plutôt qu'ancré
+  /// à côté d'elle : le média garde alors toute la largeur.
+  final bool drawer;
+
+  /// Bande de scène laissée libre à droite du tiroir : de quoi viser le voile
+  /// pour le refermer.
+  static const double drawerPeek = 56;
 
   @override
   ConsumerState<SidePanel> createState() => _SidePanelState();
@@ -39,6 +61,15 @@ class _SidePanelState extends ConsumerState<SidePanel> {
 
   /// Onglet affiché quand un PDF est ouvert (dossier, sommaire, pages).
   PanelTab _tab = PanelTab.folder;
+
+  @override
+  void initState() {
+    super.initState();
+    // Le panneau est remonté à chaque changement de présentation (ancré,
+    // tiroir, plein écran) : le champ reprend la recherche en cours.
+    final query = ref.read(playlistStateProvider).query;
+    if (query.isNotEmpty) _search.text = query;
+  }
 
   @override
   void dispose() {
@@ -125,57 +156,88 @@ class _SidePanelState extends ConsumerState<SidePanel> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _followCurrent(index));
     }
 
-    return AnimatedContainer(
-      duration: OmniaMotion.panel,
-      curve: OmniaMotion.panelCurve,
-      width: panel.visible ? panel.width : 0,
-      decoration: BoxDecoration(
-        color: colors.curtain,
-        border: Border(right: BorderSide(color: colors.seam)),
-      ),
-      // Replié, le panneau ne construit rien : une liste de plusieurs milliers
-      // de lignes n'a pas à être mesurée, ni ses champs à rester atteignables
-      // au clavier, pendant qu'elle est invisible.
-      child: !panel.visible
-          ? null
-          : ClipRect(
-              child: OverflowBox(
-                alignment: Alignment.centerLeft,
-                minWidth: panel.width,
-                maxWidth: panel.width,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _PanelHeader(playlist: playlist),
-                    if (pdf != null)
-                      PanelTabBar(
-                        selected: tab,
-                        onSelected: (t) => setState(() => _tab = t),
-                      ),
-                    if (tab == PanelTab.folder) ...[
-                      _SearchField(
-                        controller: _search,
-                        focusNode: _searchFocus,
-                        onChanged: (value) => ref.dispatch(SetPlaylistQuery(value)),
-                      ),
-                      const _FilterRow(),
-                    ],
-                    Divider(height: 1, thickness: 1, color: colors.seam),
-                    Expanded(
-                      child: switch (tab) {
-                        PanelTab.folder => _PanelBody(
-                            playlist: playlist,
-                            scroll: _scroll,
-                            onContextMenu: _openContextMenu,
-                          ),
-                        PanelTab.outline => OutlinePanel(session: pdf!),
-                        PanelTab.pages => ThumbnailsPanel(session: pdf!),
-                      },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // En tiroir, le panneau garde sa largeur choisie tant qu'elle laisse
+        // une bande de scène à droite ; sinon il se resserre.
+        final open = widget.drawer || panel.visible;
+        final double width;
+        if (!open) {
+          width = 0;
+        } else if (widget.drawer && constraints.hasBoundedWidth) {
+          width = math.min(
+            panel.width,
+            math.max(0.0, constraints.maxWidth - SidePanel.drawerPeek),
+          );
+        } else {
+          width = panel.width;
+        }
+
+        return AnimatedContainer(
+          duration: OmniaMotion.panel,
+          curve: OmniaMotion.panelCurve,
+          width: width,
+          decoration: BoxDecoration(
+            color: colors.curtain,
+            border: Border(right: BorderSide(color: colors.seam)),
+            // Posé sur la scène, le tiroir se détache par une ombre portée.
+            boxShadow: widget.drawer
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: OmniaMetrics.overlayShadowAlpha),
+                      blurRadius: OmniaMetrics.overlayShadowBlur,
                     ),
-                  ],
+                  ]
+                : null,
+          ),
+          // Replié, le panneau ne construit rien : une liste de plusieurs
+          // milliers de lignes n'a pas à être mesurée, ni ses champs à rester
+          // atteignables au clavier, pendant qu'elle est invisible.
+          child: !open
+              ? null
+              : ClipRect(
+                  child: OverflowBox(
+                    alignment: Alignment.centerLeft,
+                    minWidth: width,
+                    maxWidth: width,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _PanelHeader(playlist: playlist),
+                        if (pdf != null)
+                          PanelTabBar(
+                            selected: tab,
+                            onSelected: (t) => setState(() => _tab = t),
+                          ),
+                        if (tab == PanelTab.folder) ...[
+                          _SearchField(
+                            controller: _search,
+                            focusNode: _searchFocus,
+                            onChanged: (value) => ref.dispatch(SetPlaylistQuery(value)),
+                          ),
+                          const _FilterRow(),
+                        ],
+                        Divider(height: 1, thickness: 1, color: colors.seam),
+                        Expanded(
+                          child: switch (tab) {
+                            PanelTab.folder => _PanelBody(
+                                playlist: playlist,
+                                scroll: _scroll,
+                                // En tiroir, ouvrir un fichier referme le
+                                // panneau : on veut voir ce qu'on a choisi.
+                                closeOnOpen: widget.drawer,
+                                onContextMenu: _openContextMenu,
+                              ),
+                            PanelTab.outline => OutlinePanel(session: pdf!),
+                            PanelTab.pages => ThumbnailsPanel(session: pdf!),
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
+        );
+      },
     );
   }
 }
@@ -521,11 +583,15 @@ class _PanelBody extends ConsumerWidget {
   const _PanelBody({
     required this.playlist,
     required this.scroll,
+    required this.closeOnOpen,
     required this.onContextMenu,
   });
 
   final PlaylistState playlist;
   final ScrollController scroll;
+
+  /// Referme le panneau après l'ouverture d'un fichier (mode tiroir).
+  final bool closeOnOpen;
   final void Function(BuildContext, Offset, PlaylistEntry) onContextMenu;
 
   @override
@@ -561,7 +627,10 @@ class _PanelBody extends ConsumerWidget {
             key: ValueKey(entry.path),
             entry: entry,
             current: entry.path == playlist.currentPath,
-            onTap: () => ref.dispatch(OpenFile(entry.path)),
+            onTap: () {
+              ref.dispatch(OpenFile(entry.path));
+              if (closeOnOpen) ref.dispatch(const SetSidePanelVisible(false));
+            },
             onSecondaryTap: (position) => onContextMenu(context, position, entry),
           );
         },
@@ -601,12 +670,18 @@ class _PanelMessage extends StatelessWidget {
   }
 }
 
-/// Largeur de la zone de préhension, en pixels.
-const double _handleWidth = 6;
-
 /// Poignée de redimensionnement, entre le panneau et la scène.
 class PanelResizeHandle extends ConsumerStatefulWidget {
   const PanelResizeHandle({super.key});
+
+  /// Largeur de la zone de préhension, en pixels.
+  static const double width = 6;
+
+  /// Largeur maximale du panneau ancré dans une fenêtre de [windowWidth] :
+  /// au-delà, il basculerait en tiroir en plein glissement, et la poignée
+  /// disparaîtrait sous le curseur.
+  static double maxDockedWidth(double windowWidth) =>
+      windowWidth - OmniaMetrics.panelDrawerBreakpoint - width;
 
   @override
   ConsumerState<PanelResizeHandle> createState() => _PanelResizeHandleState();
@@ -633,12 +708,14 @@ class _PanelResizeHandleState extends ConsumerState<PanelResizeHandle> {
           // déplacements : une fois la largeur bornée au minimum ou au maximum,
           // un cumul décrocherait la poignée du curseur.
           onHorizontalDragUpdate: (details) {
-            ref
-                .read(panelStateProvider.notifier)
-                .setWidth(details.globalPosition.dx - _handleWidth / 2);
+            final maxWidth =
+                PanelResizeHandle.maxDockedWidth(MediaQuery.sizeOf(context).width);
+            ref.read(panelStateProvider.notifier).setWidth(
+                  math.min(details.globalPosition.dx - PanelResizeHandle.width / 2, maxWidth),
+                );
           },
           child: SizedBox(
-            width: _handleWidth,
+            width: PanelResizeHandle.width,
             child: Center(
               child: AnimatedContainer(
                 duration: OmniaMotion.hover,
@@ -654,17 +731,113 @@ class _PanelResizeHandleState extends ConsumerState<PanelResizeHandle> {
   }
 }
 
-/// Bouton flottant pour redéployer le panneau une fois replié.
-class PanelRevealButton extends ConsumerWidget {
-  const PanelRevealButton({super.key});
+/// La languette : le bord du panneau replié, fondu dans le côté gauche de la
+/// scène (façon PotPlayer).
+///
+/// Une bande étroite, un chevron, rien de plus : le média garde toute sa
+/// largeur. Elle s'élargit sous le pointeur, suit le masquage automatique des
+/// contrôles, et se retient visible tant qu'on la survole.
+class PanelEdgeTab extends ConsumerStatefulWidget {
+  const PanelEdgeTab({super.key});
+
+  /// Largeur au repos, puis sous le pointeur ou au clavier.
+  static const double restWidth = 14;
+  static const double hoverWidth = 22;
+  static const double height = 72;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PanelEdgeTab> createState() => _PanelEdgeTabState();
+}
+
+class _PanelEdgeTabState extends ConsumerState<PanelEdgeTab> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  /// Ce qui retient les contrôles affichés pendant qu'on vise la languette :
+  /// elle ne doit pas s'effacer sous le pointeur.
+  static const _hold = 'chrome:panel-tab';
+
+  late final ChromeController _chrome = ref.read(chromeProvider.notifier);
+
+  @override
+  void dispose() {
+    _chrome.release(_hold);
+    super.dispose();
+  }
+
+  void _setHovered(bool hovered) {
+    if (_hovered == hovered) return;
+    setState(() => _hovered = hovered);
+    if (hovered) {
+      _chrome.activity();
+      _chrome.hold(_hold);
+    } else {
+      _chrome.release(_hold);
+    }
+  }
+
+  void _open() {
+    _chrome.activity();
+    ref.dispatch(const ToggleSidePanel());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
     final l10n = AppLocalizations.of(context);
-    return OmniaIconButton(
-      icon: Icons.keyboard_double_arrow_right_rounded,
-      tooltip: ref.tooltipWith(l10n.panelShow, ShortcutAction.toggleSidePanel, l10n),
-      onPressed: () => ref.dispatch(const ToggleSidePanel()),
+    final visible = ref.watch(chromeProvider);
+    final wide = _hovered || _focused;
+
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: OmniaMotion.reveal,
+        curve: visible ? OmniaMotion.revealCurve : OmniaMotion.concealCurve,
+        child: Tooltip(
+          message: ref.tooltipWith(l10n.panelShow, ShortcutAction.toggleSidePanel, l10n),
+          child: Semantics(
+            button: true,
+            label: l10n.panelShow,
+            child: FocusableActionDetector(
+              mouseCursor: SystemMouseCursors.click,
+              onShowHoverHighlight: _setHovered,
+              onShowFocusHighlight: (focused) => setState(() => _focused = focused),
+              actions: <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    _open();
+                    return null;
+                  },
+                ),
+              },
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _open,
+                child: AnimatedContainer(
+                  duration: OmniaMotion.hover,
+                  curve: OmniaMotion.hoverCurve,
+                  width: wide ? PanelEdgeTab.hoverWidth : PanelEdgeTab.restWidth,
+                  height: PanelEdgeTab.height,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.curtain.withValues(alpha: wide ? 0.92 : 0.72),
+                    borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(OmniaMetrics.radiusMedium + 2),
+                    ),
+                    border: Border.all(color: colors.screen.withValues(alpha: 0.08)),
+                  ),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 12,
+                    color: colors.projector.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

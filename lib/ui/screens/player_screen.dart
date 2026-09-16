@@ -196,11 +196,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
     final isDocument = ref.watch(playbackStateProvider.select((s) => s.isDocument));
     final miniPlayer = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
-    if (miniPlayer) return _dropZone(const MiniPlayer());
-    final findVisible = ref.watch(documentUiProvider.select((u) => u.findVisible));
-    final search = ref.watch(documentSearchProvider);
-    final panelVisible = ref.watch(panelStateProvider.select((p) => p.visible));
 
+    // Les écoutes avant toute sortie anticipée : flutter_riverpod les referme
+    // à chaque construction, et le mini-lecteur les perdrait en chemin — plus
+    // de masquage automatique, plus d'écran qui reste allumé.
     ref.listen<bool>(
       playbackStateProvider.select(_autoHideFor),
       (_, enabled) => _chrome.setAutoHide(enabled),
@@ -215,8 +214,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       playbackStateProvider.select((s) => s.resumeOffer != null),
       (_, offered) => offered ? _chrome.hold(_resumeHold) : _chrome.release(_resumeHold),
     );
-    final chromeVisible = ref.watch(chromeProvider);
-
     // L'écran reste allumé tant qu'une vidéo joue, et seulement là.
     ref.listen<bool>(
       playbackStateProvider.select(
@@ -225,16 +222,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       (_, keepAwake) => ref.read(screenWakeProvider).setKeepAwake(keepAwake),
     );
 
+    // Le mini-lecteur remplace tout l'écran : il a besoin des mêmes bordures
+    // de redimensionnement que la fenêtre principale.
+    if (miniPlayer) return _resizable(_dropZone(const MiniPlayer()), enabled: true);
+
+    final findVisible = ref.watch(documentUiProvider.select((u) => u.findVisible));
+    final search = ref.watch(documentSearchProvider);
+    final panelVisible = ref.watch(panelStateProvider.select((p) => p.visible));
+    final panelWidth = ref.watch(panelStateProvider.select((p) => p.width));
+    final chromeVisible = ref.watch(chromeProvider);
+
     // Contrôles masqués : le pointeur s'efface aussi, au-dessus du média
     // seulement (la barre de titre et le panneau le gardent).
     final hideCursor = !chromeVisible;
-    // En plein écran, la scène occupe tout : le panneau se retire.
-    final showPanel = panelVisible && !fullscreen;
+    // Fenêtre étroite ou plein écran : le panneau se pose en tiroir sur la
+    // scène, qui garde toute sa largeur. Sinon il s'ancre à côté d'elle.
+    final drawer = panelIsDrawer(
+      windowWidth: MediaQuery.sizeOf(context).width,
+      panelWidth: panelWidth,
+      fullscreen: fullscreen,
+    );
+    final showDrawer = panelVisible && drawer;
+    final showDocked = panelVisible && !drawer;
 
     final content = Focus(
       focusNode: _focusNode,
       autofocus: true,
-      onKeyEvent: (_, event) => handleShortcut(event, ref),
+      onKeyEvent: (_, event) =>
+          handleShortcut(event, ref, panelDrawerOpen: showDrawer),
       child: MouseRegion(
         onHover: (_) => _chrome.activity(),
         child: Listener(
@@ -251,99 +266,144 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      if (!fullscreen) const RepaintBoundary(child: SidePanel()),
-                      if (showPanel) const PanelResizeHandle(),
+                      if (!drawer) const RepaintBoundary(child: SidePanel()),
+                      if (showDocked) const PanelResizeHandle(),
                       Expanded(
                         child: MouseRegion(
                           cursor: hideCursor ? SystemMouseCursors.none : MouseCursor.defer,
                           onExit: (_) => _chrome.pointerLeft(),
                           child: Listener(
                             onPointerSignal: _onPointerSignal,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                StageContextMenu(
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: canToggleByClick
-                                        ? () {
-                                            _focusNode.requestFocus();
-                                            ref.dispatch(const TogglePlay());
-                                          }
-                                        : _focusNode.requestFocus,
-                                    onDoubleTap: hasFile
-                                        ? () => ref.dispatch(const ToggleFullscreen())
-                                        : null,
-                                    child: const Stage(),
-                                  ),
-                                ),
-                                const OsdOverlay(),
-                                // Témoin « REC » : visible même contrôles
-                                // masqués, tant qu'un extrait s'écrit.
-                                const Positioned(
-                                  right: OmniaMetrics.space4,
-                                  top: OmniaMetrics.space4,
-                                  child: RecordingIndicator(),
-                                ),
-                                if (isDocument && findVisible && search != null)
-                                  Positioned(
-                                    right: OmniaMetrics.space4,
-                                    top: OmniaMetrics.space4,
-                                    child: FindBar(search: search),
-                                  ),
-                                if (!showPanel && !fullscreen)
-                                  const Positioned(
-                                    left: OmniaMetrics.space3,
-                                    top: OmniaMetrics.space3,
-                                    child: PanelRevealButton(),
-                                  ),
-                                Positioned(
-                                  right: OmniaMetrics.controlBarMargin,
-                                  bottom: OmniaMetrics.controlBarMargin + 96,
-                                  child: const ToolPanelHost(),
-                                ),
-                                // Invite de reprise, au-dessus des contrôles ;
-                                // sans taille quand il n'y a rien à proposer.
-                                const Positioned(
-                                  left: 0,
-                                  right: 0,
-                                  bottom: OmniaMetrics.resumePromptBottom,
-                                  child: Center(child: ResumePrompt()),
-                                ),
-                                Positioned(
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 0,
-                                  child: IgnorePointer(
-                                    ignoring: !chromeVisible,
-                                    // Pointeur sur la barre : elle reste
-                                    // affichée tant qu'on s'en sert.
-                                    child: MouseRegion(
-                                      onEnter: (_) => _chrome.hold(_barHold),
-                                      onExit: (_) => _chrome.release(_barHold),
-                                      child: AnimatedOpacity(
-                                        opacity: chromeVisible ? 1 : 0,
-                                        duration: OmniaMotion.reveal,
-                                        curve: chromeVisible
-                                            ? OmniaMotion.revealCurve
-                                            : OmniaMotion.concealCurve,
-                                        child: AnimatedSlide(
-                                          offset: chromeVisible
-                                              ? Offset.zero
-                                              : const Offset(0, 0.12),
-                                          duration: OmniaMotion.reveal,
-                                          curve: OmniaMotion.revealCurve,
-                                          child: RepaintBoundary(
-                                            child: isDocument
-                                                ? const DocumentBar()
-                                                : const ControlBar(),
+                            // La hauteur de la scène décide de la place laissée
+                            // aux surfaces qui s'y posent : sur 200 pixels, la
+                            // barre de contrôles ne peut pas tout réserver.
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stageHeight = constraints.hasBoundedHeight
+                                    ? constraints.maxHeight
+                                    : MediaQuery.sizeOf(context).height;
+                                return Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    StageContextMenu(
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: canToggleByClick
+                                            ? () {
+                                                _focusNode.requestFocus();
+                                                ref.dispatch(const TogglePlay());
+                                              }
+                                            : _focusNode.requestFocus,
+                                        onDoubleTap: hasFile
+                                            ? () => ref.dispatch(const ToggleFullscreen())
+                                            : null,
+                                        child: const Stage(),
+                                      ),
+                                    ),
+                                    const OsdOverlay(),
+                                    // Témoin « REC » : visible même contrôles
+                                    // masqués, tant qu'un extrait s'écrit.
+                                    const Positioned(
+                                      right: OmniaMetrics.space4,
+                                      top: OmniaMetrics.space4,
+                                      child: RecordingIndicator(),
+                                    ),
+                                    // Bornée à la scène : étroite, la barre de
+                                    // recherche se resserre au lieu de sortir.
+                                    if (isDocument && findVisible && search != null)
+                                      Positioned(
+                                        left: OmniaMetrics.space4,
+                                        right: OmniaMetrics.space4,
+                                        top: OmniaMetrics.space4,
+                                        child: Align(
+                                          alignment: Alignment.topRight,
+                                          child: FindBar(search: search),
+                                        ),
+                                      ),
+                                    // La languette : le panneau replié, au bord
+                                    // gauche de la scène.
+                                    if (!panelVisible)
+                                      const Positioned(
+                                        left: 0,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: Center(child: PanelEdgeTab()),
+                                      ),
+                                    Positioned(
+                                      left: OmniaMetrics.space4,
+                                      top: OmniaMetrics.space4,
+                                      right: OmniaMetrics.space4,
+                                      bottom: OmniaMetrics.controlBarClearance(stageHeight),
+                                      child: const Align(
+                                        alignment: Alignment.bottomRight,
+                                        child: ToolPanelHost(),
+                                      ),
+                                    ),
+                                    // Invite de reprise, au-dessus des contrôles ;
+                                    // sans taille quand il n'y a rien à proposer.
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: OmniaMetrics.resumePromptBottomFor(stageHeight),
+                                      child: const Center(child: ResumePrompt()),
+                                    ),
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      child: IgnorePointer(
+                                        ignoring: !chromeVisible,
+                                        // Pointeur sur la barre : elle reste
+                                        // affichée tant qu'on s'en sert.
+                                        child: MouseRegion(
+                                          onEnter: (_) => _chrome.hold(_barHold),
+                                          onExit: (_) => _chrome.release(_barHold),
+                                          child: AnimatedOpacity(
+                                            opacity: chromeVisible ? 1 : 0,
+                                            duration: OmniaMotion.reveal,
+                                            curve: chromeVisible
+                                                ? OmniaMotion.revealCurve
+                                                : OmniaMotion.concealCurve,
+                                            child: AnimatedSlide(
+                                              offset: chromeVisible
+                                                  ? Offset.zero
+                                                  : const Offset(0, 0.12),
+                                              duration: OmniaMotion.reveal,
+                                              curve: OmniaMotion.revealCurve,
+                                              child: RepaintBoundary(
+                                                child: isDocument
+                                                    ? const DocumentBar()
+                                                    : const ControlBar(),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ],
+                                    // Le tiroir et son voile par-dessus tout le
+                                    // reste : c'est lui qu'on manipule.
+                                    if (showDrawer) ...[
+                                      Positioned.fill(
+                                        child: GestureDetector(
+                                          key: const ValueKey('panel-drawer-scrim'),
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () =>
+                                              ref.dispatch(const SetSidePanelVisible(false)),
+                                          child: ColoredBox(color: colors.overlayScrim),
+                                        ),
+                                      ),
+                                      const Positioned(
+                                        left: 0,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: RepaintBoundary(
+                                          child: SidePanel(drawer: true),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         ),
@@ -359,25 +419,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
 
     // Le voile de dépôt couvre toute la fenêtre, panneau compris.
-    Widget root = _dropZone(
-      Stack(
-        fit: StackFit.expand,
-        children: [content, const HelpOverlay(), const SettingsOverlay()],
+    return _resizable(
+      _dropZone(
+        Stack(
+          fit: StackFit.expand,
+          children: [content, const HelpOverlay(), const SettingsOverlay()],
+        ),
       ),
+      enabled: !fullscreen,
     );
+  }
 
-    // Sous Linux, masquer la barre de titre retire aussi les bordures de
-    // redimensionnement de GTK : OMNIA doit les fournir lui-même, sans quoi la
-    // fenêtre ne peut plus être redimensionnée à la souris.
-    // Toujours le même widget, plein écran ou non (bords simplement
-    // désactivés) : changer de type démonterait tout l'écran, vidéo comprise.
-    if (needsCustomResizeEdges) {
-      root = DragToResizeArea(
-        resizeEdgeSize: 5,
-        enableResizeEdges: fullscreen ? const [] : null,
-        child: root,
-      );
-    }
-    return root;
+  /// Sous Linux, masquer la barre de titre retire aussi les bordures de
+  /// redimensionnement de GTK : OMNIA doit les fournir lui-même, sans quoi la
+  /// fenêtre ne peut plus être redimensionnée à la souris — mini-lecteur
+  /// compris, qui n'a pas de barre de titre non plus.
+  ///
+  /// Toujours le même widget, plein écran ou non (bords simplement
+  /// désactivés) : changer de type démonterait tout l'écran, vidéo comprise.
+  Widget _resizable(Widget child, {required bool enabled}) {
+    if (!needsCustomResizeEdges) return child;
+    return DragToResizeArea(
+      resizeEdgeSize: 5,
+      enableResizeEdges: enabled ? null : const [],
+      child: child,
+    );
   }
 }

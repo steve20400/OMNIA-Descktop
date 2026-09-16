@@ -20,7 +20,14 @@ import 'keymap_provider.dart';
 /// se taisent : taper « pause » dans la recherche ne doit pas mettre le film en
 /// pause. `Échap` fait exception — elle rend le focus au lecteur, sans quoi
 /// l'utilisateur resterait piégé dans le champ, clavier inopérant.
-KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
+///
+/// [panelDrawerOpen] : le panneau est ouvert en tiroir par-dessus la scène.
+/// `Échap` le referme alors, avant de servir à quoi que ce soit d'autre.
+KeyEventResult handleShortcut(
+  KeyEvent event,
+  WidgetRef ref, {
+  bool panelDrawerOpen = false,
+}) {
   if (event is KeyUpEvent) return KeyEventResult.ignored;
 
   // Le panneau d'aide ouvert capte Échap et F1 pour se fermer, et rien
@@ -56,6 +63,13 @@ KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
     return KeyEventResult.ignored;
   }
 
+  // Tiroir posé sur la scène : `Échap` le referme d'abord — c'est le geste
+  // attendu, et il passe avant le retour de plein écran.
+  if (panelDrawerOpen && event.logicalKey == LogicalKeyboardKey.escape) {
+    ref.dispatch(const SetSidePanelVisible(false));
+    return KeyEventResult.handled;
+  }
+
   final keyboard = HardwareKeyboard.instance;
   final action = ref.read(keymapProvider).match(
         key: event.logicalKey,
@@ -81,6 +95,10 @@ KeyEventResult handleShortcut(KeyEvent event, WidgetRef ref) {
     case UiAction.openFolderDialog:
       pickAndOpenFolder(ref);
     case UiAction.toggleHelp:
+      // Pas d'aide dans la fenêtre compacte du mini-lecteur : le panneau n'y
+      // est pas monté, et l'ouvrir rendrait le clavier muet (le gestionnaire
+      // se croirait derrière un voile qui n'existe pas).
+      if (ref.read(playbackStateProvider).miniPlayer) return KeyEventResult.ignored;
       help.toggle();
     case UiAction.toggleSettings:
       // Pas de paramètres dans la fenêtre compacte du mini-lecteur.
