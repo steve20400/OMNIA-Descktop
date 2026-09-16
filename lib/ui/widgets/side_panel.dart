@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
@@ -803,6 +804,15 @@ class _PanelEdgeTabState extends ConsumerState<PanelEdgeTab> {
               mouseCursor: SystemMouseCursors.click,
               onShowHoverHighlight: _setHovered,
               onShowFocusHighlight: (focused) => setState(() => _focused = focused),
+              // Espace et Entrée ouvrent la languette qui a le focus. Sans
+              // cette table, `Espace` serait interceptée plus haut par les
+              // raccourcis du lecteur (lecture/pause) et n'arriverait jamais
+              // jusqu'ici : la languette resterait inutilisable au clavier.
+              shortcuts: const <ShortcutActivator, Intent>{
+                SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+                SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+                SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+              },
               actions: <Type, Action<Intent>>{
                 ActivateIntent: CallbackAction<ActivateIntent>(
                   onInvoke: (_) {

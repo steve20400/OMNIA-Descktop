@@ -265,7 +265,10 @@ void main() {
         final screen = Offset.zero & size;
         expectWithin(tester, find.byType(FloatingSurface), screen, reason: where);
         expectWithin(tester, byTooltipPrefix('Fermer l\'aide'), screen, reason: '$where : fermer');
-        expect(find.text('Raccourcis clavier'), findsOneWidget, reason: where);
+        // Le titre de la carte, et non la ligne de raccourci du même nom :
+        // les deux portent ce texte dès que la liste est affichée.
+        expectWithin(tester, find.text('Raccourcis clavier').first, screen,
+            reason: '$where : titre');
       }
 
       // Même compacte, la carte mène aux raccourcis des paramètres.
