@@ -336,7 +336,7 @@ class _ToolPanelFrame extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (!compact && trailing != null) trailing,
+                      if (!compact) ?trailing,
                       const SizedBox(width: OmniaMetrics.space2),
                       close,
                     ],

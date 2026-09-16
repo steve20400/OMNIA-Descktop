@@ -14,10 +14,13 @@ import 'package:omnia/core/services/settings_store.dart';
 import 'package:omnia/core/services/window_service.dart';
 import 'package:omnia/l10n/app_localizations.dart';
 import 'package:omnia/ui/settings/settings_controller.dart';
+import 'package:omnia/ui/settings/settings_controls.dart';
 import 'package:omnia/ui/settings/settings_screen.dart';
 import 'package:omnia/ui/shortcuts/default_keymap.dart';
 import 'package:omnia/ui/shortcuts/keymap_provider.dart';
 import 'package:omnia/ui/theme/omnia_theme.dart';
+
+import 'narrow_harness.dart';
 
 /// Un OMNIA sans moteur : service de lecture réel, stockages en mémoire,
 /// aucun contrôleur de média (pas de mpv dans les tests).
@@ -61,8 +64,12 @@ class _Harness {
   }
 }
 
-Future<_Harness> _pump(WidgetTester tester, {SettingsSection section = SettingsSection.general}) async {
-  tester.view.physicalSize = const Size(1400, 1000);
+Future<_Harness> _pump(
+  WidgetTester tester, {
+  SettingsSection section = SettingsSection.general,
+  Size size = const Size(1400, 1000),
+}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
@@ -205,6 +212,60 @@ void main() {
       await _tap(tester, find.text('Tout rétablir'));
       expect(harness.container.read(keymapProvider).isAllDefault, isTrue);
       expect(harness.store.keymapOverrides, isEmpty);
+    });
+  });
+
+  group('Fenêtre étroite', () {
+    testWidgets('sous 560 px, les sections passent dans une colonne d’icônes', (tester) async {
+      final harness = await _pump(tester, size: const Size(360, 240));
+      expect(tester.takeException(), isNull);
+
+      // Plus de colonne de sections : une icône par section, son nom en infobulle.
+      expect(find.text('Paramètres'), findsNothing);
+      for (final name in ['Général', 'Lecture', 'Raccourcis', 'Historique']) {
+        expect(find.byTooltip(name), findsOneWidget, reason: name);
+      }
+      expectWithin(tester, byTooltipPrefix('Fermer les paramètres'), Offset.zero & const Size(360, 240));
+
+      await tester.tap(find.byTooltip('Lecture'));
+      await tester.pumpAndSettle();
+      expect(harness.container.read(settingsUiProvider).section, SettingsSection.playback);
+      // Le nom de la section reste en tête du contenu.
+      expect(find.text('Lecture'), findsOneWidget);
+
+      await tester.tap(byTooltipPrefix('Fermer les paramètres'));
+      await tester.pumpAndSettle();
+      expect(harness.container.read(settingsUiProvider).visible, isFalse);
+    });
+
+    testWidgets('dans une fenêtre de 360 × 240, le contenu défile et se règle', (tester) async {
+      final harness = await _pump(tester, size: const Size(360, 240));
+      final before = harness.store.preferences.singleInstance;
+
+      await _tap(tester, find.byType(OmniaSwitch));
+      await _drain(tester);
+
+      expect(harness.store.preferences.singleInstance, !before);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('chaque section tient à 360 × 240, et à 320 × 240', (tester) async {
+      final harness = await _pump(tester, size: const Size(360, 240));
+      for (final size in const [Size(360, 240), Size(320, 240)]) {
+        tester.view.physicalSize = size;
+        for (final section in SettingsSection.values) {
+          // L'éditeur de raccourcis (shortcut_editor.dart) garde en tête un
+          // bouton à pleine largeur : sous la fenêtre minimale, il n'y tient
+          // plus avec la police des tests.
+          if (size.width < 360 && section == SettingsSection.shortcuts) continue;
+          harness.container.read(settingsUiProvider.notifier).select(section);
+          await tester.pumpAndSettle();
+          final where = '${section.name} à $size';
+          expect(tester.takeException(), isNull, reason: where);
+          expectWithin(tester, byTooltipPrefix('Fermer les paramètres'), Offset.zero & size,
+              reason: where);
+        }
+      }
     });
   });
 }

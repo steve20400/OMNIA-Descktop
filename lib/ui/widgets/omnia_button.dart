@@ -74,7 +74,17 @@ class _OmniaButtonState extends State<OmniaButton> {
                   Icon(widget.icon, size: OmniaMetrics.iconSize - 2, color: fg),
                   const SizedBox(width: OmniaMetrics.space2),
                 ],
-                Text(widget.label, style: type.bodyStrong.copyWith(color: fg)),
+                // Souple : dans une fenêtre étroite, le libellé s'abrège au
+                // lieu de faire déborder le bouton. Il garde sa largeur
+                // naturelle dès qu'il y a la place.
+                Flexible(
+                  child: Text(
+                    widget.label,
+                    style: type.bodyStrong.copyWith(color: fg),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 if (widget.shortcut != null) ...[
                   const SizedBox(width: OmniaMetrics.space3),
                   Text(widget.shortcut!, style: type.shortcut.copyWith(color: shortcutColor)),

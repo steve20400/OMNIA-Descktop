@@ -85,14 +85,27 @@ class SettingsOverlay extends ConsumerWidget {
   }
 }
 
+/// La feuille elle-même. Dans une fenêtre étroite, la colonne des sections
+/// devient une colonne d'icônes (le nom de la section reste en tête du
+/// contenu), et les marges se resserrent ; le contenu défile.
 class _SettingsSheet extends ConsumerWidget {
   const _SettingsSheet({super.key});
+
+  /// Fenêtre plus étroite : colonne d'icônes et marges resserrées.
+  static const double _compactWidth = 560;
+
+  /// Fenêtre plus basse : marges resserrées.
+  static const double _compactHeight = 400;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final size = MediaQuery.sizeOf(context);
     final section = ref.watch(settingsUiProvider.select((s) => s.section));
+    final compact = size.width < _compactWidth;
+    final margin = compact || size.height < _compactHeight
+        ? OmniaMetrics.space3
+        : OmniaMetrics.space5;
 
     // La feuille garde le focus clavier pour elle (Tab y circule) ; le lecteur
     // ne reçoit donc plus les touches, et c'est ici qu'Échap ferme l'écran.
@@ -107,9 +120,14 @@ class _SettingsSheet extends ConsumerWidget {
       },
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: math.min(OmniaMetrics.settingsMaxWidth, size.width - 2 * OmniaMetrics.space5),
-          maxHeight:
-              math.min(OmniaMetrics.settingsMaxHeight, size.height - 2 * OmniaMetrics.space5),
+          maxWidth: math.max(
+            0.0,
+            math.min(OmniaMetrics.settingsMaxWidth, size.width - 2 * margin),
+          ),
+          maxHeight: math.max(
+            0.0,
+            math.min(OmniaMetrics.settingsMaxHeight, size.height - 2 * margin),
+          ),
         ),
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -129,9 +147,9 @@ class _SettingsSheet extends ConsumerWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _SettingsNav(selected: section),
+                if (compact) _SettingsRail(selected: section) else _SettingsNav(selected: section),
                 VerticalDivider(width: 1, thickness: 1, color: colors.seam),
-                Expanded(child: _SettingsBody(section: section)),
+                Expanded(child: _SettingsBody(section: section, compact: compact)),
               ],
             ),
           ),
@@ -178,27 +196,80 @@ class _SettingsNav extends ConsumerWidget {
     return Container(
       width: OmniaMetrics.settingsNavWidth,
       color: colors.velvet.withValues(alpha: 0.35),
-      padding: const EdgeInsets.all(OmniaMetrics.space3),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              OmniaMetrics.space2,
-              OmniaMetrics.space2,
-              OmniaMetrics.space2,
-              OmniaMetrics.space4,
+      // Défile quand la fenêtre est trop basse pour toutes les sections.
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(OmniaMetrics.space3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                OmniaMetrics.space2,
+                OmniaMetrics.space2,
+                OmniaMetrics.space2,
+                OmniaMetrics.space4,
+              ),
+              child: Text(l10n.settingsTitle, style: type.sectionTitle),
             ),
-            child: Text(l10n.settingsTitle, style: type.sectionTitle),
-          ),
-          for (final section in SettingsSection.values)
-            _NavItem(
-              icon: _iconFor(section),
-              label: _labelFor(section, l10n),
-              selected: section == selected,
-              onTap: () => ref.read(settingsUiProvider.notifier).select(section),
-            ),
-        ],
+            for (final section in SettingsSection.values)
+              _NavItem(
+                icon: _iconFor(section),
+                label: _labelFor(section, l10n),
+                selected: section == selected,
+                onTap: () => ref.read(settingsUiProvider.notifier).select(section),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Sections d'une fenêtre étroite : une colonne d'icônes, le nom de chacune
+/// en infobulle. Elle défile quand la fenêtre est trop basse.
+class _SettingsRail extends ConsumerWidget {
+  const _SettingsRail({required this.selected});
+
+  final SettingsSection selected;
+
+  /// Un bouton et ses marges.
+  static const double _width = OmniaMetrics.iconButtonSize + 2 * OmniaMetrics.space1;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      width: _width,
+      color: colors.velvet.withValues(alpha: 0.35),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: OmniaMetrics.space2),
+        child: Column(
+          children: [
+            for (final section in SettingsSection.values)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Semantics(
+                  selected: section == selected,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: section == selected
+                          ? colors.projector.withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      borderRadius: OmniaMetrics.controlRadius,
+                    ),
+                    child: OmniaIconButton(
+                      icon: _iconFor(section),
+                      iconSize: OmniaMetrics.iconSize - 2,
+                      tooltip: _labelFor(section, l10n),
+                      active: section == selected,
+                      onPressed: () => ref.read(settingsUiProvider.notifier).select(section),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -283,9 +354,12 @@ class _NavItemState extends State<_NavItem> {
 // --- Corps ------------------------------------------------------------------------
 
 class _SettingsBody extends ConsumerStatefulWidget {
-  const _SettingsBody({required this.section});
+  const _SettingsBody({required this.section, required this.compact});
 
   final SettingsSection section;
+
+  /// Feuille étroite : marges resserrées.
+  final bool compact;
 
   @override
   ConsumerState<_SettingsBody> createState() => _SettingsBodyState();
@@ -323,19 +397,30 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
       SettingsSection.history => const _HistorySection(),
     };
 
+    // Étroite, la feuille rend ses marges au contenu.
+    final compact = widget.compact;
+    final side = compact ? OmniaMetrics.space3 : OmniaMetrics.space5;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-            OmniaMetrics.space5,
-            OmniaMetrics.space4,
-            OmniaMetrics.space3,
+          padding: EdgeInsets.fromLTRB(
+            side,
+            compact ? OmniaMetrics.space2 : OmniaMetrics.space4,
+            compact ? OmniaMetrics.space2 : OmniaMetrics.space3,
             OmniaMetrics.space2,
           ),
           child: Row(
             children: [
-              Expanded(child: Text(_labelFor(widget.section, l10n), style: type.viewTitle)),
+              Expanded(
+                child: Text(
+                  _labelFor(widget.section, l10n),
+                  style: type.viewTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               OmniaIconButton(
                 icon: Icons.close_rounded,
                 tooltip: '${l10n.settingsClose}  ·  ${l10n.keyEscape}',
@@ -349,11 +434,11 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
             controller: _scroll,
             child: SingleChildScrollView(
               controller: _scroll,
-              padding: const EdgeInsets.fromLTRB(
-                OmniaMetrics.space5,
+              padding: EdgeInsets.fromLTRB(
+                side,
                 OmniaMetrics.space1,
-                OmniaMetrics.space5,
-                OmniaMetrics.space5,
+                side,
+                compact ? OmniaMetrics.space3 : OmniaMetrics.space5,
               ),
               child: KeyedSubtree(key: ValueKey(widget.section), child: content),
             ),
@@ -777,17 +862,20 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
             loading: () => '…',
             error: (_, _) => l10n.settingsScreenshotFolderDefault,
           ),
-          control: Row(
-            mainAxisSize: MainAxisSize.min,
+          // Côte à côte quand la place le permet, l'un sous l'autre sinon.
+          control: Wrap(
+            spacing: OmniaMetrics.space2,
+            runSpacing: OmniaMetrics.space2,
             children: [
-              OmniaButton(
+              _FittingButton(
                 label: l10n.settingsChooseFolder,
                 icon: Icons.folder_open_rounded,
                 onPressed: _choose,
               ),
-              const SizedBox(width: OmniaMetrics.space2),
-              OmniaButton(
+              _FittingButton(
                 label: l10n.settingsResetFolder,
+                icon: Icons.restart_alt_rounded,
+                showIcon: false,
                 onPressed: folder.valueOrNull?.custom == true ? () => _setFolder(null) : null,
               ),
             ],
@@ -837,7 +925,8 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
                 children: [
                   KeyCap(token),
                   const SizedBox(width: OmniaMetrics.space2),
-                  Text(meaning, style: type.secondary),
+                  // À l'étroit, l'explication passe à la ligne.
+                  Flexible(child: Text(meaning, style: type.secondary)),
                 ],
               ),
           ],
@@ -939,13 +1028,13 @@ class _ClearButtonState extends State<_ClearButton> {
     return AnimatedSwitcher(
       duration: OmniaMotion.reveal,
       child: _done
-          ? OmniaButton(
+          ? _FittingButton(
               key: const ValueKey('done'),
               label: l10n.settingsDone,
               icon: Icons.check_rounded,
               onPressed: null,
             )
-          : OmniaButton(
+          : _FittingButton(
               key: const ValueKey('clear'),
               label: widget.label,
               icon: Icons.delete_sweep_outlined,
@@ -960,6 +1049,56 @@ class _ClearButtonState extends State<_ClearButton> {
                     }
                   : null,
             ),
+    );
+  }
+}
+
+/// Bouton texte qui se réduit à son icône, le libellé passant en infobulle,
+/// quand la place manque : un intitulé long ne fait jamais déborder une
+/// ligne de réglage étroite.
+class _FittingButton extends StatelessWidget {
+  const _FittingButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.showIcon = true,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  /// Icône à côté du libellé dans la forme pleine ; réduit à son icône, le
+  /// bouton la montre de toute façon.
+  final bool showIcon;
+
+  /// Largeur d'un [OmniaButton] secondaire : marges, icône et son espace,
+  /// libellé, contour d'un pixel.
+  double _naturalWidth(BuildContext context) {
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: context.type.bodyStrong),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final text = painter.width.ceilToDouble();
+    painter.dispose();
+    return 2 * OmniaMetrics.space4 +
+        (showIcon ? OmniaMetrics.iconSize - 2 + OmniaMetrics.space2 : 0.0) +
+        text +
+        2;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedWidth || _naturalWidth(context) <= constraints.maxWidth) {
+          return OmniaButton(label: label, icon: showIcon ? icon : null, onPressed: onPressed);
+        }
+        return OmniaIconButton(icon: icon, tooltip: label, onPressed: onPressed);
+      },
     );
   }
 }

@@ -193,7 +193,7 @@ class _OsdPill extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(l10n.subtitleDelay, style: type.osdLabel),
+              Flexible(child: Text(l10n.subtitleDelay, style: type.osdLabel)),
               Text('  ·  ', style: type.osdLabel),
               Text(
                 l10n.subtitleDelayValue(
@@ -249,7 +249,12 @@ class _OsdPill extends StatelessWidget {
               children: [
                 Text(l10n.screenshotFailed, style: type.osdLabel),
                 const SizedBox(height: 3),
-                Text(l10n.screenshotFailedHint, style: type.caption),
+                Text(
+                  l10n.screenshotFailedHint,
+                  style: type.caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -293,7 +298,12 @@ class _OsdPill extends StatelessWidget {
               children: [
                 Text(l10n.recordingFailed, style: type.osdLabel),
                 const SizedBox(height: 3),
-                Text(l10n.recordingFailedHint, style: type.caption),
+                Text(
+                  l10n.recordingFailedHint,
+                  style: type.caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -342,7 +352,15 @@ class _OsdPill extends StatelessWidget {
         children: [
           Icon(icon, size: OmniaMetrics.iconSize, color: colors.projector),
           const SizedBox(width: OmniaMetrics.space3),
-          body,
+          // Le texte prend la place qui reste dans la pastille, et s'abrège
+          // sur une ligne au-delà ; les explications (échecs) en ont deux.
+          Flexible(
+            child: DefaultTextStyle.merge(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              child: body,
+            ),
+          ),
         ],
       ),
     );

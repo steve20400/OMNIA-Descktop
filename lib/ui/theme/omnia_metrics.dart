@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 /// Dimensions, rayons et espacements (aucune valeur en dur dans les widgets).
@@ -29,6 +31,15 @@ abstract final class OmniaMetrics {
   static const double controlBarMargin = 16;
   static const double controlBarPadding = 12;
   static const double controlBarMaxWidth = 1120;
+
+  /// Hauteur de la barre de contrôles, marge intérieure comprise : le faisceau
+  /// et la rangée de commandes. Ce que les surfaces posées sur la scène
+  /// doivent laisser libre en bas pour ne pas la recouvrir.
+  static const double controlBarHeight = 96;
+
+  /// Hauteur de scène en dessous de laquelle la barre de contrôles occupe déjà
+  /// presque tout : ce qui se pose au-dessus d'elle doit se serrer.
+  static const double shortStageHeight = 320;
 
   /// Largeur minimale choisie à la souris : lecture, temps et menu « ⋯ ».
   static const double controlBarMinWidth = 300;
@@ -64,6 +75,10 @@ abstract final class OmniaMetrics {
   static const double panelMinWidth = 220;
   static const double panelMaxWidth = 520;
 
+  /// Largeur de scène à préserver : ancrer le panneau en laisserait moins, il
+  /// s'ouvre alors en tiroir par-dessus la scène (le média garde sa place).
+  static const double panelDrawerBreakpoint = 420;
+
   // OSD (Phase 3).
   static const double osdLevelWidth = 96;
 
@@ -84,7 +99,30 @@ abstract final class OmniaMetrics {
   static const double keyCapMinWidth = 28;
 
   /// Invite de reprise : au-dessus de la barre de contrôles.
-  static const double resumePromptBottom = 128;
+  static const double resumePromptBottom = controlBarMargin + controlBarHeight + space4;
+
+  /// Hauteur gardée libre au-dessus de l'invite de reprise, pour qu'elle
+  /// tienne entière.
+  static const double resumePromptClearance = 200;
+
+  /// Place à réserver en bas d'une scène de [stageHeight] pour ne pas
+  /// recouvrir la barre de contrôles. Sur une scène courte, la barre prend
+  /// presque toute la hauteur : lui laisser sa place entière ne laisserait
+  /// rien au-dessus, on se contente donc d'une part.
+  static double controlBarClearance(double stageHeight) {
+    const full = controlBarMargin + controlBarHeight;
+    if (stageHeight >= shortStageHeight) return full;
+    return math.min(full, math.max(controlBarMargin, stageHeight * 0.35));
+  }
+
+  /// Hauteur à laquelle poser l'invite de reprise sur une scène de
+  /// [stageHeight] : au-dessus de la barre dès que la scène est haute, de plus
+  /// en plus bas quand elle se réduit — quitte à couvrir la barre, ce qui vaut
+  /// mieux que de sortir de la scène par le haut.
+  static double resumePromptBottomFor(double stageHeight) => math.min(
+        resumePromptBottom,
+        math.max(space2, stageHeight - resumePromptClearance),
+      );
 
   // Fenêtre : voir `WindowSizes` (core), source unique des tailles, partagée
   // avec le mini-lecteur.

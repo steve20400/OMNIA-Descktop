@@ -14,8 +14,16 @@ import '../widgets/omnia_icon_button.dart';
 
 /// Éditeur de raccourcis (§8) : réaffectation par capture de touche,
 /// détection des conflits, retour aux valeurs par défaut.
+///
+/// Il se déplie quand la place manque ([compactWidth]) : tout reste atteignable
+/// dans la fenêtre minimale d'OMNIA, et même en deçà.
 class ShortcutEditor extends ConsumerStatefulWidget {
   const ShortcutEditor({super.key});
+
+  /// En deçà de cette largeur, l'éditeur passe en colonnes : « Tout rétablir »
+  /// sous l'explication, et les touches sous l'intitulé de chaque action. En
+  /// ligne, il ne resterait que quelques pixels au texte.
+  static const double compactWidth = 400;
 
   @override
   ConsumerState<ShortcutEditor> createState() => _ShortcutEditorState();
@@ -89,57 +97,80 @@ class _ShortcutEditorState extends ConsumerState<ShortcutEditor> {
     final keymap = ref.watch(keymapProvider);
     final prefs = ref.preferences;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
+    final resetAll = OmniaButton(
+      label: l10n.shortcutsResetAll,
+      icon: Icons.restart_alt_rounded,
+      onPressed: keymap.isAllDefault
+          ? null
+          : () {
+              _stop();
+              ref.read(keymapProvider.notifier).resetAll();
+            },
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.hasBoundedWidth &&
+            constraints.maxWidth < ShortcutEditor.compactWidth;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: Text(l10n.shortcutsHint, style: type.secondary)),
-            const SizedBox(width: OmniaMetrics.space3),
-            OmniaButton(
-              label: l10n.shortcutsResetAll,
-              icon: Icons.restart_alt_rounded,
-              onPressed: keymap.isAllDefault
-                  ? null
-                  : () {
-                      _stop();
-                      ref.read(keymapProvider.notifier).resetAll();
-                    },
-            ),
+            if (narrow) ...[
+              Text(l10n.shortcutsHint, style: type.secondary),
+              const SizedBox(height: OmniaMetrics.space2),
+              // Aligné à gauche : étiré, le bouton perdrait sa forme.
+              Align(alignment: Alignment.centerLeft, child: resetAll),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.shortcutsHint,
+                      style: type.secondary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: OmniaMetrics.space3),
+                  resetAll,
+                ],
+              ),
+            for (final group in ShortcutGroup.values) ...[
+              const SizedBox(height: OmniaMetrics.space5),
+              Text(
+                group.label(l10n).toUpperCase(),
+                style: type.caption.copyWith(
+                  color: colors.projector,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: OmniaMetrics.space1),
+              for (final action in group.actions)
+                _ShortcutRow(
+                  label: actionLabel(action, l10n, prefs),
+                  combos: keymap.combosFor(action),
+                  modified: !keymap.isDefault(action),
+                  narrow: narrow,
+                  capturing: _capturing == action,
+                  conflictLabel: _capturing == action && _conflict != null
+                      ? actionLabel(_conflict!, l10n, prefs)
+                      : null,
+                  pending: _capturing == action ? _pending : null,
+                  onEdit: () => _start(action),
+                  onCancel: _stop,
+                  onReplace: _confirmReplace,
+                  onReset: () {
+                    _stop();
+                    ref.read(keymapProvider.notifier).reset(action);
+                  },
+                  onKey: (event) => _onKey(action, event),
+                ),
+            ],
           ],
-        ),
-        for (final group in ShortcutGroup.values) ...[
-          const SizedBox(height: OmniaMetrics.space5),
-          Text(
-            group.label(l10n).toUpperCase(),
-            style: type.caption.copyWith(
-              color: colors.projector,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: OmniaMetrics.space1),
-          for (final action in group.actions)
-            _ShortcutRow(
-              label: actionLabel(action, l10n, prefs),
-              combos: keymap.combosFor(action),
-              modified: !keymap.isDefault(action),
-              capturing: _capturing == action,
-              conflictLabel: _capturing == action && _conflict != null
-                  ? actionLabel(_conflict!, l10n, prefs)
-                  : null,
-              pending: _capturing == action ? _pending : null,
-              onEdit: () => _start(action),
-              onCancel: _stop,
-              onReplace: _confirmReplace,
-              onReset: () {
-                _stop();
-                ref.read(keymapProvider.notifier).reset(action);
-              },
-              onKey: (event) => _onKey(action, event),
-            ),
-        ],
-      ],
+        );
+      },
     );
   }
 }
@@ -149,6 +180,7 @@ class _ShortcutRow extends StatefulWidget {
     required this.label,
     required this.combos,
     required this.modified,
+    required this.narrow,
     required this.capturing,
     required this.conflictLabel,
     required this.pending,
@@ -162,6 +194,11 @@ class _ShortcutRow extends StatefulWidget {
   final String label;
   final List<KeyCombo> combos;
   final bool modified;
+
+  /// Place trop courte pour tout aligner : les touches et les actions passent
+  /// sous l'intitulé (voir [ShortcutEditor.compactWidth]).
+  final bool narrow;
+
   final bool capturing;
   final String? conflictLabel;
   final KeyCombo? pending;
@@ -212,17 +249,19 @@ class _ShortcutRowState extends State<_ShortcutRow> {
 
     final Widget keys;
     if (widget.capturing && widget.pending != null) {
-      keys = Row(
-        mainAxisSize: MainAxisSize.min,
+      // Wrap plutôt qu'une rangée : faute de place, le conflit passe sous la
+      // touche saisie au lieu de déborder.
+      keys = Wrap(
+        spacing: OmniaMetrics.space2,
+        runSpacing: OmniaMetrics.space1,
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           KeyCap(comboLabel(widget.pending!, l10n), highlighted: true),
-          const SizedBox(width: OmniaMetrics.space2),
-          Flexible(
-            child: Text(
-              l10n.shortcutsConflict(widget.conflictLabel ?? ''),
-              style: type.secondary.copyWith(color: colors.alert),
-              overflow: TextOverflow.ellipsis,
-            ),
+          Text(
+            l10n.shortcutsConflict(widget.conflictLabel ?? ''),
+            style: type.secondary.copyWith(color: colors.alert),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       );
@@ -242,6 +281,82 @@ class _ShortcutRowState extends State<_ShortcutRow> {
       );
     }
 
+    // Les touches, cliquables : un clic ouvre la saisie.
+    final Widget keysTarget = MouseRegion(
+      cursor: widget.capturing ? MouseCursor.defer : SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.capturing ? null : widget.onEdit,
+        child: widget.capturing
+            ? Align(alignment: Alignment.centerRight, child: keys)
+            : Tooltip(
+                message: l10n.shortcutsChange,
+                child: Align(alignment: Alignment.centerRight, child: keys),
+              ),
+      ),
+    );
+
+    // « Remplacer » / « Annuler » pendant la saisie, « Rétablir » sinon.
+    final List<Widget> actions = [
+      if (widget.capturing && widget.pending != null) ...[
+        _TextAction(label: l10n.shortcutsReplace, onTap: widget.onReplace, primary: true),
+        _TextAction(label: l10n.shortcutsCancel, onTap: widget.onCancel),
+      ] else if (widget.capturing)
+        _TextAction(label: l10n.shortcutsCancel, onTap: widget.onCancel)
+      else
+        Opacity(
+          opacity: widget.modified ? 1 : 0,
+          child: OmniaIconButton(
+            icon: Icons.restart_alt_rounded,
+            size: OmniaMetrics.iconButtonSize - 6,
+            iconSize: OmniaMetrics.iconSize - 4,
+            tooltip: l10n.shortcutsReset,
+            onPressed: widget.modified ? widget.onReset : null,
+          ),
+        ),
+    ];
+
+    // Étroite, la ligne se déplie : l'intitulé (et « Rétablir ») au-dessus,
+    // les touches en dessous, les actions de saisie sur leur propre ligne.
+    final Widget content = widget.narrow
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: type.body,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (!widget.capturing) ...[
+                    const SizedBox(width: OmniaMetrics.space2),
+                    ...actions,
+                  ],
+                ],
+              ),
+              const SizedBox(height: OmniaMetrics.space1),
+              keysTarget,
+              if (widget.capturing) ...[
+                const SizedBox(height: OmniaMetrics.space1),
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: actions),
+              ],
+            ],
+          )
+        : Row(
+            children: [
+              Expanded(child: Text(widget.label, style: type.body)),
+              const SizedBox(width: OmniaMetrics.space3),
+              Flexible(child: keysTarget),
+              const SizedBox(width: OmniaMetrics.space2),
+              ...actions,
+            ],
+          );
+
     Widget row = MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -258,44 +373,7 @@ class _ShortcutRowState extends State<_ShortcutRow> {
               : (_hovered ? colors.hover : Colors.transparent),
           borderRadius: OmniaMetrics.controlRadius,
         ),
-        child: Row(
-          children: [
-            Expanded(child: Text(widget.label, style: type.body)),
-            const SizedBox(width: OmniaMetrics.space3),
-            Flexible(
-              child: MouseRegion(
-                cursor: widget.capturing ? MouseCursor.defer : SystemMouseCursors.click,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: widget.capturing ? null : widget.onEdit,
-                  child: widget.capturing
-                      ? Align(alignment: Alignment.centerRight, child: keys)
-                      : Tooltip(
-                          message: l10n.shortcutsChange,
-                          child: Align(alignment: Alignment.centerRight, child: keys),
-                        ),
-                ),
-              ),
-            ),
-            const SizedBox(width: OmniaMetrics.space2),
-            if (widget.capturing && widget.pending != null) ...[
-              _TextAction(label: l10n.shortcutsReplace, onTap: widget.onReplace, primary: true),
-              _TextAction(label: l10n.shortcutsCancel, onTap: widget.onCancel),
-            ] else if (widget.capturing)
-              _TextAction(label: l10n.shortcutsCancel, onTap: widget.onCancel)
-            else
-              Opacity(
-                opacity: widget.modified ? 1 : 0,
-                child: OmniaIconButton(
-                  icon: Icons.restart_alt_rounded,
-                  size: OmniaMetrics.iconButtonSize - 6,
-                  iconSize: OmniaMetrics.iconSize - 4,
-                  tooltip: l10n.shortcutsReset,
-                  onPressed: widget.modified ? widget.onReset : null,
-                ),
-              ),
-          ],
-        ),
+        child: content,
       ),
     );
 

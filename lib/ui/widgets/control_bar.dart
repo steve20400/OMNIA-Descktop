@@ -68,6 +68,11 @@ class _ControlBarState extends ConsumerState<ControlBar> {
   /// Place du bouton « ⋯ », marge comprise.
   static const double _overflowWidth = OmniaMetrics.iconButtonSize + OmniaMetrics.space2;
 
+  /// Bordure d'un pixel de [FloatingSurface], de chaque côté : elle prend sur
+  /// la place des commandes, comme la marge intérieure (même convention que la
+  /// barre des documents).
+  static const double _surfaceBorder = 1;
+
   static double? _fraction(Duration? value, Duration duration) {
     if (value == null || duration.inMilliseconds <= 0) return null;
     return (value.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
@@ -101,7 +106,10 @@ class _ControlBarState extends ConsumerState<ControlBar> {
         final width = userWidth > 0
             ? userWidth.clamp(minWidth, available).toDouble()
             : math.min(OmniaMetrics.controlBarMaxWidth - 2 * margin, available);
-        final rowWidth = math.max(0.0, width - 2 * OmniaMetrics.controlBarPadding);
+        final rowWidth = math.max(
+          0.0,
+          width - 2 * OmniaMetrics.controlBarPadding - 2 * _surfaceBorder,
+        );
 
         return Padding(
           padding: const EdgeInsets.all(margin),

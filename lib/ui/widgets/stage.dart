@@ -92,26 +92,61 @@ class Stage extends ConsumerWidget {
   }
 }
 
-class _VideoStage extends ConsumerWidget {
-  const _VideoStage({super.key});
+/// Fabrique la surface où s'affiche l'image : la scène et le mini-lecteur
+/// passent tous deux par là.
+typedef VideoSurfaceBuilder = Widget Function(
+  BuildContext context, {
+  required BoxFit fit,
+  double? aspectRatio,
+});
+
+/// Surface vidéo, injectable.
+///
+/// Par défaut, la vraie surface `media_kit` — qui réclame libmpv, donc
+/// impossible à construire dans un test d'interface. Les tests remplacent ce
+/// fournisseur par un simple aplat et peuvent alors monter la scène et le
+/// mini-lecteur en entier.
+final videoSurfaceProvider = Provider<VideoSurfaceBuilder>(
+  (ref) => (BuildContext context, {required BoxFit fit, double? aspectRatio}) =>
+      _MediaKitSurface(fit: fit, aspectRatio: aspectRatio),
+);
+
+class _MediaKitSurface extends ConsumerWidget {
+  const _MediaKitSurface({required this.fit, required this.aspectRatio});
+
+  final BoxFit fit;
+  final double? aspectRatio;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.watch(videoControllerProvider);
-    final aspect = ref.watch(playbackStateProvider.select((s) => s.aspectMode));
     return Video(
-      controller: controller,
+      controller: ref.watch(videoControllerProvider),
       controls: NoVideoControls,
       // La scène peint déjà le fond velours derrière la vidéo.
       fill: Colors.transparent,
-      fit: videoFitFor(aspect),
-      aspectRatio: videoAspectRatioFor(aspect),
+      fit: fit,
+      aspectRatio: aspectRatio,
       // Bicubique : l'image est mise à la taille de la fenêtre par Flutter, et
       // le bilinéaire par défaut la rend floue ou crénelée.
       filterQuality: FilterQuality.high,
       // La mise en veille de l'écran est gérée par OMNIA (ScreenWake) : deux
       // gestionnaires se contrediraient.
       wakelock: false,
+    );
+  }
+}
+
+class _VideoStage extends ConsumerWidget {
+  const _VideoStage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final aspect = ref.watch(playbackStateProvider.select((s) => s.aspectMode));
+    final surface = ref.watch(videoSurfaceProvider);
+    return surface(
+      context,
+      fit: videoFitFor(aspect),
+      aspectRatio: videoAspectRatioFor(aspect),
     );
   }
 }
@@ -135,6 +170,21 @@ class _EmptyStage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final type = context.type;
     final l10n = AppLocalizations.of(context);
+    // Sur une scène courte, l'accueil défile plutôt que de déborder ; sur une
+    // grande, il reste centré (la hauteur minimale remplit la scène).
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: constraints.hasBoundedHeight ? constraints.maxHeight : 0,
+          ),
+          child: _emptyContent(ref, type, l10n),
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyContent(WidgetRef ref, OmniaTypography type, AppLocalizations l10n) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(OmniaMetrics.space6),

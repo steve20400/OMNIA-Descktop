@@ -87,4 +87,82 @@ void main() {
     expect(clipped, isTrue, reason: 'aucun ClipRect entre le flou et le bord de la vue');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('la pochette suit la scène, s’efface quand la place manque, rien ne déborde', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    // La scène change de taille sans remonter la vue.
+    final stage = ValueNotifier<Size>(const Size(1200, 700));
+    addTearDown(stage.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          audioTagsProvider.overrideWith(
+            () => _FixedTags(AudioTags(title: 'Titre', cover: _pixel, coverMime: 'image/png')),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildOmniaTheme(Brightness.dark),
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Material(
+            child: Center(
+              child: ValueListenableBuilder<Size>(
+                valueListenable: stage,
+                builder: (context, size, child) => SizedBox.fromSize(size: size, child: child),
+                child: AudioStage(
+                  file: MediaFile(
+                    path: '/musique/piste.mp3',
+                    type: MediaType.audio,
+                    size: 1,
+                    modifiedAt: DateTime(2026),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Taille de scène, et si la pochette y a sa place.
+    const cases = <(Size, bool)>[
+      (Size(1200, 700), true),
+      (Size(800, 500), true),
+      (Size(480, 300), true),
+      (Size(360, 200), false),
+      (Size(320, 160), false),
+      (Size(320, 80), false),
+    ];
+    for (final (size, withCover) in cases) {
+      stage.value = size;
+      await tester.pumpAndSettle();
+      final where = 'scène $size';
+      expect(tester.takeException(), isNull, reason: where);
+
+      final cover = find.byKey(AudioStage.coverKey);
+      if (withCover) {
+        final side = AudioStage.coverSideFor(size);
+        expect(side, greaterThanOrEqualTo(AudioStage.minCoverSide), reason: where);
+        expect(tester.getSize(cover), Size.square(side), reason: where);
+      } else {
+        expect(cover, findsNothing, reason: where);
+      }
+
+      // Le titre reste là, dans la scène, dès qu'elle peut le montrer.
+      final stageRect = tester.getRect(find.byType(AudioStage));
+      expect(find.text('Titre'), findsOneWidget, reason: where);
+      if (size.height >= 160) {
+        final title = tester.getRect(find.text('Titre'));
+        expect(stageRect.contains(title.topLeft) && stageRect.contains(title.bottomRight), isTrue,
+            reason: '$where : titre $title hors de $stageRect');
+      }
+    }
+
+    // Aux tailles d'aujourd'hui, la pochette a sa taille idéale, bornée à 420.
+    expect(AudioStage.coverSideFor(const Size(2000, 1400)), AudioStage.maxCoverSide);
+  });
 }

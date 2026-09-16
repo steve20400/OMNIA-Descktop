@@ -275,10 +275,14 @@ class LabelledSlider extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SlimSlider(
-          width: OmniaMetrics.settingsSliderWidth,
-          value: (value - min) / (max - min),
-          onChanged: (t) => onChanged(_snap(min + t * (max - min))),
+        // Souple : dans une ligne étroite, le curseur se raccourcit plutôt
+        // que de déborder ; la valeur garde sa place.
+        Flexible(
+          child: SlimSlider(
+            width: OmniaMetrics.settingsSliderWidth,
+            value: (value - min) / (max - min),
+            onChanged: (t) => onChanged(_snap(min + t * (max - min))),
+          ),
         ),
         const SizedBox(width: OmniaMetrics.space3),
         SizedBox(
