@@ -156,8 +156,12 @@ void main() {
       history: history,
       settings: store,
     );
+    // Déplacements de fenêtre demandés au système : il n'y en a pas sous un
+    // test, mais le mini-lecteur doit bien les demander.
+    var windowDrags = 0;
     final container = ProviderContainer(
       overrides: [
+        startWindowDragProvider.overrideWithValue(() => windowDrags++),
         commandBusProvider.overrideWithValue(bus),
         settingsStoreProvider.overrideWithValue(store),
         historyStoreProvider.overrideWithValue(history),
@@ -264,6 +268,21 @@ void main() {
     await _drain(tester);
     expect(find.byType(MiniPlayer), findsOneWidget);
     _expectWellFormed(tester, 'mini-lecteur');
+
+    // Saisi ailleurs que sur une commande, il déplace la fenêtre : la pression
+    // traverse bien le voile de dépôt et le Material qui l'enveloppent, et le
+    // glissement part dès le premier mouvement.
+    final mini = tester.getRect(find.byType(MiniPlayer));
+    final windowDrag = await tester.startGesture(
+      mini.topLeft + const Offset(8, 8),
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pump();
+    await windowDrag.moveBy(const Offset(24, 0));
+    await tester.pump();
+    expect(windowDrags, 1, reason: 'mini-lecteur déplaçable à la souris');
+    await windowDrag.up();
+    await _drain(tester);
 
     bus.dispatch(const ToggleMiniPlayer());
     await _drain(tester);

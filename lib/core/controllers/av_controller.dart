@@ -13,6 +13,7 @@ import '../models/media_file.dart';
 import '../models/media_type.dart';
 import '../models/playback_state.dart';
 import '../models/playback_status.dart';
+import '../models/recording_failure.dart';
 import '../models/track_info.dart';
 import '../models/video_adjust.dart';
 import '../utils/os_errors.dart';
@@ -42,7 +43,17 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
       // libass : mpv dessine les sous-titres dans l'image, et media_kit retire
       // sa propre couche de texte. Sans cela, activer une piste les
       // affichait deux fois, et « masquer » laissait la copie de media_kit.
-      : player = player ?? Player(configuration: const PlayerConfiguration(libass: true)),
+      //
+      // Journal du moteur jusqu'aux avertissements : c'est à ce niveau que mpv
+      // dit pourquoi il refuse d'écrire un extrait, et le niveau `warn` reste
+      // silencieux en lecture ordinaire.
+      : player = player ??
+            Player(
+              configuration: const PlayerConfiguration(
+                libass: true,
+                logLevel: MPVLogLevel.warn,
+              ),
+            ),
         _preferences = preferences ?? (() => AppPreferences.defaults) {
     if (withVideoOutput) videoController = VideoController(this.player);
     _listen();
@@ -71,6 +82,13 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
   /// objet piste à partir de son identifiant.
   Tracks _tracks = const Tracks();
 
+  /// Dernières lignes du journal de mpv, gardées en mémoire pour expliquer un
+  /// extrait manqué. Ce n'est pas un journal, c'est un indice : le nombre est
+  /// volontairement court, car ces lignes finissent dans une annotation de CI,
+  /// tronquée à 4 096 caractères.
+  final List<String> _mpvLogs = [];
+  static const int _mpvLogsKept = 40;
+
   @override
   Set<MediaType> get supportedTypes => const {MediaType.video, MediaType.audio};
 
@@ -89,6 +107,35 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     await _setProperty('scale', 'spline36');
     await _setProperty('dscale', 'mitchell');
     await _setProperty('correct-downscaling', 'yes');
+    await _applyCacheProperties();
+  }
+
+  /// Cache du démultiplexeur, dont dépend tout l'enregistrement d'extraits.
+  ///
+  /// mpv n'active son cache que pour les flux réseau quand `cache=auto` ;
+  /// media_kit le force déjà à `yes`, ce qui vaut aussi pour un fichier local.
+  /// On le réaffirme : sans cache, `dump-cache` n'a rien à recopier et un
+  /// extrait de fichier local reste vide. `demuxer-seekable-cache` suit
+  /// (`auto` vaut déjà `yes` dès que `cache=yes`, mais mpv remet à zéro le
+  /// cache arrière quand le cache n'est pas navigable, et c'est ce cache
+  /// arrière qui fournit l'extrait).
+  ///
+  /// `cache-on-disk` en revanche est ramené à `no` : media_kit l'active, ce qui
+  /// déplace la charge utile de chaque paquet dans un fichier temporaire. Pour
+  /// un lecteur de fichiers locaux, cela n'apporte rien (le média est déjà sur
+  /// le disque) et ajoute une relecture — donc un risque d'échec — au moment
+  /// précis où l'on recopie le cache dans un extrait. La documentation de mpv
+  /// est formelle : ce réglage ne se retire pas en cours de lecture (« If the
+  /// option is disabled at runtime, old data remains in the disk cache »), il
+  /// faut donc le poser AVANT d'ouvrir le fichier.
+  ///
+  /// Appliqué à l'ouverture de la session *et* avant chaque fichier : mpv lit
+  /// ces réglages quand il crée le démultiplexeur, c'est-à-dire à l'ouverture.
+  Future<void> _applyCacheProperties() async {
+    await _setProperty('cache', 'yes');
+    await _setProperty('cache-on-disk', 'no');
+    await _setProperty('demuxer-seekable-cache', 'yes');
+    await _setProperty('demuxer-max-back-bytes', '$_idleBackBufferBytes');
   }
 
   // Position : mpv la publie à chaque image affichée, soit 25 à 60 fois par
@@ -113,6 +160,15 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
   void _listen() {
     final s = player.stream;
     _subscriptions.addAll([
+      // Journal de mpv : c'est là qu'il dit pourquoi il refuse d'écrire un
+      // extrait (« Failed opening output file. », « Can't mux one of the input
+      // streams. », « Writing header failed. »). media_kit ne remonte pas ces
+      // lignes comme des erreurs de lecture : sans elles, un extrait manqué
+      // resterait sans explication.
+      s.log.listen((entry) {
+        _mpvLogs.add('[${entry.level}] ${entry.prefix} : ${entry.text}');
+        if (_mpvLogs.length > _mpvLogsKept) _mpvLogs.removeAt(0);
+      }),
       s.position.listen(_onPosition),
       s.duration.listen((duration) => _update((st) => st.copyWith(duration: duration))),
       s.buffering.listen((buffering) => _update((st) => st.copyWith(buffering: buffering))),
@@ -299,6 +355,9 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     );
 
     try {
+      // Réglages du cache avant d'ouvrir : mpv les lit quand il crée le
+      // démultiplexeur, et c'est ce cache qui fournira les extraits.
+      await _applyCacheProperties();
       // Sous-titres voisins chargés automatiquement : même nom de base, avec
       // ou sans suffixe de langue (`film.srt`, `film.fr.srt`).
       await _setProperty('sub-auto', prefs.subtitleAutoLoad ? 'fuzzy' : 'no');
@@ -588,70 +647,349 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
 
   // --- Extraits ---------------------------------------------------------------
 
-  /// Position du média au début de l'extrait en cours, point de départ du
-  /// repli par le cache. `null` : aucun extrait commencé.
+  /// Taille du cache arrière hors enregistrement, en octets : celle que
+  /// media_kit applique déjà (`demuxer-max-back-bytes`).
+  static const int _idleBackBufferBytes = 32 * 1024 * 1024;
+
+  /// Taille du cache arrière pendant un extrait, en octets.
+  ///
+  /// C'est le cache arrière qui FOURNIT l'extrait (voir [dumpRecording]) : il
+  /// doit garder, derrière la position de lecture, tout ce qui a défilé depuis
+  /// le début de l'enregistrement. Coût mémoire : ces 256 Mio ne sont occupés
+  /// que si l'extrait les remplit, soit environ quatre minutes de vidéo à
+  /// 8 Mbit/s, ou plus d'une heure de musique à 320 kbit/s. Au-delà, mpv oublie
+  /// le début de l'extrait : le fichier obtenu commence plus tard que demandé,
+  /// mais il existe et se lit. La valeur est rendue par [releaseRecording].
+  static const int _recordingBackBufferBytes = 256 * 1024 * 1024;
+
+  /// Fenêtre d'observation de la lecture avant de commencer : le temps de
+  /// laisser la position avancer assez pour qu'on puisse l'affirmer.
+  static const Duration _playbackProofDelay = Duration(milliseconds: 350);
+
+  /// Avancée minimale de la position pendant cette fenêtre. En dessous, rien
+  /// ne défile vraiment (pause déguisée, fin de fichier, moteur bloqué).
+  static const Duration _playbackProofProgress = Duration(milliseconds: 40);
+
+  /// Longueur de la tranche recopiée par la répétition générale. Prise DANS LE
+  /// PASSÉ, donc forcément déjà en cache : l'essai ne juge alors que
+  /// l'écriture, jamais la disponibilité des paquets. Courte à dessein : le
+  /// fichier d'essai est écrit puis relu tout de suite, et le moteur est figé
+  /// pendant ce temps.
+  static const Duration _rehearsalSpan = Duration(milliseconds: 250);
+
+  /// Au-delà, on considère que le moteur ne répondra pas : une commande
+  /// d'écriture qui ne rend jamais la main bloquerait l'interface.
+  static const Duration _recordingCommandTimeout = Duration(seconds: 20);
+
+  /// Position du média au début de l'extrait en cours. `null` : aucun extrait
+  /// commencé.
   Duration? _recordingFrom;
 
-  /// Enregistrement d'extrait : propriété `stream-record` de mpv. Elle
-  /// recopie les paquets lus par le démultiplexeur dans un fichier dont
-  /// l'extension fixe le format, sans réencoder : qualité intacte et presque
-  /// aucun coût processeur.
+  /// Position figée par [stopRecording] : la fin de l'extrait est là où
+  /// l'utilisateur a arrêté, pas là où le service finit ses vérifications.
+  Duration? _recordingTo;
+
+  /// Vrai tant que le cache arrière est agrandi pour un extrait.
+  bool _backBufferRaised = false;
+
+  /// Commence un extrait dans [path].
   ///
-  /// La propriété est relue avant de répondre `true` : media_kit appelle
-  /// `mpv_set_property_string` sans regarder son code de retour, si bien
-  /// qu'une propriété refusée (version de mpv sans enregistrement, moteur
-  /// libéré) passerait pour un succès et allumerait un voyant qui n'enregistre
-  /// rien.
+  /// **Pourquoi `stream-record` ne peut pas écrire l'extrait d'un fichier
+  /// local.** Sa documentation est explicite : « this will write only data that
+  /// is appended at the end of the cache, and the already cached data cannot be
+  /// written. You can try the `dump-cache` command as an alternative. » Dans le
+  /// moteur (`demux/demux.c`), l'enregistreur n'est même créé qu'à l'arrivée
+  /// d'un paquet neuf (`record_packet`, appelé depuis `add_packet_locked`). Or
+  /// `cache-secs` vaut par défaut mille heures : avec `cache=yes`, mpv lit
+  /// d'avance tout ce que `demuxer-max-bytes` autorise (32 Mio chez media_kit),
+  /// c'est-à-dire un fichier de musique entier et une bonne demi-minute de
+  /// vidéo. Quand l'utilisateur lance l'extrait, il n'y a plus un seul paquet
+  /// neuf à recopier : aucun enregistreur n'est créé, **et le fichier n'est
+  /// même pas ouvert**. Voyant allumé, dossier vide : exactement le défaut
+  /// rapporté. Et lorsqu'il finit par recevoir des paquets (fichier plus gros
+  /// que le cache), il écrit un extrait amputé de son début, ce qui est pire.
+  ///
+  /// OMNIA n'ouvre que des fichiers locaux : l'extrait est donc écrit par
+  /// `dump-cache`, d'un seul tenant, à l'arrêt (voir [dumpRecording]), depuis
+  /// le cache arrière agrandi ici pour la durée de l'extrait.
+  ///
+  /// **Le voyant ne s'allume pas sur une promesse.** Avant de répondre
+  /// [RecordingFailure.none], on exige trois preuves :
+  ///
+  /// 1. le dossier de destination accepte réellement un fichier ([_folderAccepts]) ;
+  /// 2. la position du moteur avance vraiment pendant la préparation ;
+  /// 3. le moteur écrit tout de suite, au même endroit et avec la même
+  ///    extension, un fichier d'essai non vide ([_rehearse]).
   @override
-  Future<bool> startRecording(String path) async {
+  Future<RecordingFailure> startRecording(String path) async {
     final platform = player.platform;
-    if (platform is! NativePlayer) return false;
+    if (platform is! NativePlayer) return RecordingFailure.engineRefused;
+
+    _recordingFrom = null;
+    _recordingTo = null;
+
+    final target = _mpvPath(path);
+    if (!_folderAccepts(target)) return RecordingFailure.folderUnavailable;
+
+    final mark = _mpvLogs.length;
     try {
-      await platform.setProperty('stream-record', path);
-      if ((await platform.getProperty('stream-record')).trim().isEmpty) return false;
-      // Point de départ du repli : la position exacte du moteur, et non celle
-      // de l'état, filtrée à six mises à jour par seconde.
-      _recordingFrom = player.state.position;
-      return true;
+      // Le cache arrière doit tenir tout l'extrait : c'est lui qui le fournira.
+      // Posé en premier, avant même de mesurer la lecture, pour que rien de ce
+      // qui défile pendant la préparation ne soit oublié.
+      await platform.setProperty('demuxer-max-back-bytes', '$_recordingBackBufferBytes');
+      _backBufferRaised = true;
+
+      // Position exacte du moteur, et non celle de l'état, filtrée à six mises
+      // à jour par seconde.
+      final before = player.state.position;
+      await Future<void>.delayed(_playbackProofDelay);
+      if (player.state.position - before < _playbackProofProgress) {
+        await releaseRecording();
+        return RecordingFailure.notPlaying;
+      }
+
+      final rehearsal = await _rehearse(platform, target, mark);
+      if (rehearsal != RecordingFailure.none) {
+        await releaseRecording();
+        return rehearsal;
+      }
+
+      _recordingFrom = before;
+      return RecordingFailure.none;
     } on Object {
-      return false;
+      await releaseRecording();
+      return RecordingFailure.engineRefused;
     }
   }
 
-  /// Une chaîne vide ferme l'enregistreur, qui finalise le fichier.
-  @override
-  Future<void> stopRecording() => _setProperty('stream-record', '');
-
-  /// Repli quand l'écriture au fil de l'eau n'a rien donné : `dump-cache`
-  /// recopie dans [path] les paquets que le démultiplexeur garde en mémoire
-  /// entre le début de l'extrait et la position actuelle.
+  /// Le dossier de destination accepte-t-il un fichier ?
   ///
-  /// C'est le cas courant d'un fichier local : mpv le lit d'avance, la
-  /// séquence est déjà en cache quand l'utilisateur lance l'extrait, et
-  /// `stream-record` n'a plus aucun paquet neuf à recopier. La commande écrase
-  /// le fichier et ne rend la main qu'une fois l'écriture finie.
+  /// Vérifié ici, en Dart, et non par le moteur : media_kit appelle
+  /// `mpv_set_property_string` sans regarder son code de retour, et mpv ne
+  /// signale l'échec d'ouverture d'un fichier de sortie que dans son journal.
+  /// Un disque externe retiré ou un dossier en lecture seule est la panne la
+  /// plus banale, et un essai d'écriture est la seule réponse fiable : les
+  /// droits ne se devinent pas.
+  static bool _folderAccepts(String target) {
+    final probe = File(p.join(p.dirname(target), '.omnia-acces'));
+    try {
+      probe.writeAsBytesSync(const <int>[], flush: true);
+    } on FileSystemException {
+      return false;
+    }
+    try {
+      probe.deleteSync();
+    } on FileSystemException {
+      // Témoin impossible à retirer : l'écriture, elle, a bien eu lieu.
+    }
+    return true;
+  }
+
+  /// Répétition générale : le moteur écrit tout de suite un fichier d'essai
+  /// minuscule, à côté de l'extrait et avec la même extension, puis on le
+  /// relit et on le supprime.
+  ///
+  /// C'est exactement le code que l'extrait empruntera (`mp_recorder_create`,
+  /// dans `common/recorder.c`) : deviner le conteneur d'après l'extension
+  /// (« Output format not found. »), ouvrir le fichier (« Failed opening output
+  /// file. »), décrire chaque piste choisie (« Can't mux one of the input
+  /// streams. »), écrire l'en-tête (« Writing header failed. »). Les quatre
+  /// échecs possibles y sont, tous avant le premier paquet, et l'en-tête est
+  /// écrit dès la création de l'enregistreur.
+  ///
+  /// La preuve ne dépend donc pas du contenu : même si la tranche demandée ne
+  /// donnait aucun paquet, un conteneur bien ouvert laisse un fichier non vide
+  /// (en-tête et fin de conteneur). Un fichier vide, ou absent, veut dire que
+  /// l'extrait aurait échoué — et le journal du moteur dit lequel des quatre.
+  ///
+  /// La tranche demandée est prise dans le passé immédiat : elle est déjà lue,
+  /// donc déjà en cache, et l'essai ne dépend de rien d'autre que de
+  /// l'écriture.
+  Future<RecordingFailure> _rehearse(NativePlayer platform, String target, int mark) async {
+    final probe = _rehearsalPathFor(target);
+    final file = File(probe);
+    try {
+      if (file.existsSync()) file.deleteSync();
+    } on FileSystemException {
+      return RecordingFailure.folderUnavailable;
+    }
+
+    final to = player.state.position;
+    final from = to - _rehearsalSpan;
+    try {
+      await platform
+          .command([
+            'dump-cache',
+            _seconds(from.isNegative ? Duration.zero : from),
+            _seconds(to),
+            probe,
+          ])
+          .timeout(_recordingCommandTimeout);
+    } on Object {
+      return RecordingFailure.engineRefused;
+    }
+
+    final written = file.existsSync() ? file.lengthSync() : 0;
+    try {
+      if (file.existsSync()) file.deleteSync();
+    } on FileSystemException {
+      // Fichier d'essai impossible à retirer : sans conséquence pour l'extrait.
+    }
+    if (written > 0) return RecordingFailure.none;
+    return _refusalInLogs(mark, fallback: RecordingFailure.engineRefused);
+  }
+
+  /// Traduit en raison d'échec ce que mpv a écrit dans son journal depuis
+  /// [mark]. Retourne [fallback] quand il n'a rien dit de reconnaissable.
+  RecordingFailure _refusalInLogs(int mark, {RecordingFailure fallback = RecordingFailure.none}) {
+    // Messages de `common/recorder.c` et `player/command.c`, en anglais dans le
+    // moteur : on ne les traduit pas, on les reconnaît.
+    const folder = ['Failed opening output file'];
+    const container = [
+      'Output format not found',
+      "Can't mux one of the input streams",
+      "Can't mux one of the attachments",
+      'Writing header failed',
+      'No streams.',
+    ];
+    const engine = ['Cache dumping stopped due to error', 'No demuxer open'];
+    for (var i = mark; i < _mpvLogs.length; i++) {
+      final line = _mpvLogs[i];
+      if (folder.any(line.contains)) return RecordingFailure.folderUnavailable;
+      if (container.any(line.contains)) return RecordingFailure.containerRefused;
+      if (engine.any(line.contains)) return RecordingFailure.engineRefused;
+    }
+    return fallback;
+  }
+
+  /// Fige la fin de l'extrait.
+  ///
+  /// Rien n'est en cours d'écriture à cet instant : le fichier est écrit d'un
+  /// seul tenant par [dumpRecording]. Le service peut donc regarder le fichier
+  /// dès le retour, sans laisser de délai au moteur.
+  @override
+  Future<void> stopRecording() async {
+    if (_recordingFrom == null) return;
+    _recordingTo = player.state.position;
+  }
+
+  /// Écrit l'extrait : `dump-cache` recopie dans [path] les paquets que le
+  /// démultiplexeur garde en mémoire entre le début et la fin de
+  /// l'enregistrement.
+  ///
+  /// La commande écrase le fichier, et — c'est le point important — elle ne
+  /// rend la main qu'une fois le fichier fermé : dans le moteur, `dump_cache`
+  /// s'exécute en entier sous le verrou du démultiplexeur, et la commande n'est
+  /// signalée terminée qu'après l'écriture de la fin du conteneur. À son
+  /// retour, le fichier est donc complet sur le disque.
+  ///
+  /// On relit quand même le résultat : mpv ne signale ses refus que dans son
+  /// journal, et media_kit ne remonte pas le code de retour d'une commande.
   @override
   Future<bool> dumpRecording(String path) async {
     final platform = player.platform;
     final from = _recordingFrom;
-    _recordingFrom = null;
     if (platform is! NativePlayer || from == null) return false;
-    final to = player.state.position;
+    final to = _recordingTo ?? player.state.position;
     // Rien ne s'est écoulé : il n'y a aucune séquence à écrire.
     if (to <= from) return false;
+    final target = _mpvPath(path);
     try {
-      await platform.command(['dump-cache', _seconds(from), _seconds(to), path]);
-      return true;
+      await platform
+          .command(['dump-cache', _seconds(from), _seconds(to), target])
+          .timeout(_recordingCommandTimeout);
     } on Object {
       return false;
     }
+    final file = File(target);
+    return file.existsSync() && file.lengthSync() > 0;
   }
+
+  @override
+  Future<void> releaseRecording() async {
+    _recordingFrom = null;
+    _recordingTo = null;
+    if (!_backBufferRaised) return;
+    _backBufferRaised = false;
+    await _setProperty('demuxer-max-back-bytes', '$_idleBackBufferBytes');
+  }
+
+  @override
+  Future<String> recordingDiagnostics() async {
+    final platform = player.platform;
+    if (platform is! NativePlayer) return 'Moteur mpv absent : rien à rapporter.';
+
+    Future<String> read(String name) async {
+      try {
+        final value = (await platform.getProperty(name)).trim();
+        return value.isEmpty ? '(vide)' : value;
+      } on Object {
+        return '(illisible)';
+      }
+    }
+
+    return [
+      'mpv ${await read('mpv-version')} ; fichier ${await read('path')}',
+      'stream-record = ${await read('stream-record')}'
+          ' (OMNIA ne s’en sert pas : voir startRecording)',
+      'cache = ${await read('cache')}'
+          ' ; cache-on-disk = ${await read('cache-on-disk')}'
+          ' ; demuxer-seekable-cache = ${await read('demuxer-seekable-cache')}'
+          ' ; cache-secs = ${await read('cache-secs')}',
+      'demuxer-max-bytes = ${await read('demuxer-max-bytes')}'
+          ' ; demuxer-max-back-bytes = ${await read('demuxer-max-back-bytes')}'
+          ' ; demuxer-donate-buffer = ${await read('demuxer-donate-buffer')}',
+      'demuxer-cache-time = ${await read('demuxer-cache-time')}'
+          ' ; demuxer-cache-duration = ${await read('demuxer-cache-duration')}'
+          ' ; demuxer-cache-idle = ${await read('demuxer-cache-idle')}'
+          ' ; demuxer-via-network = ${await read('demuxer-via-network')}',
+      'demuxer-cache-state = ${await read('demuxer-cache-state')}',
+      'time-pos = ${await read('time-pos')}'
+          ' ; pause = ${await read('pause')}'
+          ' ; core-idle = ${await read('core-idle')}'
+          ' ; eof-reached = ${await read('eof-reached')}'
+          ' ; speed = ${await read('speed')}',
+      'file-format = ${await read('file-format')}'
+          ' ; audio-codec-name = ${await read('audio-codec-name')}'
+          ' ; video-codec = ${await read('video-codec')}'
+          ' ; aid = ${await read('aid')} ; vid = ${await read('vid')}'
+          ' ; ao = ${await read('current-ao')}',
+      'extrait : de ${_recordingFrom ?? '(aucun)'} à ${_recordingTo ?? '(en cours)'}'
+          ' ; cache arrière agrandi : ${_backBufferRaised ? 'oui' : 'non'}',
+      if (_mpvLogs.isEmpty)
+        'journal de mpv : aucune ligne (niveau de journal trop élevé ?)'
+      else
+        'journal de mpv (${_mpvLogs.length} dernières lignes) :',
+      for (final line in _mpvLogs) '  $line',
+    ].join('\n');
+  }
+
+  /// Chemin tel que mpv l'attend.
+  ///
+  /// Deux couches le regardent. mpv d'abord : `dump-cache` passe son troisième
+  /// argument par `mp_get_user_path()`, qui développe un `~/` ou un `~~/` en
+  /// TÊTE de chaîne — un chemin absolu n'en commence jamais. libavformat
+  /// ensuite, qui devine un protocole au préfixe « xxx: » du nom ; il reconnaît
+  /// une lettre de lecteur Windows (`C:\…`) comme un chemin, mais un chemin
+  /// relatif dont le premier élément contient deux-points le tromperait. On ne
+  /// lui donne donc que des chemins absolus et normalisés. Les espaces, les
+  /// parenthèses et les antislashs, eux, ne demandent aucune protection : la
+  /// valeur voyage comme un argument de commande, pas comme une ligne de shell.
+  static String _mpvPath(String path) => p.normalize(p.absolute(path));
+
+  /// Nom du fichier de la répétition générale : un point en tête pour qu'il ne
+  /// ressemble jamais à un extrait, et l'extension de l'extrait conservée en
+  /// dernier, car c'est elle qui décide du conteneur chez libavformat.
+  static String _rehearsalPathFor(String target) =>
+      p.join(p.dirname(target), '.omnia-essai${p.extension(target)}');
 
   @override
   Future<void> close() async {
     _opening = false;
-    // Un extrait en cours ne doit pas continuer sur le fichier suivant.
-    await stopRecording();
+    // Un extrait en cours ne doit pas continuer sur le fichier suivant. Le
+    // service, lui, a déjà écrit son fichier : ici on ne fait qu'oublier
+    // l'extrait et rendre au moteur ses réglages d'avant.
+    await releaseRecording();
     await player.stop();
     _tracks = const Tracks();
     _sink?.update(

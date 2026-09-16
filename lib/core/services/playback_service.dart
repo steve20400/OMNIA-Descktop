@@ -941,8 +941,13 @@ class PlaybackService implements PlaybackStateSink {
       return;
     }
 
-    if (!await recorder.startRecording(path)) {
-      _failRecording(RecordingFailure.engineRefused);
+    // Le moteur répond par la raison de son refus, ou par
+    // [RecordingFailure.none] quand il a prouvé qu'il sait écrire ce fichier.
+    // Le voyant ne s'allume qu'après cette preuve.
+    final refusal = await recorder.startRecording(path);
+    if (refusal != RecordingFailure.none) {
+      await recorder.releaseRecording();
+      _failRecording(refusal);
       return;
     }
     update((st) => st.copyWith(recordingPath: path, recordingStartedAt: DateTime.now()));
@@ -956,49 +961,71 @@ class PlaybackService implements PlaybackStateSink {
   /// écrit. Un fichier resté vide est supprimé et l'échec est signalé avec sa
   /// raison : un extrait qui n'existe pas ne doit pas être annoncé.
   ///
-  /// Entre l'arrêt et la vérification, le repli : l'enregistrement au fil de
-  /// l'eau ne recopie que les paquets nouvellement lus, et un fichier local
-  /// déjà en cache n'en fournit aucun. L'enregistreur réécrit alors le fichier
-  /// depuis ce cache. Le repli vaut aussi pour un fichier réduit à son en-tête
-  /// (voir [_headerOnlyBytes]) : mpv l'écrit avant de savoir s'il saura
+  /// Entre l'arrêt et la vérification, l'écriture depuis le cache :
+  /// l'enregistrement au fil de l'eau du moteur ne recopie que les paquets
+  /// nouvellement lus, et un fichier local déjà en cache n'en fournit aucun.
+  /// L'enregistreur écrit alors le fichier depuis ce cache — c'est le chemin
+  /// ordinaire, pas l'exception. Il vaut aussi pour un fichier réduit à son
+  /// en-tête (voir [_headerOnlyBytes]) : mpv l'écrit avant de savoir s'il saura
   /// recopier les pistes, et l'annoncer donnerait un extrait qui ne s'ouvre pas.
   Future<void> _stopRecording() async {
     final path = _state.recordingPath;
     if (path == null) return;
     final Object? recorder = _active;
-    if (recorder is StreamRecorder) await recorder.stopRecording();
+    if (recorder is! StreamRecorder) {
+      update((st) => st.copyWith(clearRecording: true));
+      return;
+    }
 
-    var written = await _recordedBytes(path, attempts: 4);
-    // Rien du tout, ou un simple en-tête : le cache du moteur tient peut-être
-    // la séquence que l'écriture au fil de l'eau n'a pas eue.
-    if (written <= _headerOnlyBytes &&
-        recorder is StreamRecorder &&
-        await recorder.dumpRecording(path)) {
-      written = await _recordedBytes(path, attempts: 10);
-    }
-    // On ne jette que ce qui est vide : un extrait court reste un extrait.
-    final saved = written > 0;
-    if (!saved) {
-      try {
-        final f = File(path);
-        if (await f.exists()) await f.delete();
-      } on FileSystemException {
-        // Fichier vide impossible à retirer : sans conséquence.
+    try {
+      await recorder.stopRecording();
+
+      // Au retour de `stopRecording`, plus rien n'est en cours d'écriture
+      // (c'est le contrat de [StreamRecorder]) : un seul coup d'œil suffit,
+      // inutile d'attendre un fichier qui ne grandira plus.
+      var written = await _recordedBytes(path, attempts: 1);
+      // Rien du tout, ou un simple en-tête : le cache du moteur tient la
+      // séquence que l'écriture au fil de l'eau n'a pas eue — c'est le cas
+      // ordinaire d'un fichier local, lu d'avance.
+      final fromCache = written <= _headerOnlyBytes;
+      if (fromCache) {
+        await recorder.dumpRecording(path);
+        written = await _recordedBytes(path, attempts: 6);
       }
+      // Écrit au fil de l'eau : on ne jette que ce qui est vide, un extrait
+      // court reste un extrait. Écrit depuis le cache : le fichier est complet
+      // dès le retour, donc un fichier qui n'a que son en-tête ne contient
+      // aucun paquet — ce n'est pas un extrait court, c'est un extrait vide, et
+      // l'annoncer donnerait un fichier qui ne s'ouvre pas.
+      final saved = fromCache ? written > _headerOnlyBytes : written > 0;
+      if (!saved) {
+        try {
+          final f = File(path);
+          if (await f.exists()) await f.delete();
+        } on FileSystemException {
+          // Fichier vide impossible à retirer : sans conséquence.
+        }
+      }
+      update(
+        (st) => st.copyWith(
+          clearRecording: true,
+          lastRecording: saved ? path : null,
+          clearLastRecording: !saved,
+          recordingFailure: saved ? RecordingFailure.none : RecordingFailure.nothingRecorded,
+        ),
+      );
+    } finally {
+      // Quoi qu'il arrive, le moteur retrouve ses réglages d'avant l'extrait :
+      // un cache arrière agrandi oublié coûterait de la mémoire à chaque
+      // fichier suivant.
+      await recorder.releaseRecording();
     }
-    update(
-      (st) => st.copyWith(
-        clearRecording: true,
-        lastRecording: saved ? path : null,
-        clearLastRecording: !saved,
-        recordingFailure: saved ? RecordingFailure.none : RecordingFailure.nothingRecorded,
-      ),
-    );
   }
 
-  /// Taille du fichier d'un extrait arrêté. mpv le finalise juste après
-  /// l'arrêt : on lui laisse un court délai, et on répond dès qu'il dépasse la
-  /// taille d'un simple en-tête, puisqu'il ne grandira plus que de contenu.
+  /// Taille du fichier d'un extrait. On répond dès qu'elle dépasse celle d'un
+  /// simple en-tête, puisque le fichier ne grandira plus que de contenu ; les
+  /// essais suivants ne servent qu'à un système de fichiers qui publie la
+  /// taille avec un temps de retard (partage réseau, disque externe).
   Future<int> _recordedBytes(String path, {required int attempts}) async {
     var size = 0;
     for (var attempt = 0; attempt < attempts; attempt++) {

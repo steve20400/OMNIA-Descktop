@@ -12,19 +12,29 @@ enum RecordingFailure {
   unsupportedMedia,
 
   /// Rien ne défile (pause, fin de fichier, ouverture en cours) : un extrait
-  /// suit la lecture, et n'aurait aucun contenu.
+  /// suit la lecture, et n'aurait aucun contenu. Vérifié deux fois : par
+  /// l'état du lecteur, puis par la position réelle du moteur, qui doit avoir
+  /// bougé pendant la préparation de l'extrait.
   notPlaying,
 
-  /// Dossier de destination inaccessible (droits, disque retiré).
+  /// Dossier de destination inaccessible (droits, disque retiré). Le moteur
+  /// n'a pas réussi à y créer son fichier d'essai.
   folderUnavailable,
 
-  /// Le moteur a refusé de commencer : propriété d'enregistrement absente de
-  /// cette version de mpv, ou moteur déjà libéré.
+  /// Le moteur a refusé de commencer, ou n'a apporté aucune preuve qu'il
+  /// écrirait quoi que ce soit : propriété d'enregistrement absente de cette
+  /// version de mpv, moteur déjà libéré, ou cache vide.
   engineRefused,
 
+  /// Le conteneur de sortie (Matroska) refuse les pistes de ce média : mpv
+  /// recopie les paquets sans les réencoder, et tous les codecs n'ont pas de
+  /// place dans un `.mkv` / `.mka`. Mieux vaut le dire que laisser un fichier
+  /// qui ne s'ouvre pas.
+  containerRefused,
+
   /// Arrêt sans rien à garder : le moteur n'a écrit aucun paquet, et son cache
-  /// n'a rien donné non plus (format que le conteneur Matroska refuse,
-  /// enregistrement trop court).
+  /// n'a rien donné non plus (enregistrement trop court, cache vidé entre
+  /// temps).
   nothingRecorded;
 
   /// Désérialisation tolérante : une valeur inconnue devient [none].

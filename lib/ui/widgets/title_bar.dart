@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
@@ -12,6 +11,7 @@ import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'omnia_icon_button.dart';
+import 'window_drag_area.dart';
 import 'recent_files_menu.dart';
 
 /// Barre de titre personnalisée (fenêtre sans cadre).
@@ -98,7 +98,7 @@ class TitleBar extends ConsumerWidget {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onDoubleTap: window.toggleMaximize,
-                  child: DragToMoveArea(
+                  child: WindowDragArea(
                     // Le titre vit dans la zone de déplacement : on déplace la
                     // fenêtre en le saisissant, comme partout ailleurs.
                     child: Container(

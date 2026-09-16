@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/models/media_type.dart';
@@ -22,6 +21,7 @@ import 'beam_progress_bar.dart';
 import 'omnia_icon_button.dart';
 import 'stage.dart';
 import 'stage_context_menu.dart';
+import 'window_drag_area.dart';
 
 /// Mini-lecteur : la fenêtre compacte au premier plan.
 ///
@@ -29,8 +29,9 @@ import 'stage_context_menu.dart';
 /// toute la fenêtre, les commandes se posent dessus et s'effacent comme
 /// ailleurs. Sans image, un bandeau : pochette, titre, faisceau et transport.
 ///
-/// Toute la surface déplace la fenêtre ; le double-clic revient à la fenêtre
-/// entière (et n'agrandit surtout pas, contrairement à `DragToMoveArea`).
+/// Toute la surface déplace la fenêtre, sauf les commandes elles-mêmes ; le
+/// double-clic revient à la fenêtre entière (et n'agrandit surtout pas,
+/// contrairement à `DragToMoveArea`).
 class MiniPlayer extends ConsumerStatefulWidget {
   const MiniPlayer({super.key});
 
@@ -71,21 +72,32 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     });
   }
 
-  /// Glissement : la fenêtre suit. Clic : lecture/pause. Double-clic : retour
-  /// à la fenêtre entière.
+  /// Vrai si la pression en cours a déplacé la fenêtre : elle ne compte alors
+  /// plus comme un clic. Le relâchement se perd d'ordinaire dans la boucle de
+  /// déplacement du système, mais un petit glissement peut le rendre — sans
+  /// cela, bouger la fenêtre de trois pixels arrêterait la lecture.
+  bool _windowDragged = false;
+
+  void _markWindowDragged() => _windowDragged = true;
+
+  /// Clic : lecture/pause. Double-clic : retour à la fenêtre entière.
+  ///
+  /// Le glissement est confié à [WindowDragArea], posée sous le contenu : un
+  /// détecteur de gestes ne convient pas pour lui (voir sa documentation), et
+  /// l'arène suffit ici à laisser la priorité aux boutons — un clic sur une
+  /// commande ne relance pas la lecture par-dessus le marché.
   Widget _windowGestures({required Widget child, required bool hasMedia}) {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onPanStart: (_) {
-        windowManager.startDragging();
+      onTap: () {
+        if (_windowDragged) return;
+        _focus.requestFocus();
+        if (hasMedia) ref.dispatch(const TogglePlay());
       },
-      onTap: hasMedia
-          ? () {
-              _focus.requestFocus();
-              ref.dispatch(const TogglePlay());
-            }
-          : _focus.requestFocus,
-      onDoubleTap: () => ref.dispatch(const ToggleMiniPlayer()),
+      onDoubleTap: () {
+        if (_windowDragged) return;
+        ref.dispatch(const ToggleMiniPlayer());
+      },
       child: child,
     );
   }
@@ -103,7 +115,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         onHover: (_) => _chrome.activity(),
         onExit: (_) => _chrome.pointerLeft(),
         child: Listener(
-          onPointerDown: (_) => _chrome.activity(),
+          onPointerDown: (_) {
+            // Chaque pression repart d'un clic, jusqu'à preuve du contraire.
+            _windowDragged = false;
+            _chrome.activity();
+          },
           onPointerMove: (_) => _chrome.activity(),
           onPointerSignal: _onPointerSignal,
           child: ColoredBox(
@@ -129,8 +145,13 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         StageContextMenu(
           child: _windowGestures(
             hasMedia: hasMedia,
-            // L'image entière, sans barre de titre ni marge.
-            child: surface(context, fit: BoxFit.contain, aspectRatio: null),
+            // L'image entière, sans barre de titre ni marge. La zone de
+            // déplacement la couvre : rien d'atteignable là-dessous, et les
+            // commandes sont au-dessus dans la pile, donc testées avant elle.
+            child: WindowDragArea(
+              onDragStart: _markWindowDragged,
+              child: surface(context, fit: BoxFit.contain, aspectRatio: null),
+            ),
           ),
         ),
         // Les commandes par-dessus : elles s'effacent avec le reste des
@@ -176,13 +197,15 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         final buttonSize = math.max(18.0, rowHeight - 4);
         final buttonIcon = math.max(10.0, buttonSize - 8);
 
-        return _windowGestures(
-          hasMedia: false,
-          child: Padding(
-            padding: EdgeInsets.all(inset),
-            child: Row(
-              children: [
-                ClipRRect(
+        final strip = Padding(
+          padding: EdgeInsets.all(inset),
+          child: Row(
+            children: [
+              // Décor : rien à y cliquer. Hors d'atteinte du pointeur, la
+              // pochette laisse passer la pression jusqu'à la zone de
+              // déplacement posée dessous — on saisit la fenêtre par elle.
+              IgnorePointer(
+                child: ClipRRect(
                   borderRadius: OmniaMetrics.controlRadius,
                   child: SizedBox(
                     width: coverSide,
@@ -201,13 +224,17 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                           ),
                   ),
                 ),
-                const SizedBox(width: OmniaMetrics.space3),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Flexible(
+              ),
+              const SizedBox(width: OmniaMetrics.space3),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Titre et artiste : du texte, pas des commandes. Sourds
+                    // au pointeur, ils laissent saisir la fenêtre par eux.
+                    Flexible(
+                      child: IgnorePointer(
                         child: Text(
                           title,
                           style: type.bodyStrong,
@@ -215,8 +242,10 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (!compact)
-                        Flexible(
+                    ),
+                    if (!compact)
+                      Flexible(
+                        child: IgnorePointer(
                           child: Text(
                             subtitle,
                             style: type.caption,
@@ -224,75 +253,90 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      SizedBox(
-                        height: beamHeight,
-                        child: BeamProgressBar(
-                          progress: state.progress,
-                          duration: state.duration,
-                          enabled: hasMedia && state.duration > Duration.zero,
-                          onSeek: (position) => ref.dispatch(SeekAbsolute(position)),
-                        ),
                       ),
-                      SizedBox(
-                        height: rowHeight,
-                        child: Row(
-                          children: [
-                            if (columnWidth >= 170)
-                              OmniaIconButton(
-                                icon: Icons.skip_previous_rounded,
-                                size: buttonSize,
-                                iconSize: buttonIcon,
-                                tooltip: l10n.previousFile,
-                                onPressed:
-                                    hasPlaylist ? () => ref.dispatch(const PreviousFile()) : null,
-                              ),
+                    SizedBox(
+                      height: beamHeight,
+                      child: BeamProgressBar(
+                        progress: state.progress,
+                        duration: state.duration,
+                        enabled: hasMedia && state.duration > Duration.zero,
+                        onSeek: (position) => ref.dispatch(SeekAbsolute(position)),
+                      ),
+                    ),
+                    SizedBox(
+                      height: rowHeight,
+                      child: Row(
+                        children: [
+                          if (columnWidth >= 170)
                             OmniaIconButton(
-                              icon:
-                                  state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                              size: buttonSize + 4,
-                              iconSize: buttonIcon + 4,
-                              tooltip: state.isPlaying ? l10n.pause : l10n.play,
-                              onPressed: hasMedia ? () => ref.dispatch(const TogglePlay()) : null,
-                            ),
-                            if (columnWidth >= 170)
-                              OmniaIconButton(
-                                icon: Icons.skip_next_rounded,
-                                size: buttonSize,
-                                iconSize: buttonIcon,
-                                tooltip: l10n.nextFile,
-                                onPressed:
-                                    hasPlaylist ? () => ref.dispatch(const NextFile()) : null,
-                              ),
-                            const Spacer(),
-                            if (columnWidth >= 120)
-                              OmniaIconButton(
-                                icon: state.muted
-                                    ? Icons.volume_off_rounded
-                                    : Icons.volume_up_rounded,
-                                size: buttonSize,
-                                iconSize: buttonIcon,
-                                tooltip: state.muted ? l10n.unmute : l10n.mute,
-                                onPressed: () => ref.dispatch(const ToggleMute()),
-                              ),
-                            OmniaIconButton(
-                              icon: Icons.open_in_full_rounded,
+                              icon: Icons.skip_previous_rounded,
                               size: buttonSize,
-                              iconSize: buttonIcon - 2,
-                              tooltip: ref.tooltipWith(
-                                l10n.miniPlayerExit,
-                                ShortcutAction.miniPlayer,
-                                l10n,
-                              ),
-                              onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
+                              iconSize: buttonIcon,
+                              tooltip: l10n.previousFile,
+                              onPressed:
+                                  hasPlaylist ? () => ref.dispatch(const PreviousFile()) : null,
                             ),
-                          ],
-                        ),
+                          OmniaIconButton(
+                            icon:
+                                state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                            size: buttonSize + 4,
+                            iconSize: buttonIcon + 4,
+                            tooltip: state.isPlaying ? l10n.pause : l10n.play,
+                            onPressed: hasMedia ? () => ref.dispatch(const TogglePlay()) : null,
+                          ),
+                          if (columnWidth >= 170)
+                            OmniaIconButton(
+                              icon: Icons.skip_next_rounded,
+                              size: buttonSize,
+                              iconSize: buttonIcon,
+                              tooltip: l10n.nextFile,
+                              onPressed:
+                                  hasPlaylist ? () => ref.dispatch(const NextFile()) : null,
+                            ),
+                          const Spacer(),
+                          if (columnWidth >= 120)
+                            OmniaIconButton(
+                              icon: state.muted
+                                  ? Icons.volume_off_rounded
+                                  : Icons.volume_up_rounded,
+                              size: buttonSize,
+                              iconSize: buttonIcon,
+                              tooltip: state.muted ? l10n.unmute : l10n.mute,
+                              onPressed: () => ref.dispatch(const ToggleMute()),
+                            ),
+                          OmniaIconButton(
+                            icon: Icons.open_in_full_rounded,
+                            size: buttonSize,
+                            iconSize: buttonIcon - 2,
+                            tooltip: ref.tooltipWith(
+                              l10n.miniPlayerExit,
+                              ShortcutAction.miniPlayer,
+                              l10n,
+                            ),
+                            onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+        );
+
+        return _windowGestures(
+          hasMedia: false,
+          child: Stack(
+            fit: StackFit.passthrough,
+            children: [
+              // La zone de déplacement d'abord : la pile teste ses enfants du
+              // dernier au premier, donc le faisceau et les boutons passent
+              // avant elle. Partout ailleurs — pochette, titre, marges — la
+              // pression lui arrive et déplace la fenêtre.
+              Positioned.fill(child: WindowDragArea(onDragStart: _markWindowDragged)),
+              strip,
+            ],
           ),
         );
       },
@@ -415,9 +459,13 @@ class _MiniOverlay extends ConsumerWidget {
                       ),
                       if (showTime) ...[
                         const SizedBox(width: OmniaMetrics.space2),
-                        Text(
-                          formatTimecode(state.position, reference: state.duration),
-                          style: type.timecode.copyWith(color: colors.screen),
+                        // Le temps se lit, ne se clique pas : sourd au
+                        // pointeur, il laisse saisir la fenêtre par lui.
+                        IgnorePointer(
+                          child: Text(
+                            formatTimecode(state.position, reference: state.duration),
+                            style: type.timecode.copyWith(color: colors.screen),
+                          ),
                         ),
                       ],
                     ],
@@ -431,6 +479,13 @@ class _MiniOverlay extends ConsumerWidget {
     );
   }
 
+  /// Voile dégradé sous les commandes.
+  ///
+  /// Un [DecoratedBox] sans enfant ne prend aucune pression (il n'a rien à
+  /// tester, et ne se teste pas lui-même) : c'est essentiel, c'est là que se
+  /// trouve le pointeur quand les commandes sont affichées, et la pression
+  /// doit traverser jusqu'à la zone de déplacement posée sous l'image. Y
+  /// mettre un `ColoredBox` ou un enfant condamnerait le déplacement.
   Widget _shade(OmniaColors colors, {required bool top}) => Positioned(
         left: 0,
         right: 0,

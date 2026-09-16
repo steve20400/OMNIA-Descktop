@@ -76,14 +76,18 @@ class FakeAvController implements MediaController, FrameCapturer, StreamRecorder
   /// Nombre de replis demandés.
   int dumpCount = 0;
 
-  /// Simule un moteur qui refuse d'enregistrer.
-  bool refuseRecording = false;
+  /// Raison rendue par le moteur au démarrage d'un extrait :
+  /// [RecordingFailure.none] pour un moteur qui accepte.
+  RecordingFailure recordingRefusal = RecordingFailure.none;
+
+  /// Nombre de fois où le moteur a retrouvé ses réglages d'avant l'extrait.
+  int releaseCount = 0;
 
   @override
-  Future<bool> startRecording(String path) async {
-    if (refuseRecording) return false;
+  Future<RecordingFailure> startRecording(String path) async {
+    if (recordingRefusal != RecordingFailure.none) return recordingRefusal;
     recordingPath = path;
-    return true;
+    return RecordingFailure.none;
   }
 
   @override
@@ -100,6 +104,12 @@ class FakeAvController implements MediaController, FrameCapturer, StreamRecorder
     await File(path).writeAsBytes(dumpedBytes);
     return true;
   }
+
+  @override
+  Future<void> releaseRecording() async => releaseCount++;
+
+  @override
+  Future<String> recordingDiagnostics() async => 'Contrôleur factice : rien à rapporter.';
 
   @override
   Set<MediaType> get supportedTypes => const {MediaType.video, MediaType.audio};
@@ -1016,6 +1026,23 @@ void main() {
       expect(clipService.state.recordingFailed, isFalse);
     });
 
+    test('le cache ne rend qu’un en-tête : ce n’est pas un extrait', () async {
+      // Écrit depuis le cache, le fichier est complet dès le retour : s'il n'a
+      // que son en-tête de conteneur, il ne contient aucun paquet. L'annoncer
+      // donnerait un extrait qui ne s'ouvre pas.
+      av.recordedBytes = const [];
+      av.dumpedBytes = matroskaClip(512);
+      await clipService.openPath('/serie/ep1.mkv');
+      await toggle();
+      final path = clipService.state.recordingPath!;
+      await toggle();
+
+      expect(av.dumpCount, 1);
+      expect(clipService.state.recordingFailure, RecordingFailure.nothingRecorded);
+      expect(clipService.state.lastRecording, isNull);
+      expect(File(path).existsSync(), isFalse);
+    });
+
     test('rien au fil de l’eau : le repli par le cache sauve l’extrait', () async {
       av.recordedBytes = const [];
       av.dumpedBytes = matroskaClip();
@@ -1102,12 +1129,59 @@ void main() {
     });
 
     test('un moteur qui refuse : échec, rien en cours', () async {
-      av.refuseRecording = true;
+      av.recordingRefusal = RecordingFailure.engineRefused;
       await clipService.openPath('/serie/ep1.mkv');
       await toggle();
       expect(clipService.state.recording, isFalse);
       expect(clipService.state.recordingFailed, isTrue);
       expect(clipService.state.recordingFailure, RecordingFailure.engineRefused);
+      expect(av.recordingPath, isNull);
+      expect(clips.listSync(), isEmpty);
+    });
+
+    test('un conteneur qui refuse ces pistes : la raison est dite telle quelle', () async {
+      // mpv recopie les paquets sans les réencoder : tous les codecs n'ont pas
+      // leur place dans un Matroska. Il le dit avant d'allumer le voyant.
+      av.recordingRefusal = RecordingFailure.containerRefused;
+      await clipService.openPath('/serie/ep1.mkv');
+      await toggle();
+      expect(clipService.state.recording, isFalse);
+      expect(clipService.state.recordingFailure, RecordingFailure.containerRefused);
+      expect(clips.listSync(), isEmpty);
+    });
+
+    test('le moteur ne peut pas écrire dans le dossier : la raison passe telle quelle',
+        () async {
+      // Le dossier existe (le service a su y calculer un nom), mais le moteur
+      // n'y écrit pas : disque plein, droits en lecture seule, volume retiré
+      // entre-temps. Le message doit désigner le dossier, pas le moteur.
+      av.recordingRefusal = RecordingFailure.folderUnavailable;
+      await clipService.openPath('/serie/ep1.mkv');
+      await toggle();
+      expect(clipService.state.recording, isFalse);
+      expect(clipService.state.recordingFailure, RecordingFailure.folderUnavailable);
+      expect(clips.listSync(), isEmpty);
+    });
+
+    test('le moteur dit que rien ne défile : refus, même en état « en lecture »', () async {
+      // L'état dit « en lecture », mais la position du moteur, elle, ne bouge
+      // pas : c'est le moteur qui tranche, et son refus passe tel quel.
+      av.recordingRefusal = RecordingFailure.notPlaying;
+      await clipService.openPath('/serie/ep1.mkv');
+      await toggle();
+      expect(clipService.state.recording, isFalse);
+      expect(clipService.state.recordingFailure, RecordingFailure.notPlaying);
+    });
+
+    test('le moteur retrouve ses réglages, extrait réussi ou manqué', () async {
+      await clipService.openPath('/serie/ep1.mkv');
+      await toggle();
+      await toggle();
+      expect(av.releaseCount, 1, reason: 'après un extrait écrit');
+
+      av.recordingRefusal = RecordingFailure.engineRefused;
+      await toggle();
+      expect(av.releaseCount, 2, reason: 'après un démarrage refusé');
     });
 
     test('sans média, la commande ne fait rien', () async {

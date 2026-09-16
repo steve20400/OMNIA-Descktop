@@ -158,23 +158,32 @@ jobs:
 
       # Preuve qu'un extrait s'écrit vraiment : le contrôleur pilote le vrai
       # libmpv (celui que la compilation vient de déposer à côté de
-      # l'exécutable) sur un son d'essai, et le fichier obtenu doit contenir du
-      # son, pas seulement un en-tête. Sans OMNIA_LIBMPV_TEST, ce test est
+      # l'exécutable) sur des médias d'essai, et le fichier obtenu doit contenir
+      # du son, pas seulement un en-tête. Sans OMNIA_LIBMPV_TEST, ce test est
       # passé : il ne peut pas réussir silencieusement. Placé en dernier : un
       # extrait cassé fait échouer l'exécution sans priver personne de
       # l'installateur.
+      #
+      # Rapport détaillé : chaque échec porte ce que mpv rapporte (propriété
+      # d'enregistrement relue, état du cache, journal du moteur), et c'est la
+      # seule façon de comprendre une CI rouge sans machine Windows sous la main.
       - name: Extrait écrit par libmpv
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         env:
           OMNIA_LIBMPV_TEST: '1'
         run: |
           release="$PWD/build/windows/x64/runner/Release"
+          ls -l "$release" | head -40
           # Deux chemins vers la même bibliothèque : media_kit essaie d'abord
-          # LIBMPV_LIBRARY_PATH, puis les noms connus dans le PATH.
+          # LIBMPV_LIBRARY_PATH, puis les noms connus dans le PATH. Le premier
+          # veut un chemin Windows ; sans cygpath, le PATH suffit.
           export PATH="$release:$PATH"
-          export LIBMPV_LIBRARY_PATH="$(cygpath -w "$release/libmpv-2.dll")"
+          if command -v cygpath >/dev/null 2>&1; then
+            export LIBMPV_LIBRARY_PATH="$(cygpath -w "$release/libmpv-2.dll")"
+          fi
           bash tool/ci/run.sh "Extrait écrit par libmpv (Windows)" \
-            flutter test test/core/controllers/av_controller_recording_test.dart
+            flutter test --reporter expanded \
+            test/core/controllers/av_controller_recording_test.dart
 
   linux:
     name: Linux (application, lancement réel)
@@ -200,15 +209,41 @@ jobs:
         run: echo "OMNIA_VERSION=$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml)" >> "$GITHUB_ENV"
 
       - name: Dépendances
+        id: deps
         run: bash tool/ci/run.sh "Dépendances" flutter pub get
+
+      # Preuve qu'un extrait s'écrit vraiment : le contrôleur pilote le vrai
+      # libmpv (paquet libmpv-dev installé plus haut) sur des médias d'essai, et
+      # le fichier obtenu doit contenir du son, pas seulement un en-tête. Sans
+      # OMNIA_LIBMPV_TEST, ce test est passé : il ne peut pas réussir
+      # silencieusement.
+      #
+      # Placé AVANT la compilation : sous Linux, il ne dépend que du paquet
+      # libmpv-dev, et la réponse arrive dix minutes plus tôt. Les étapes
+      # suivantes s'exécutent quand même s'il échoue (`!cancelled()`) : un
+      # extrait cassé ne prive personne de l'archive.
+      #
+      # Aucun écran ni aucune carte son ici : le test ne crée pas de sortie
+      # vidéo et impose le pilote audio nul. Même chemin de code que sous
+      # Windows, même rapport détaillé en cas d'échec.
+      - name: Extrait écrit par libmpv
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        env:
+          OMNIA_LIBMPV_TEST: '1'
+        run: |
+          bash tool/ci/run.sh "Extrait écrit par libmpv (Linux)" \
+            flutter test --reporter expanded \
+            test/core/controllers/av_controller_recording_test.dart
 
       - name: Compilation
         id: build
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
         run: bash tool/ci/run.sh "Compilation Linux" flutter build linux --release
 
       # Archive tar : l'artefact zip de GitHub ne garde pas le droit
       # d'exécution du binaire. Le .desktop et l'icône suivent le README.
       - name: Archive
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           dir="omnia-${OMNIA_VERSION}-linux-x64"
           mkdir -p "build/paquet/$dir"
@@ -217,6 +252,7 @@ jobs:
           tar -C build/paquet -czf "build/paquet/$dir.tar.gz" "$dir"
 
       - name: Téléverser l'archive
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: OMNIA-${{ env.OMNIA_VERSION }}-Linux-x64
@@ -234,17 +270,3 @@ jobs:
           name: OMNIA-${{ env.OMNIA_VERSION }}-Linux-captures
           path: build/lancement/
           if-no-files-found: warn
-
-      # Preuve qu'un extrait s'écrit vraiment : le contrôleur pilote le vrai
-      # libmpv (paquet libmpv-dev installé plus haut) sur un son d'essai, et le
-      # fichier obtenu doit contenir du son, pas seulement un en-tête. Sans
-      # OMNIA_LIBMPV_TEST, ce test est passé : il ne peut pas réussir
-      # silencieusement. Placé en dernier : un extrait cassé fait échouer
-      # l'exécution sans priver personne de l'archive.
-      - name: Extrait écrit par libmpv
-        if: ${{ !cancelled() }}
-        env:
-          OMNIA_LIBMPV_TEST: '1'
-        run: |
-          bash tool/ci/run.sh "Extrait écrit par libmpv (Linux)" \
-            flutter test test/core/controllers/av_controller_recording_test.dart
