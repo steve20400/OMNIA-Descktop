@@ -17,6 +17,7 @@ import 'package:omnia/core/models/media_file.dart';
 import 'package:omnia/core/models/media_type.dart';
 import 'package:omnia/core/models/playback_state.dart';
 import 'package:omnia/core/models/playback_status.dart';
+import 'package:omnia/core/models/recording_failure.dart';
 import 'package:omnia/core/models/resume_offer.dart';
 import 'package:omnia/core/models/track_info.dart';
 import 'package:omnia/core/models/video_adjust.dart';
@@ -30,6 +31,16 @@ import 'package:omnia/core/services/settings_store.dart';
 import 'package:omnia/core/services/system_integration.dart';
 import 'package:omnia/core/services/window_service.dart';
 import 'package:path/path.dart' as p;
+
+/// Un extrait plausible : la signature Matroska, puis assez d'octets pour que
+/// le service n'y voie pas un fichier réduit à son en-tête de conteneur.
+List<int> matroskaClip([int bytes = 16 * 1024]) => <int>[
+      0x1A,
+      0x45,
+      0xDF,
+      0xA3,
+      ...List<int>.filled(bytes - 4, 0),
+    ];
 
 /// Contrôleur factice : enregistre ce qu'il reçoit et simule une lecture.
 class FakeAvController implements MediaController, FrameCapturer, StreamRecorder {
@@ -56,7 +67,14 @@ class FakeAvController implements MediaController, FrameCapturer, StreamRecorder
   /// Extrait en cours, et ce que l'arrêt écrit dans son fichier (vide :
   /// l'enregistreur n'a rien reçu, lecture restée en pause par exemple).
   String? recordingPath;
-  List<int> recordedBytes = const [0x1A, 0x45, 0xDF, 0xA3];
+  List<int> recordedBytes = matroskaClip();
+
+  /// Ce que le repli par le cache écrit quand l'arrêt n'a rien laissé. Vide :
+  /// le moteur n'a rien en cache non plus.
+  List<int> dumpedBytes = const [];
+
+  /// Nombre de replis demandés.
+  int dumpCount = 0;
 
   /// Simule un moteur qui refuse d'enregistrer.
   bool refuseRecording = false;
@@ -73,6 +91,14 @@ class FakeAvController implements MediaController, FrameCapturer, StreamRecorder
     final path = recordingPath;
     recordingPath = null;
     if (path != null) await File(path).writeAsBytes(recordedBytes);
+  }
+
+  @override
+  Future<bool> dumpRecording(String path) async {
+    dumpCount++;
+    if (dumpedBytes.isEmpty) return false;
+    await File(path).writeAsBytes(dumpedBytes);
+    return true;
   }
 
   @override
@@ -951,7 +977,15 @@ void main() {
       await toggle();
     });
 
-    test('rien d’écrit : échec signalé et fichier vide supprimé', () async {
+    test('un extrait qui s’écrit ne passe pas par le repli', () async {
+      await clipService.openPath('/serie/ep1.mkv');
+      await toggle();
+      await toggle();
+      expect(av.dumpCount, 0);
+      expect(clipService.state.recordingFailure, RecordingFailure.none);
+    });
+
+    test('rien d’écrit ni en cache : échec signalé et fichier vide supprimé', () async {
       av.recordedBytes = const [];
       await clipService.openPath('/serie/ep1.mkv');
       await toggle();
@@ -960,8 +994,90 @@ void main() {
 
       expect(clipService.state.recording, isFalse);
       expect(clipService.state.recordingFailed, isTrue);
+      expect(clipService.state.recordingFailure, RecordingFailure.nothingRecorded);
+      expect(av.dumpCount, 1, reason: 'le repli par le cache doit être tenté');
       expect(clipService.state.lastRecording, isNull);
       expect(File(path).existsSync(), isFalse);
+    });
+
+    test('un fichier réduit à son en-tête passe quand même par le repli', () async {
+      // mpv ouvre le fichier et écrit l'en-tête du conteneur avant de renoncer :
+      // le fichier existe, mais ne contient aucune image ni aucun son.
+      av.recordedBytes = matroskaClip(512);
+      av.dumpedBytes = matroskaClip();
+      await clipService.openPath('/serie/ep1.mkv');
+      await toggle();
+      final path = clipService.state.recordingPath!;
+      await toggle();
+
+      expect(av.dumpCount, 1, reason: 'un en-tête seul n’est pas un extrait');
+      expect(File(path).lengthSync(), matroskaClip().length);
+      expect(clipService.state.lastRecording, path);
+      expect(clipService.state.recordingFailed, isFalse);
+    });
+
+    test('rien au fil de l’eau : le repli par le cache sauve l’extrait', () async {
+      av.recordedBytes = const [];
+      av.dumpedBytes = matroskaClip();
+      await clipService.openPath('/serie/ep1.mkv');
+      await toggle();
+      final path = clipService.state.recordingPath!;
+      await toggle();
+
+      expect(av.dumpCount, 1);
+      expect(clipService.state.lastRecording, path);
+      expect(clipService.state.recordingFailed, isFalse);
+      expect(File(path).lengthSync(), greaterThan(0));
+    });
+
+    test('en pause, l’extrait est refusé et la raison est dite', () async {
+      await clipService.openPath('/serie/ep1.mkv');
+      bus.dispatch(const Pause());
+      await settle();
+      await clipService.idle;
+      await toggle();
+
+      expect(clipService.state.recording, isFalse);
+      expect(clipService.state.recordingFailure, RecordingFailure.notPlaying);
+      expect(av.recordingPath, isNull, reason: 'le moteur n’est même pas sollicité');
+      expect(clips.listSync(), isEmpty);
+    });
+
+    test('un document ne s’enregistre pas, et le dit', () async {
+      await clipService.openPath('/docs/notes.pdf');
+      await toggle();
+
+      expect(clipService.state.recording, isFalse);
+      expect(clipService.state.recordingFailure, RecordingFailure.unsupportedMedia);
+      expect(clips.listSync(), isEmpty);
+    });
+
+    test('dossier des captures inaccessible : refus immédiat, avec sa raison', () async {
+      // Un fichier à la place du dossier : impossible d'y créer quoi que ce soit.
+      final blocker = File(p.join(clips.path, 'pas-un-dossier'))..writeAsStringSync('x');
+      final ownBus = PlayerCommandBus();
+      final ownPlaylist = PlaylistService(bus: ownBus, scanner: scanner);
+      final failing = PlaybackService(
+        bus: ownBus,
+        router: MediaRouter([av]),
+        window: window,
+        playlist: ownPlaylist,
+        screenshots: ScreenshotService(defaultFolder: () async => Directory(blocker.path)),
+        recordingCheckDelay: Duration.zero,
+      );
+
+      await failing.openPath('/serie/ep1.mkv');
+      ownBus.dispatch(const ToggleRecording());
+      await settle();
+      await failing.idle;
+
+      expect(failing.state.recording, isFalse);
+      expect(failing.state.recordingFailure, RecordingFailure.folderUnavailable);
+      expect(failing.state.status, PlaybackStatus.playing);
+
+      await failing.dispose();
+      await ownPlaylist.dispose();
+      await ownBus.dispose();
     });
 
     test('changer de fichier arrête l’extrait et le garde', () async {
@@ -991,12 +1107,14 @@ void main() {
       await toggle();
       expect(clipService.state.recording, isFalse);
       expect(clipService.state.recordingFailed, isTrue);
+      expect(clipService.state.recordingFailure, RecordingFailure.engineRefused);
     });
 
     test('sans média, la commande ne fait rien', () async {
       await toggle();
       expect(clipService.state.recording, isFalse);
       expect(clipService.state.recordingFailed, isFalse);
+      expect(clipService.state.recordingFailure, RecordingFailure.none);
     });
   });
 

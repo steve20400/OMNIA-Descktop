@@ -146,21 +146,57 @@ final class OsdMiniPlayer extends OsdMessage {
   final bool enabled;
 }
 
+/// Actions dont l'affichage à l'écran est le SEUL retour possible.
+///
+/// Le volume : l'utilisateur veut le voir comme il voit l'avance rapide, et
+/// la molette agit le plus souvent au-dessus de l'image, loin du curseur de
+/// la barre. La capture et l'extrait : ils écrivent un fichier ailleurs sur
+/// le disque, et rien dans la fenêtre ne dit qu'ils ont réussi — ni qu'ils
+/// ont échoué. Sans message, le bouton a l'air de ne rien faire.
+bool osdAlwaysAnnounced(PlayerCommand command) => switch (command) {
+      SetVolume() || VolumeRelative() || ToggleMute() => true,
+      TakeScreenshot() || ToggleRecording() => true,
+      _ => false,
+    };
+
 /// Décide si une action mérite un retour à l'écran.
 ///
-/// Une action au clavier, en ligne de commande ou depuis la télécommande n'a
-/// aucun contrôle visible qui bouge : l'OSD est son seul retour. Un clic ou
-/// la molette, eux, font bouger un contrôle de la barre, sauf quand elle est
-/// masquée ([controlsHidden]) : pendant la lecture, dans tous les modes.
-bool osdWantedFor(CommandSource source, {required bool controlsHidden}) =>
-    switch (source) {
-      CommandSource.ui => controlsHidden,
-      CommandSource.keyboard ||
-      CommandSource.cli ||
-      CommandSource.system ||
-      CommandSource.remote =>
-        true,
-    };
+/// Trois familles, et non deux :
+///
+/// 1. Les origines sans contrôle visible — clavier, ligne de commande,
+///    système, télécommande : rien ne bouge à l'écran, l'OSD est leur seul
+///    retour, il s'affiche toujours.
+/// 2. Les actions d'[osdAlwaysAnnounced] : annoncées quelle que soit
+///    l'origine et que la barre soit visible ou non.
+/// 3. Le reste, à la souris : le contrôle que l'on vient de manipuler montre
+///    déjà le résultat (la vitesse dans son menu, la piste dans le sien), donc
+///    rien tant que la barre est visible ; masquée ([controlsHidden]), l'OSD
+///    reprend son rôle.
+///
+/// Gestes continus : un glissement sur le faisceau de progression ou sur le
+/// curseur de volume envoie une commande par pixel. Aucune origine nouvelle
+/// n'est nécessaire pour empêcher l'OSD de clignoter — un glissement suppose
+/// un contrôle sous le pointeur, donc une barre affichée (elle est même
+/// retenue visible pendant le geste), et la règle 3 laisse alors l'écran
+/// tranquille : c'est le cas du faisceau, dont la lampe suit déjà le doigt.
+/// Le volume, lui, reste annoncé exprès : deux messages de même nature
+/// réutilisent la même pastille et le même délai d'effacement — seul le
+/// chiffre change, la pastille suit le geste au lieu de battre.
+bool osdWantedFor(
+  PlayerCommand command,
+  CommandSource source, {
+  required bool controlsHidden,
+}) {
+  if (osdAlwaysAnnounced(command)) return true;
+  return switch (source) {
+    CommandSource.ui => controlsHidden,
+    CommandSource.keyboard ||
+    CommandSource.cli ||
+    CommandSource.system ||
+    CommandSource.remote =>
+      true,
+  };
+}
 
 /// Message à afficher pour [command], sachant l'état [after] une fois la
 /// commande traitée. `null` si l'action ne mérite pas de retour visuel.
@@ -219,9 +255,20 @@ OsdMessage? osdFor(PlayerCommand command, PlaybackState after) {
     CycleAbLoop() || ClearAbLoop() when hasMedia => OsdAbLoop(a: after.loopA, b: after.loopB),
     TakeScreenshot() when after.screenshotFailed => const OsdScreenshotFailed(),
     TakeScreenshot() when after.lastScreenshot != null => OsdScreenshot(after.lastScreenshot!),
-    // L'arrêt (et l'échec) sont annoncés par OsdController, qui suit l'état :
-    // un extrait s'arrête aussi tout seul, en changeant de fichier.
+    // Devant une image, ni chemin ni drapeau veut dire qu'aucune image n'a été
+    // obtenue (moteur sans trame prête, contrôleur sans capture). L'état décrit
+    // CETTE tentative — il est remis à zéro au début de chacune —, donc ce
+    // silence est un échec : sans message, le bouton a l'air inerte.
+    TakeScreenshot() when after.hasVideo => const OsdScreenshotFailed(),
+    // L'arrêt réussi est annoncé par OsdController, qui suit l'état : un
+    // extrait s'arrête aussi tout seul, en changeant de fichier.
     ToggleRecording() when after.recording => const OsdRecordingStarted(),
+    // L'échec, lui, se dit ici. Deux tentatives impossibles de suite (lecture
+    // en pause, document, dossier perdu) laissent le même état, avec la même
+    // raison : le suivi d'état ne voit aucun front et resterait muet au second
+    // appui. La commande, elle, arrive à chaque appui.
+    ToggleRecording() when after.hasFile && after.recordingFailed =>
+      const OsdRecordingFailed(),
     SetAspectMode() when hasMedia => OsdAspect(after.aspectMode),
     VideoZoomRelative() || ResetVideoZoom() when hasMedia => OsdVideoZoom(after.videoZoom),
     RotateVideo() when hasMedia => OsdVideoRotation(after.videoRotation),

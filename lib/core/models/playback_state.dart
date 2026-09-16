@@ -4,6 +4,7 @@ import 'equalizer.dart';
 import 'media_file.dart';
 import 'media_type.dart';
 import 'playback_status.dart';
+import 'recording_failure.dart';
 import 'resume_offer.dart';
 import 'track_info.dart';
 import 'video_adjust.dart';
@@ -53,7 +54,8 @@ class PlaybackState {
     this.recordingPath,
     this.recordingStartedAt,
     this.lastRecording,
-    this.recordingFailed = false,
+    bool recordingFailed = false,
+    RecordingFailure? recordingFailure,
     this.resumeOffer,
     this.miniPlayer = false,
     this.endMode = EndOfPlaybackMode.next,
@@ -62,7 +64,8 @@ class PlaybackState {
     this.playlist = const [],
     this.playlistIndex = -1,
     this.error,
-  });
+  }) : recordingFailure = recordingFailure ??
+            (recordingFailed ? RecordingFailure.nothingRecorded : RecordingFailure.none);
 
   /// Bornes de volume (échelle mpv : 0–100).
   static const double minVolume = 0;
@@ -186,9 +189,12 @@ class PlaybackState {
   /// Chemin du dernier extrait enregistré.
   final String? lastRecording;
 
-  /// Le dernier enregistrement n'a rien écrit (dossier inaccessible, format
-  /// refusé par l'enregistreur).
-  final bool recordingFailed;
+  /// Pourquoi le dernier extrait a échoué, [RecordingFailure.none] sinon.
+  /// C'est cette raison que l'interface transforme en message.
+  final RecordingFailure recordingFailure;
+
+  /// Le dernier enregistrement n'a rien donné, quelle qu'en soit la raison.
+  bool get recordingFailed => recordingFailure != RecordingFailure.none;
 
   /// Un extrait est en cours d'enregistrement.
   bool get recording => recordingPath != null;
@@ -291,6 +297,7 @@ class PlaybackState {
     String? lastRecording,
     bool clearLastRecording = false,
     bool? recordingFailed,
+    RecordingFailure? recordingFailure,
     ResumeOffer? resumeOffer,
     bool clearResumeOffer = false,
     bool? miniPlayer,
@@ -341,7 +348,12 @@ class PlaybackState {
       recordingPath: clearRecording ? null : (recordingPath ?? this.recordingPath),
       recordingStartedAt: clearRecording ? null : (recordingStartedAt ?? this.recordingStartedAt),
       lastRecording: clearLastRecording ? null : (lastRecording ?? this.lastRecording),
-      recordingFailed: recordingFailed ?? this.recordingFailed,
+      // `recordingFailed` reste accepté : un simple booléen suffit à effacer
+      // l'échec, et « en échec sans raison précise » vaut « rien d'écrit ».
+      recordingFailure: recordingFailure ??
+          (recordingFailed == null
+              ? this.recordingFailure
+              : (recordingFailed ? RecordingFailure.nothingRecorded : RecordingFailure.none)),
       resumeOffer: clearResumeOffer ? null : (resumeOffer ?? this.resumeOffer),
       miniPlayer: miniPlayer ?? this.miniPlayer,
       endMode: endMode ?? this.endMode,
@@ -393,6 +405,7 @@ class PlaybackState {
         'recordingStartedAt': recordingStartedAt?.toIso8601String(),
         'lastRecording': lastRecording,
         'recordingFailed': recordingFailed,
+        'recordingFailure': recordingFailure.name,
         'resumeOffer': resumeOffer?.toJson(),
         'miniPlayer': miniPlayer,
         'endMode': endMode.name,
@@ -456,7 +469,12 @@ class PlaybackState {
       recordingPath: json['recordingPath'] as String?,
       recordingStartedAt: DateTime.tryParse(json['recordingStartedAt'] as String? ?? ''),
       lastRecording: json['lastRecording'] as String?,
-      recordingFailed: json['recordingFailed'] as bool? ?? false,
+      // Un état venu d'une version qui ne connaissait que le booléen garde son
+      // échec, faute de raison plus précise.
+      recordingFailure: RecordingFailure.fromJson(
+        json['recordingFailure'] ??
+            (json['recordingFailed'] == true ? RecordingFailure.nothingRecorded.name : null),
+      ),
       resumeOffer: ResumeOffer.fromJson(json['resumeOffer']),
       miniPlayer: json['miniPlayer'] as bool? ?? false,
       endMode: EndOfPlaybackMode.fromJson(json['endMode']),

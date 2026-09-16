@@ -156,6 +156,26 @@ jobs:
           path: build/lancement/
           if-no-files-found: warn
 
+      # Preuve qu'un extrait s'écrit vraiment : le contrôleur pilote le vrai
+      # libmpv (celui que la compilation vient de déposer à côté de
+      # l'exécutable) sur un son d'essai, et le fichier obtenu doit contenir du
+      # son, pas seulement un en-tête. Sans OMNIA_LIBMPV_TEST, ce test est
+      # passé : il ne peut pas réussir silencieusement. Placé en dernier : un
+      # extrait cassé fait échouer l'exécution sans priver personne de
+      # l'installateur.
+      - name: Extrait écrit par libmpv
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          OMNIA_LIBMPV_TEST: '1'
+        run: |
+          release="$PWD/build/windows/x64/runner/Release"
+          # Deux chemins vers la même bibliothèque : media_kit essaie d'abord
+          # LIBMPV_LIBRARY_PATH, puis les noms connus dans le PATH.
+          export PATH="$release:$PATH"
+          export LIBMPV_LIBRARY_PATH="$(cygpath -w "$release/libmpv-2.dll")"
+          bash tool/ci/run.sh "Extrait écrit par libmpv (Windows)" \
+            flutter test test/core/controllers/av_controller_recording_test.dart
+
   linux:
     name: Linux (application, lancement réel)
     runs-on: ubuntu-24.04
@@ -214,3 +234,17 @@ jobs:
           name: OMNIA-${{ env.OMNIA_VERSION }}-Linux-captures
           path: build/lancement/
           if-no-files-found: warn
+
+      # Preuve qu'un extrait s'écrit vraiment : le contrôleur pilote le vrai
+      # libmpv (paquet libmpv-dev installé plus haut) sur un son d'essai, et le
+      # fichier obtenu doit contenir du son, pas seulement un en-tête. Sans
+      # OMNIA_LIBMPV_TEST, ce test est passé : il ne peut pas réussir
+      # silencieusement. Placé en dernier : un extrait cassé fait échouer
+      # l'exécution sans priver personne de l'archive.
+      - name: Extrait écrit par libmpv
+        if: ${{ !cancelled() }}
+        env:
+          OMNIA_LIBMPV_TEST: '1'
+        run: |
+          bash tool/ci/run.sh "Extrait écrit par libmpv (Linux)" \
+            flutter test test/core/controllers/av_controller_recording_test.dart

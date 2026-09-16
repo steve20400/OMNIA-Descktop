@@ -17,6 +17,7 @@ import '../models/media_file.dart';
 import '../models/media_type.dart';
 import '../models/playback_state.dart';
 import '../models/playback_status.dart';
+import '../models/recording_failure.dart';
 import '../models/resume_offer.dart';
 import '../models/window_sizes.dart';
 import 'history_store.dart';
@@ -888,43 +889,95 @@ class PlaybackService implements PlaybackStateSink {
   /// Surchargeable dans les tests.
   final Duration recordingCheckDelay;
 
+  /// En dessous de cette taille, un fichier d'extrait ne contient que l'en-tête
+  /// de son conteneur : mpv l'écrit dès qu'il ouvre le fichier, y compris quand
+  /// il renonce juste après (piste qu'il ne sait pas recopier telle quelle).
+  /// Un tel fichier ne s'ouvre pas ; l'annoncer serait pire que de le dire
+  /// manqué, donc on tente d'abord le repli par le cache.
+  static const int _headerOnlyBytes = 4096;
+
   /// Commence un extrait du média audio ou vidéo en cours, dans le dossier
   /// et sous le motif de nom des captures.
+  ///
+  /// Un extrait impossible est refusé tout de suite, avec sa raison : mieux
+  /// vaut un message qu'un voyant rouge devant un fichier qui ne s'écrit pas.
   Future<void> _startRecording() async {
     // Comme pour la capture : passage par `Object?` pour la promotion de type.
     final Object? recorder = _active;
     final store = screenshots;
     final file = _state.file;
-    if (recorder is! StreamRecorder || store == null || file == null || !file.type.isAv) return;
-    if (_state.status == PlaybackStatus.error) return;
+    // Sans média ouvert (ou sans dossier de destination configuré), la
+    // commande n'a rien à refuser : elle ne fait rien.
+    if (file == null || store == null) return;
 
-    update((st) => st.copyWith(recordingFailed: false, clearLastRecording: true));
+    if (recorder is! StreamRecorder || !file.type.isAv) {
+      _failRecording(RecordingFailure.unsupportedMedia);
+      return;
+    }
+    // Un extrait avance au rythme de la lecture : à l'arrêt, en pause ou en
+    // erreur, le moteur n'écrirait rien du tout.
+    if (_state.status != PlaybackStatus.playing) {
+      _failRecording(RecordingFailure.notPlaying);
+      return;
+    }
+
+    update(
+      (st) => st.copyWith(
+        recordingFailure: RecordingFailure.none,
+        clearLastRecording: true,
+      ),
+    );
+
+    final String path;
     try {
-      final path = await store.recordingPath(
+      path = await store.recordingPath(
         mediaPath: file.path,
         audioOnly: !_state.hasVideo,
         position: _state.position,
       );
-      if (await recorder.startRecording(path)) {
-        update((st) => st.copyWith(recordingPath: path, recordingStartedAt: DateTime.now()));
-        return;
-      }
     } on FileSystemException {
       // Dossier des captures inaccessible : même message qu'une capture.
+      _failRecording(RecordingFailure.folderUnavailable);
+      return;
     }
-    update((st) => st.copyWith(recordingFailed: true));
+
+    if (!await recorder.startRecording(path)) {
+      _failRecording(RecordingFailure.engineRefused);
+      return;
+    }
+    update((st) => st.copyWith(recordingPath: path, recordingStartedAt: DateTime.now()));
+  }
+
+  void _failRecording(RecordingFailure reason) {
+    update((st) => st.copyWith(recordingFailure: reason, clearLastRecording: true));
   }
 
   /// Arrête l'extrait en cours, s'il y en a un, et vérifie qu'il a bien été
-  /// écrit. Un fichier vide (lecture restée en pause, format refusé par
-  /// l'enregistreur) est supprimé et signalé.
+  /// écrit. Un fichier resté vide est supprimé et l'échec est signalé avec sa
+  /// raison : un extrait qui n'existe pas ne doit pas être annoncé.
+  ///
+  /// Entre l'arrêt et la vérification, le repli : l'enregistrement au fil de
+  /// l'eau ne recopie que les paquets nouvellement lus, et un fichier local
+  /// déjà en cache n'en fournit aucun. L'enregistreur réécrit alors le fichier
+  /// depuis ce cache. Le repli vaut aussi pour un fichier réduit à son en-tête
+  /// (voir [_headerOnlyBytes]) : mpv l'écrit avant de savoir s'il saura
+  /// recopier les pistes, et l'annoncer donnerait un extrait qui ne s'ouvre pas.
   Future<void> _stopRecording() async {
     final path = _state.recordingPath;
     if (path == null) return;
     final Object? recorder = _active;
     if (recorder is StreamRecorder) await recorder.stopRecording();
 
-    final saved = await _recordingWritten(path);
+    var written = await _recordedBytes(path, attempts: 4);
+    // Rien du tout, ou un simple en-tête : le cache du moteur tient peut-être
+    // la séquence que l'écriture au fil de l'eau n'a pas eue.
+    if (written <= _headerOnlyBytes &&
+        recorder is StreamRecorder &&
+        await recorder.dumpRecording(path)) {
+      written = await _recordedBytes(path, attempts: 10);
+    }
+    // On ne jette que ce qui est vide : un extrait court reste un extrait.
+    final saved = written > 0;
     if (!saved) {
       try {
         final f = File(path);
@@ -938,20 +991,24 @@ class PlaybackService implements PlaybackStateSink {
         clearRecording: true,
         lastRecording: saved ? path : null,
         clearLastRecording: !saved,
-        recordingFailed: !saved,
+        recordingFailure: saved ? RecordingFailure.none : RecordingFailure.nothingRecorded,
       ),
     );
   }
 
-  /// mpv finalise le fichier juste après l'arrêt : on lui laisse un court
-  /// délai avant de conclure qu'il n'a rien écrit.
-  Future<bool> _recordingWritten(String path) async {
-    for (var attempt = 0; attempt < 10; attempt++) {
+  /// Taille du fichier d'un extrait arrêté. mpv le finalise juste après
+  /// l'arrêt : on lui laisse un court délai, et on répond dès qu'il dépasse la
+  /// taille d'un simple en-tête, puisqu'il ne grandira plus que de contenu.
+  Future<int> _recordedBytes(String path, {required int attempts}) async {
+    var size = 0;
+    for (var attempt = 0; attempt < attempts; attempt++) {
       final f = File(path);
-      if (await f.exists() && await f.length() > 0) return true;
-      await Future<void>.delayed(recordingCheckDelay);
+      if (await f.exists()) size = await f.length();
+      if (size > _headerOnlyBytes) return size;
+      // Aucune attente après le dernier essai : elle ne changerait rien.
+      if (attempt < attempts - 1) await Future<void>.delayed(recordingCheckDelay);
     }
-    return false;
+    return size;
   }
 
   /// Libère ce service. Les contrôleurs de média ne sont pas libérés ici :

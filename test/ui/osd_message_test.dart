@@ -20,6 +20,9 @@ void main() {
   const idle = PlaybackState();
 
   group('osdWantedFor', () {
+    // Action ordinaire : son résultat se lit déjà dans le contrôle manipulé.
+    const ordinary = SpeedRelative(0.25);
+
     test('clavier, ligne de commande, système, télécommande : toujours', () {
       for (final source in [
         CommandSource.keyboard,
@@ -27,14 +30,58 @@ void main() {
         CommandSource.system,
         CommandSource.remote,
       ]) {
-        expect(osdWantedFor(source, controlsHidden: false), isTrue, reason: source.name);
-        expect(osdWantedFor(source, controlsHidden: true), isTrue, reason: source.name);
+        expect(
+          osdWantedFor(ordinary, source, controlsHidden: false),
+          isTrue,
+          reason: source.name,
+        );
+        expect(
+          osdWantedFor(ordinary, source, controlsHidden: true),
+          isTrue,
+          reason: source.name,
+        );
       }
     });
 
-    test('souris : seulement quand la barre de contrôles est masquée', () {
-      expect(osdWantedFor(CommandSource.ui, controlsHidden: false), isFalse);
-      expect(osdWantedFor(CommandSource.ui, controlsHidden: true), isTrue);
+    test('souris : une action déjà visible attend que la barre soit masquée', () {
+      expect(osdWantedFor(ordinary, CommandSource.ui, controlsHidden: false), isFalse);
+      expect(osdWantedFor(ordinary, CommandSource.ui, controlsHidden: true), isTrue);
+    });
+
+    test('le volume s’annonce toujours, barre visible comprise', () {
+      const volumeCommands = [SetVolume(40), VolumeRelative(5), ToggleMute()];
+      for (final command in volumeCommands) {
+        expect(
+          osdWantedFor(command, CommandSource.ui, controlsHidden: false),
+          isTrue,
+          reason: command.type,
+        );
+        expect(
+          osdWantedFor(command, CommandSource.keyboard, controlsHidden: false),
+          isTrue,
+          reason: command.type,
+        );
+      }
+    });
+
+    test('capture et extrait s’annoncent toujours : aucun autre retour', () {
+      for (final command in const [TakeScreenshot(), ToggleRecording()]) {
+        expect(
+          osdWantedFor(command, CommandSource.ui, controlsHidden: false),
+          isTrue,
+          reason: command.type,
+        );
+      }
+    });
+
+    test('glissement sur le faisceau : rien tant que la barre est visible', () {
+      // Un glissement envoie une commande par pixel, et retient la barre
+      // affichée : la lampe suit déjà le doigt, l'OSD se tait.
+      const drag = SeekAbsolute(Duration(minutes: 10));
+      expect(osdWantedFor(drag, CommandSource.ui, controlsHidden: false), isFalse);
+      // Barre masquée (ou touche du clavier), l'OSD reprend son rôle.
+      expect(osdWantedFor(drag, CommandSource.ui, controlsHidden: true), isTrue);
+      expect(osdWantedFor(drag, CommandSource.keyboard, controlsHidden: false), isTrue);
     });
   });
 
@@ -127,14 +174,35 @@ void main() {
       expect(osdFor(const TakeScreenshot(), playing), isNull);
     });
 
+    test('capture sans image obtenue : l’échec s’affiche quand même', () {
+      // Devant une image, ni chemin ni drapeau veut dire que rien n'a été
+      // capturé : sans message, le bouton passerait pour inerte.
+      expect(
+        osdFor(const TakeScreenshot(), playing.copyWith(hasVideo: true)),
+        isA<OsdScreenshotFailed>(),
+      );
+    });
+
     test('extrait : le début s’annonce à la commande ; la fin, par l’état', () {
       expect(
         osdFor(const ToggleRecording(), playing.copyWith(recordingPath: '/c/a.mkv')),
         isA<OsdRecordingStarted>(),
       );
-      // L'arrêt (réussi ou non) est annoncé par OsdController, qui suit l'état :
-      // un extrait s'arrête aussi en changeant de fichier, sans commande.
+      // L'arrêt réussi est annoncé par OsdController, qui suit l'état : un
+      // extrait s'arrête aussi en changeant de fichier, sans commande.
       expect(osdFor(const ToggleRecording(), playing.copyWith(lastRecording: '/c/a.mkv')), isNull);
+    });
+
+    test('extrait impossible : l’échec répond à chaque appui', () {
+      // Deux tentatives impossibles de suite (lecture en pause, document)
+      // laissent le même état : le suivi d'état ne voit aucun front, et seule
+      // la commande peut encore répondre au second appui.
+      expect(
+        osdFor(const ToggleRecording(), playing.copyWith(recordingFailed: true)),
+        isA<OsdRecordingFailed>(),
+      );
+      // Sans fichier ouvert, il n'y a rien à enregistrer ni à annoncer.
+      expect(osdFor(const ToggleRecording(), idle.copyWith(recordingFailed: true)), isNull);
     });
 
     test('les commandes sans retour visuel ne produisent rien', () {

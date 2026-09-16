@@ -30,13 +30,21 @@ import 'stream_recorder.dart';
 /// propriétés mpv, derrière [_setProperty] qui n'échoue jamais bruyamment :
 /// une propriété refusée par une version de mpv laisse la lecture intacte.
 class AvController implements MediaController, FrameCapturer, StreamRecorder {
-  AvController({Player? player, AppPreferences Function()? preferences})
+  /// [withVideoOutput] à `false` : aucune surface de rendu n'est créée, et
+  /// [videoController] reste inutilisable. Réservé aux tests qui pilotent
+  /// libmpv sans interface : la surface attend le moteur Flutter et ses canaux
+  /// de plateforme, et sans eux tout appel à mpv resterait en attente.
+  AvController({
+    Player? player,
+    AppPreferences Function()? preferences,
+    bool withVideoOutput = true,
+  })
       // libass : mpv dessine les sous-titres dans l'image, et media_kit retire
       // sa propre couche de texte. Sans cela, activer une piste les
       // affichait deux fois, et « masquer » laissait la copie de media_kit.
       : player = player ?? Player(configuration: const PlayerConfiguration(libass: true)),
         _preferences = preferences ?? (() => AppPreferences.defaults) {
-    videoController = VideoController(this.player);
+    if (withVideoOutput) videoController = VideoController(this.player);
     _listen();
     unawaited(_applyBaseProperties());
   }
@@ -49,6 +57,7 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
   final AppPreferences Function() _preferences;
 
   /// Surface de rendu vidéo, consommée par le widget `Video` de l'interface.
+  /// Non initialisée quand le contrôleur est créé sans sortie vidéo.
   late final VideoController videoController;
 
   PlaybackStateSink? _sink;
@@ -577,16 +586,32 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     await _setProperty('af', Equalizer.filterFor(gains));
   }
 
+  // --- Extraits ---------------------------------------------------------------
+
+  /// Position du média au début de l'extrait en cours, point de départ du
+  /// repli par le cache. `null` : aucun extrait commencé.
+  Duration? _recordingFrom;
+
   /// Enregistrement d'extrait : propriété `stream-record` de mpv. Elle
   /// recopie les paquets lus par le démultiplexeur dans un fichier dont
   /// l'extension fixe le format, sans réencoder : qualité intacte et presque
   /// aucun coût processeur.
+  ///
+  /// La propriété est relue avant de répondre `true` : media_kit appelle
+  /// `mpv_set_property_string` sans regarder son code de retour, si bien
+  /// qu'une propriété refusée (version de mpv sans enregistrement, moteur
+  /// libéré) passerait pour un succès et allumerait un voyant qui n'enregistre
+  /// rien.
   @override
   Future<bool> startRecording(String path) async {
     final platform = player.platform;
     if (platform is! NativePlayer) return false;
     try {
       await platform.setProperty('stream-record', path);
+      if ((await platform.getProperty('stream-record')).trim().isEmpty) return false;
+      // Point de départ du repli : la position exacte du moteur, et non celle
+      // de l'état, filtrée à six mises à jour par seconde.
+      _recordingFrom = player.state.position;
       return true;
     } on Object {
       return false;
@@ -596,6 +621,31 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
   /// Une chaîne vide ferme l'enregistreur, qui finalise le fichier.
   @override
   Future<void> stopRecording() => _setProperty('stream-record', '');
+
+  /// Repli quand l'écriture au fil de l'eau n'a rien donné : `dump-cache`
+  /// recopie dans [path] les paquets que le démultiplexeur garde en mémoire
+  /// entre le début de l'extrait et la position actuelle.
+  ///
+  /// C'est le cas courant d'un fichier local : mpv le lit d'avance, la
+  /// séquence est déjà en cache quand l'utilisateur lance l'extrait, et
+  /// `stream-record` n'a plus aucun paquet neuf à recopier. La commande écrase
+  /// le fichier et ne rend la main qu'une fois l'écriture finie.
+  @override
+  Future<bool> dumpRecording(String path) async {
+    final platform = player.platform;
+    final from = _recordingFrom;
+    _recordingFrom = null;
+    if (platform is! NativePlayer || from == null) return false;
+    final to = player.state.position;
+    // Rien ne s'est écoulé : il n'y a aucune séquence à écrire.
+    if (to <= from) return false;
+    try {
+      await platform.command(['dump-cache', _seconds(from), _seconds(to), path]);
+      return true;
+    } on Object {
+      return false;
+    }
+  }
 
   @override
   Future<void> close() async {
