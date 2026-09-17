@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -25,7 +26,14 @@ class ExtractedDocument {
 /// Extrait le texte ou le Markdown d'un fichier de la famille Word / bureautique
 /// (`.docx`, `.doc`, `.odt`, `.rtf`).
 abstract final class DocReader {
+  /// Lit un fichier bureautique depuis [path] et retourne son texte extrait.
+  static Future<String> read(String path) async {
+    final bytes = await File(path).readAsBytes();
+    return extract(bytes, path).text;
+  }
+
   /// Extrait le contenu de [bytes] selon l'extension de [path].
+
   static ExtractedDocument extract(Uint8List bytes, String path) {
     final ext = p.extension(path).toLowerCase().replaceFirst('.', '');
     switch (ext) {

@@ -7,9 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/commands/player_command.dart';
 import '../../core/models/media_file.dart';
 import '../../core/providers.dart';
-import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_handler.dart';
 import '../theme/omnia_theme.dart';
+
 import 'stage_context_menu.dart';
 
 /// La scène d'affichage d'une image fixe (`.png`, `.jpg`, `.webp`, `.svg`, etc.).
@@ -49,8 +49,7 @@ class _ImageStageState extends ConsumerState<ImageStage> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final state = ref.watch(playbackStateProvider);
-    final rotationDegrees = state.videoRotation;
-    final quarterTurns = ((rotationDegrees % 360) / 90).round() % 4;
+    final quarterTurns = state.rotation;
 
     return Focus(
       focusNode: _focus,
@@ -61,8 +60,9 @@ class _ImageStageState extends ConsumerState<ImageStage> {
           onPointerSignal: _onPointerSignal,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onDoubleTap: () => ref.dispatch(const FitZoom()),
+            onDoubleTap: () => ref.dispatch(const FitZoom(FitMode.contain)),
             child: Container(
+
               color: colors.velvet,
               alignment: Alignment.center,
               child: AnimatedRotation(

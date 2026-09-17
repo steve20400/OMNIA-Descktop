@@ -88,15 +88,16 @@ class ImageController implements MediaController {
         sink.update((st) => st.copyWith(zoom: _clampZoom(zoom)));
       case FitZoom():
         sink.update((st) => st.copyWith(zoom: 1.0));
-      case Rotate90():
-        sink.update((st) => st.copyWith(videoRotation: (st.videoRotation + 90) % 360));
-      case SetVideoRotation(:final degrees):
-        sink.update((st) => st.copyWith(videoRotation: degrees % 360));
+      case RotateDocument(:final quarterTurns):
+        sink.update((st) => st.copyWith(rotation: (st.rotation + quarterTurns) % 4));
+      case RotateVideo(:final quarterTurns):
+        sink.update((st) => st.copyWith(rotation: (st.rotation + quarterTurns) % 4));
       default:
         return false;
     }
     return true;
   }
+
 
   static double _clampZoom(double value) => value.clamp(minZoom, maxZoom);
 
