@@ -18,6 +18,8 @@ void main() {
       expect(p.equalizerEnabled, isFalse);
       expect(p.pdfLayout, DocumentLayout.continuous);
       expect(p.screenshotNamePattern, AppPreferences.defaultScreenshotPattern);
+      expect(p.normalPlayerAlwaysOnTop, isFalse);
+      expect(p.miniPlayerAlwaysOnTop, isTrue);
     });
   });
 
@@ -41,7 +43,10 @@ void main() {
         readingDark: true,
         textScale: 1.4,
         screenshotNamePattern: '{name} @ {position}',
+        normalPlayerAlwaysOnTop: true,
+        miniPlayerAlwaysOnTop: false,
       );
+
       final restored = AppPreferences.fromJson(p.toJson());
       expect(restored, p);
       expect(restored.hashCode, p.hashCode);

@@ -200,6 +200,19 @@ abstract class AppLocalizations {
   /// **'Toujours au premier plan'**
   String get alwaysOnTop;
 
+  /// No description provided for @alwaysOnTopNormal.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecteur normal'**
+  String get alwaysOnTopNormal;
+
+  /// No description provided for @alwaysOnTopMini.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mini-lecteur'**
+  String get alwaysOnTopMini;
+
+
   /// No description provided for @loading.
   ///
   /// In fr, this message translates to:
@@ -367,6 +380,13 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Documents'**
   String get filterDocuments;
+
+  /// No description provided for @filterImages.
+  ///
+  /// In fr, this message translates to:
+  /// **'Images'**
+  String get filterImages;
+
 
   /// No description provided for @sortLabel.
   ///
@@ -1556,7 +1576,20 @@ abstract class AppLocalizations {
   /// **'Dossier des captures'**
   String get settingsScreenshotFolder;
 
+  /// No description provided for @settingsScreenshotFolderVideo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossier des captures vidéo'**
+  String get settingsScreenshotFolderVideo;
+
+  /// No description provided for @settingsRecordingFolder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossier des extraits audio'**
+  String get settingsRecordingFolder;
+
   /// No description provided for @settingsScreenshotFolderDefault.
+
   ///
   /// In fr, this message translates to:
   /// **'Dossier par défaut'**

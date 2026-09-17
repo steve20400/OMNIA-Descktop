@@ -53,8 +53,11 @@ sealed class PlayerCommand {
       'toggleRecording' => const ToggleRecording(),
       'setLoopMode' => SetLoopMode(EndOfPlaybackMode.fromJson(json['mode'])),
       'cycleLoopMode' => const CycleLoopMode(),
-      'toggleAlwaysOnTop' => const ToggleAlwaysOnTop(),
+      'toggleAlwaysOnTop' => ToggleAlwaysOnTop(
+          forMiniPlayer: json['forMiniPlayer'] as bool?,
+        ),
       'toggleSidePanel' => const ToggleSidePanel(),
+
       'setSidePanelVisible' => SetSidePanelVisible(_bool(json, 'visible')),
       'setSidePanelWidth' => SetSidePanelWidth(_num(json, 'width').toDouble()),
       'setControlBarWidth' => SetControlBarWidth(_num(json, 'width').toDouble()),
@@ -82,7 +85,9 @@ sealed class PlayerCommand {
           ),
         ),
       'setScreenshotFolder' => SetScreenshotFolder(json['path'] as String?),
+      'setRecordingFolder' => SetRecordingFolder(json['path'] as String?),
       'zoomRelative' => ZoomRelative(_num(json, 'factor').toDouble()),
+
       'fitZoom' => FitZoom(FitMode.fromJson(json['mode'])),
       'rotateDocument' => RotateDocument(_num(json, 'quarterTurns').toInt()),
       'toggleReadingDarkMode' => const ToggleReadingDarkMode(),
@@ -335,10 +340,14 @@ final class CycleLoopMode extends PlayerCommand {
 }
 
 final class ToggleAlwaysOnTop extends PlayerCommand {
-  const ToggleAlwaysOnTop();
+  const ToggleAlwaysOnTop({this.forMiniPlayer});
+  final bool? forMiniPlayer;
   @override
   String get type => 'toggleAlwaysOnTop';
+  @override
+  Map<String, Object?> get arguments => {'forMiniPlayer': forMiniPlayer};
 }
+
 
 final class ToggleSidePanel extends PlayerCommand {
   const ToggleSidePanel();
@@ -525,6 +534,17 @@ final class SetScreenshotFolder extends PlayerCommand {
   @override
   Map<String, Object?> get arguments => {'path': path};
 }
+
+/// Dossier des extraits / enregistrements audio ; `null` revient au dossier par défaut.
+final class SetRecordingFolder extends PlayerCommand {
+  const SetRecordingFolder(this.path);
+  final String? path;
+  @override
+  String get type => 'setRecordingFolder';
+  @override
+  Map<String, Object?> get arguments => {'path': path};
+}
+
 
 // --- Documents -------------------------------------------------------------
 

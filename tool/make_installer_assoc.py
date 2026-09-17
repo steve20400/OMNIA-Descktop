@@ -18,8 +18,11 @@ FAMILIES = [
     ('videoExtensions', 'OMNIA.Video'),
     ('audioExtensions', 'OMNIA.Audio'),
     ('pdfExtensions', 'OMNIA.Document'),
+    ('docExtensions', 'OMNIA.Document'),
     ('textExtensions', 'OMNIA.Document'),
+    ('imageExtensions', 'OMNIA.Image'),
 ]
+
 
 
 def extensions(source, name):

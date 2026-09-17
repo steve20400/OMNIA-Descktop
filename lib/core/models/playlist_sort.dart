@@ -23,10 +23,12 @@ enum PlaylistFilter {
   all,
   video,
   audio,
-  documents;
+  documents,
+  images;
 
   static PlaylistFilter fromJson(Object? value) => values.firstWhere(
         (e) => e.name == value,
         orElse: () => PlaylistFilter.all,
       );
 }
+

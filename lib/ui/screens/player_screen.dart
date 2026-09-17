@@ -440,9 +440,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Widget _resizable(Widget child, {required bool enabled}) {
     if (!needsCustomResizeEdges) return child;
     return DragToResizeArea(
-      resizeEdgeSize: 5,
+      resizeEdgeSize: 8,
       enableResizeEdges: enabled ? null : const [],
       child: child,
     );
   }
+
 }

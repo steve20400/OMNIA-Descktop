@@ -117,14 +117,18 @@ sudo ln -sf /opt/omnia/omnia /usr/local/bin/omnia
 # Intégration au bureau. Le nom du fichier .desktop DOIT être l'identifiant
 # d'application (dev.omnia.omnia), sinon GNOME ne peut pas relier la fenêtre
 # à son icône sous Wayland.
-mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/scalable/apps
+mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/scalable/apps ~/.local/share/pixmaps
 cp linux/dev.omnia.omnia.desktop ~/.local/share/applications/
-cp linux/dev.omnia.omnia.svg     ~/.local/share/icons/hicolor/scalable/apps/
+cp -r linux/icons/hicolor/*      ~/.local/share/icons/hicolor/
+cp linux/dev.omnia.omnia.png     ~/.local/share/pixmaps/dev.omnia.omnia.png
 update-desktop-database ~/.local/share/applications
 gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
 ```
 
-« Ouvrir avec → OMNIA » est ensuite proposé pour les formats audio, vidéo, PDF et texte.
+Un script d'installation automatisé est également fourni dans `linux/install.sh`.
+
+« Ouvrir avec → OMNIA » est ensuite proposé pour les formats audio, vidéo, PDF, documents Word/texte et images.
+
 
 ### Icône
 

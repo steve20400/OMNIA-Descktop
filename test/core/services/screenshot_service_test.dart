@@ -76,5 +76,21 @@ void main() {
       await service.recordingPath(mediaPath: '/films/ep1.mkv', audioOnly: false, now: when);
       expect(nested.existsSync(), isTrue);
     });
+
+    test('séparation distincte des dossiers de captures vidéo et extraits audio', () async {
+      final shotsDir = Directory(p.join(dir.path, 'video_shots'));
+      final audioDir = Directory(p.join(dir.path, 'audio_records'));
+      final settings = MemorySettingsStore();
+      await settings.setScreenshotFolder(shotsDir.path);
+      await settings.setRecordingFolder(audioDir.path);
+      final service = ScreenshotService(settings: settings, defaultFolder: () async => dir);
+
+      final shotPath = await service.save(png, mediaPath: '/films/ep1.mkv', now: when);
+      final audioPath = await service.recordingPath(mediaPath: '/musique/son.mp3', audioOnly: true, now: when);
+
+      expect(p.dirname(shotPath), shotsDir.path);
+      expect(p.dirname(audioPath), audioDir.path);
+    });
   });
 }
+

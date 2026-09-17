@@ -9,9 +9,13 @@ import '../models/app_preferences.dart';
 import '../models/media_file.dart';
 import '../models/media_type.dart';
 import '../models/playback_status.dart';
+import '../utils/doc_reader.dart';
 import '../utils/os_errors.dart';
 import '../utils/text_encoding.dart';
 import 'media_controller.dart';
+import 'media_router.dart';
+
+
 
 /// Un fichier texte chargé, prêt à être affiché.
 class TextDocument {
@@ -68,7 +72,7 @@ class TextController implements MediaController {
   Stream<TextDocument?> get documents => _documents.stream;
 
   @override
-  Set<MediaType> get supportedTypes => const {MediaType.text};
+  Set<MediaType> get supportedTypes => const {MediaType.text, MediaType.doc};
 
   void _publish(TextDocument? doc) {
     _document = doc;
@@ -99,19 +103,35 @@ class TextController implements MediaController {
       final Uint8List bytes = length > maxBytes
           ? await _readPrefix(ioFile, maxBytes)
           : await ioFile.readAsBytes();
-      final decoded = decodeText(bytes);
       final ext = p.extension(file.path).toLowerCase();
+      final extClean = ext.replaceFirst('.', '');
+      final isDocFamily = file.type == MediaType.doc ||
+          MediaRouter.docExtensions.contains(extClean);
 
-      _publish(
-        TextDocument(
-          path: file.path,
-          text: normaliseLineEndings(decoded.text),
-          isMarkdown: ext == '.md' || ext == '.markdown',
-          encoding: decoded.encoding,
-        ),
-      );
+      if (isDocFamily) {
+        final extracted = DocReader.extract(bytes, file.path);
+        _publish(
+          TextDocument(
+            path: file.path,
+            text: normaliseLineEndings(extracted.text),
+            isMarkdown: extracted.isMarkdown,
+            encoding: extracted.formatDescription,
+          ),
+        );
+      } else {
+        final decoded = decodeText(bytes);
+        _publish(
+          TextDocument(
+            path: file.path,
+            text: normaliseLineEndings(decoded.text),
+            isMarkdown: ext == '.md' || ext == '.markdown',
+            encoding: decoded.encoding,
+          ),
+        );
+      }
       sink.update((st) => st.copyWith(status: PlaybackStatus.playing));
     } on FileSystemException catch (e) {
+
       _publish(null);
       sink.update(
         (st) => st.copyWith(
