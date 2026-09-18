@@ -35,7 +35,7 @@ void main() {
 
       expect(find.byIcon(Icons.skip_previous_rounded), findsOneWidget);
       expect(find.byIcon(Icons.remove_rounded), findsOneWidget);
-      expect(find.text('100%'), findsOneWidget);
+      expect(find.text('100 %'), findsOneWidget);
       expect(find.byIcon(Icons.add_rounded), findsOneWidget);
       expect(find.byIcon(Icons.fit_screen_outlined), findsOneWidget);
       expect(find.byIcon(Icons.rotate_right_rounded), findsOneWidget);
@@ -57,7 +57,7 @@ void main() {
       expect(harness.commands.whereType<ZoomRelative>().last.factor, closeTo(1.25, 0.001));
 
       // Reset zoom to 100%
-      await tester.tap(find.text('100%'));
+      await tester.tap(find.text('100 %'));
       await tester.pumpAndSettle();
       expect(harness.commands.whereType<SetZoom>().last.zoom, 1.0);
 
