@@ -158,7 +158,11 @@ void main() {
           isTrue,
           reason: 'mpv a refusé d’écrire son cache (dump-cache).',
         );
-        written = File(clip).existsSync() ? File(clip).lengthSync() : 0;
+        for (var attempt = 0; attempt < 20; attempt++) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          written = File(clip).existsSync() ? File(clip).lengthSync() : 0;
+          if (written > 32 * 1024) break;
+        }
       }
 
       // Deux secondes de PCM 16 bits à 22 050 Hz font 88 ko : un fichier plus
