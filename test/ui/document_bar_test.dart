@@ -200,7 +200,7 @@ void main() {
     });
 
     testWidgets('texte : bascule en mode modification affiche le bouton enregistrer', (tester) async {
-      final harness = await pumpBar(tester, _text);
+      await pumpBar(tester, _text);
       await resizeWindow(tester, const Size(1200, 400));
 
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);

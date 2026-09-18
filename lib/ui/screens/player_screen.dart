@@ -7,6 +7,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
+import '../../core/models/media_type.dart';
 import '../../core/models/playback_state.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';

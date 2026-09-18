@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
+import '../../core/models/document_layout.dart';
 import '../../core/models/playback_state.dart';
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
@@ -115,15 +116,15 @@ class ImageBar extends ConsumerWidget {
         const ControlSlot(id: 'prev', width: icon, priority: 0),
         OmniaIconButton(
           icon: Icons.skip_previous_rounded,
-          tooltip: ref.tooltipWith(l10n.previousTrack, ShortcutAction.previousTrack, l10n),
+          tooltip: ref.tooltipWith(l10n.previousFile, ShortcutAction.previousFile, l10n),
           onPressed: canNavigate ? () => ref.dispatch(const PreviousFile()) : null,
         ),
         [
           OmniaMenuItem(
             icon: Icons.skip_previous_rounded,
-            label: l10n.previousTrack,
+            label: l10n.previousFile,
             enabled: canNavigate,
-            trailing: ref.shortcutOf(ShortcutAction.previousTrack, l10n),
+            trailing: ref.shortcutOf(ShortcutAction.previousFile, l10n),
             onPressed: () => ref.dispatch(const PreviousFile()),
           ),
         ],
@@ -132,15 +133,15 @@ class ImageBar extends ConsumerWidget {
         const ControlSlot(id: 'next', width: icon, priority: 0),
         OmniaIconButton(
           icon: Icons.skip_next_rounded,
-          tooltip: ref.tooltipWith(l10n.nextTrack, ShortcutAction.nextTrack, l10n),
+          tooltip: ref.tooltipWith(l10n.nextFile, ShortcutAction.nextFile, l10n),
           onPressed: canNavigate ? () => ref.dispatch(const NextFile()) : null,
         ),
         [
           OmniaMenuItem(
             icon: Icons.skip_next_rounded,
-            label: l10n.nextTrack,
+            label: l10n.nextFile,
             enabled: canNavigate,
-            trailing: ref.shortcutOf(ShortcutAction.nextTrack, l10n),
+            trailing: ref.shortcutOf(ShortcutAction.nextFile, l10n),
             onPressed: () => ref.dispatch(const NextFile()),
           ),
         ],
@@ -217,13 +218,13 @@ class ImageBar extends ConsumerWidget {
         OmniaIconButton(
           icon: Icons.fit_screen_outlined,
           tooltip: 'Ajuster à la fenêtre',
-          onPressed: () => ref.dispatch(const FitZoom()),
+          onPressed: () => ref.dispatch(const FitZoom(FitMode.width)),
         ),
         [
           OmniaMenuItem(
             icon: Icons.fit_screen_outlined,
             label: 'Ajuster à la fenêtre',
-            onPressed: () => ref.dispatch(const FitZoom()),
+            onPressed: () => ref.dispatch(const FitZoom(FitMode.width)),
           ),
         ],
       ),
@@ -250,7 +251,7 @@ class ImageBar extends ConsumerWidget {
         const ControlSlot(id: 'fullscreen', width: icon, priority: 0),
         OmniaIconButton(
           icon: state.fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-          tooltip: ref.tooltipWith(l10n.fullscreen, ShortcutAction.fullscreen, l10n),
+          tooltip: ref.tooltipWith(l10n.fullscreen, ShortcutAction.toggleFullscreen, l10n),
           onPressed: () => ref.dispatch(const ToggleFullscreen()),
         ),
         const [],

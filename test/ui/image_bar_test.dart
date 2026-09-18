@@ -59,7 +59,7 @@ void main() {
       // Reset zoom to 100%
       await tester.tap(find.text('100%'));
       await tester.pumpAndSettle();
-      expect(harness.commands.whereType<SetZoom>().last.scale, 1.0);
+      expect(harness.commands.whereType<SetZoom>().last.zoom, 1.0);
 
       // Fit to window
       await tester.tap(find.byIcon(Icons.fit_screen_outlined));
