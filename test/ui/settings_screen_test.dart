@@ -242,7 +242,7 @@ void main() {
       final harness = await _pump(tester, size: const Size(360, 240));
       final before = harness.store.preferences.singleInstance;
 
-      await _tap(tester, find.byType(OmniaSwitch));
+      await _tap(tester, find.byType(OmniaSwitch).first);
       await _drain(tester);
 
       expect(harness.store.preferences.singleInstance, !before);
