@@ -61,6 +61,8 @@ void main() {
       expect(field('StartupWMClass'), 'dev.omnia.omnia');
       expect(field('Icon'), 'dev.omnia.omnia');
       expect(File('linux/dev.omnia.omnia.svg').existsSync(), isTrue);
+      expect(File('linux/dev.omnia.omnia.png').existsSync(), isTrue);
+      expect(File('linux/icons/hicolor/256x256/apps/dev.omnia.omnia.png').existsSync(), isTrue);
     });
 
     test('fichiers déposés sur l’icône ou « Ouvrir avec » : un seul lancement', () {
@@ -73,7 +75,9 @@ void main() {
       final mimes = field('MimeType')!.split(';').where((m) => m.isNotEmpty).toSet();
       expect(mimes, containsAll(['video/mp4', 'video/x-matroska', 'audio/mpeg', 'audio/flac']));
       expect(mimes, containsAll(['application/pdf', 'text/plain', 'text/markdown']));
+      expect(mimes, containsAll(['image/png', 'image/jpeg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']));
     });
+
   });
 
   group('Intégration continue', () {

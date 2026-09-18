@@ -213,8 +213,10 @@ jobs:
           dir="omnia-${OMNIA_VERSION}-linux-x64"
           mkdir -p "build/paquet/$dir"
           cp -r build/linux/x64/release/bundle/. "build/paquet/$dir/"
-          cp linux/dev.omnia.omnia.desktop linux/dev.omnia.omnia.svg "build/paquet/$dir/"
+          cp linux/dev.omnia.omnia.desktop linux/dev.omnia.omnia.svg linux/dev.omnia.omnia.png linux/install.sh "build/paquet/$dir/"
+          cp -r linux/icons "build/paquet/$dir/"
           tar -C build/paquet -czf "build/paquet/$dir.tar.gz" "$dir"
+
 
       - name: Téléverser l'archive
         uses: actions/upload-artifact@v7

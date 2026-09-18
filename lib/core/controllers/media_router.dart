@@ -48,14 +48,34 @@ class MediaRouter {
 
   static const Set<String> pdfExtensions = {'pdf'};
 
-  static const Set<String> textExtensions = {'txt', 'md', 'markdown', 'log'};
+  static const Set<String> docExtensions = {
+    'docx', 'doc', 'odt', 'rtf', 'dotx', 'docm', 'dotm', 'fodt', 'ott',
+    'pptx', 'ppt', 'ppsx', 'odp', 'fodp', 'otp',
+  };
+
+  static const Set<String> textExtensions = {
+    'txt', 'md', 'markdown', 'log', 'json', 'yaml', 'yml', 'xml', 'csv',
+    'tsv', 'ini', 'conf', 'cfg', 'properties', 'toml', 'srt', 'vtt', 'sub',
+    'ass', 'lrc', 'sql', 'sh', 'bash', 'bat', 'cmd', 'ps1', 'html', 'htm',
+    'css', 'js', 'dart', 'py', 'c', 'cpp', 'h', 'hpp', 'java', 'rs', 'go',
+    'aux', 'tex', 'latex', 'bib', 'cls', 'sty', 'toc', 'lof', 'lot', 'bbl',
+    'blg', 'idx', 'ilg', 'ind', 'out', 'diff', 'patch', 'env', 'reg', 'inf',
+    'lock',
+  };
+
+  static const Set<String> imageExtensions = {
+    'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'ico', 'svg', 'avif',
+    'tif', 'tiff', 'heic', 'heif', 'jfif',
+  };
 
   /// Toutes les extensions lisibles, sans le point.
   static Set<String> get allExtensions => {
         ...videoExtensions,
         ...audioExtensions,
         ...pdfExtensions,
+        ...docExtensions,
         ...textExtensions,
+        ...imageExtensions,
       };
 
   /// Type déduit de l'extension (insensible à la casse).
@@ -65,6 +85,8 @@ class MediaRouter {
     if (videoExtensions.contains(ext)) return MediaType.video;
     if (audioExtensions.contains(ext)) return MediaType.audio;
     if (pdfExtensions.contains(ext)) return MediaType.pdf;
+    if (docExtensions.contains(ext)) return MediaType.doc;
+    if (imageExtensions.contains(ext)) return MediaType.image;
     if (textExtensions.contains(ext)) return MediaType.text;
     return MediaType.unknown;
   }

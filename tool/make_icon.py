@@ -350,6 +350,7 @@ def ico(images):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     previews = '--previews' in sys.argv
+    for_linux = '--linux' in sys.argv
     only = [a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--sizes=')]
     sizes = [int(s) for s in only[0].split(',')] if only else SIZES
     out = args[0] if args else '.'
@@ -361,13 +362,22 @@ def main():
         if previews and (only or size in PREVIEW_SIZES):
             with open(os.path.join(out, f'omnia-{size}.png'), 'wb') as f:
                 f.write(blob)
-    if only:
+        if for_linux:
+            hicolor_dir = os.path.join(out, 'icons', 'hicolor', f'{size}x{size}', 'apps')
+            os.makedirs(hicolor_dir, exist_ok=True)
+            with open(os.path.join(hicolor_dir, 'dev.omnia.omnia.png'), 'wb') as f:
+                f.write(blob)
+            if size == 256:
+                with open(os.path.join(out, 'dev.omnia.omnia.png'), 'wb') as f:
+                    f.write(blob)
+    if only or for_linux:
         # Un .ico privé de tailles ne doit jamais remplacer l'icône livrée.
-        print('essai, .ico non écrit :', sizes)
+        print('Génération terminée pour', sizes)
         return
     with open(os.path.join(out, 'app_icon.ico'), 'wb') as f:
         f.write(ico(images))
     print('icône écrite :', os.path.join(out, 'app_icon.ico'), [s for s, _ in images])
+
 
 
 if __name__ == '__main__':

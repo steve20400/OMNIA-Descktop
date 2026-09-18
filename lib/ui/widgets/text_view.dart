@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../../core/commands/player_command.dart';
 import '../../core/controllers/text_controller.dart';
 import '../../core/providers.dart';
 import '../document_search.dart';
+import '../document_ui_controller.dart';
 import '../theme/omnia_theme.dart';
 
 /// Vue d'un fichier texte ou Markdown, en lecture seule.
@@ -30,13 +33,16 @@ class TextView extends ConsumerStatefulWidget {
 
 class _TextViewState extends ConsumerState<TextView> {
   final ScrollController _scroll = ScrollController();
+  late final TextEditingController _editController;
   Timer? _reportDebounce;
   double? _pendingRestore;
   int _lastMatch = -1;
+  int _seenSaveRequest = 0;
 
   @override
   void initState() {
     super.initState();
+    _editController = TextEditingController(text: widget.document.text);
     _scroll.addListener(_onScrolled);
     widget.search?.addListener(_onSearchChanged);
   }
@@ -50,6 +56,7 @@ class _TextViewState extends ConsumerState<TextView> {
     }
     if (old.document.path != widget.document.path) {
       _lastMatch = -1;
+      _editController.text = widget.document.text;
       if (_scroll.hasClients) _scroll.jumpTo(0);
     }
   }
@@ -58,8 +65,35 @@ class _TextViewState extends ConsumerState<TextView> {
   void dispose() {
     _reportDebounce?.cancel();
     _scroll.dispose();
+    _editController.dispose();
     widget.search?.removeListener(_onSearchChanged);
     super.dispose();
+  }
+
+  Future<void> _saveFile() async {
+    try {
+      final file = File(widget.document.path);
+      await file.writeAsString(_editController.text);
+      if (mounted) {
+        ref.read(textControllerProvider).updateText(_editController.text);
+        ref.read(documentUiProvider.notifier).setUnsavedChanges(false);
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+            content: Text('Fichier enregistré avec succès.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l’enregistrement : $e'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   void _onScrolled() {
@@ -133,10 +167,54 @@ class _TextViewState extends ConsumerState<TextView> {
     );
 
     final doc = widget.document;
+    final ui = ref.watch(documentUiProvider);
     _restoreIfNeeded(ref.read(playbackStateProvider).scrollFraction);
 
+    if (ui.saveRequest != _seenSaveRequest) {
+      _seenSaveRequest = ui.saveRequest;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _saveFile();
+      });
+    }
+
     final Widget content;
-    if (doc.isMarkdown) {
+    if (ui.isEditing) {
+      content = CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyS, control: true): _saveFile,
+        },
+        child: Scrollbar(
+          controller: _scroll,
+          child: SingleChildScrollView(
+            controller: _scroll,
+            padding: const EdgeInsets.symmetric(
+              horizontal: OmniaMetrics.space8,
+              vertical: OmniaMetrics.space6,
+            ),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: TextField(
+                  controller: _editController,
+                  maxLines: null,
+                  style: doc.isMarkdown ? body : mono,
+                  cursorColor: reading.accent,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: (_) {
+                    ref.read(documentUiProvider.notifier).setUnsavedChanges(true);
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else if (doc.isMarkdown) {
       content = Markdown(
         data: doc.text,
         controller: _scroll,

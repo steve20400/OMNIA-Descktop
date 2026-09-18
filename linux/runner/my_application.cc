@@ -29,6 +29,11 @@ static void my_application_activate(GApplication* application) {
   // window_manager, TitleBarStyle.hidden). On n'installe donc jamais la
   // GtkHeaderBar de GNOME : elle entrerait en conflit avec la barre custom.
   gtk_window_set_title(window, "OMNIA");
+  gtk_window_set_default_icon_name(APPLICATION_ID);
+  gtk_window_set_icon_name(window, APPLICATION_ID);
+  if (!gtk_window_set_icon_from_file(window, "/opt/omnia/dev.omnia.omnia.png", nullptr)) {
+    gtk_window_set_icon_from_file(window, "/usr/share/pixmaps/dev.omnia.omnia.png", nullptr);
+  }
 
   gtk_window_set_default_size(window, 1200, 760);
 

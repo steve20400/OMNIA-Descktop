@@ -99,6 +99,7 @@ Future<void> main(List<String> args) async {
   await _showWindow(
     bounds: settings.windowBounds,
     maximized: settings.windowMaximized,
+    alwaysOnTop: settings.preferences.normalPlayerAlwaysOnTop,
   );
 
   runApp(
@@ -110,7 +111,11 @@ Future<void> main(List<String> args) async {
 }
 
 /// Prépare et affiche la fenêtre sans cadre.
-Future<void> _showWindow({required Rect? bounds, required bool maximized}) async {
+Future<void> _showWindow({
+  required Rect? bounds,
+  required bool maximized,
+  bool alwaysOnTop = false,
+}) async {
   await windowManager.ensureInitialized();
 
   final options = WindowOptions(
@@ -118,6 +123,7 @@ Future<void> _showWindow({required Rect? bounds, required bool maximized}) async
     minimumSize: WindowSizes.mainMinimum,
     center: bounds == null || isWaylandSession,
     backgroundColor: OmniaColors.dark.velvet,
+    alwaysOnTop: alwaysOnTop,
     titleBarStyle: TitleBarStyle.hidden,
     title: 'OMNIA',
   );
@@ -129,6 +135,7 @@ Future<void> _showWindow({required Rect? bounds, required bool maximized}) async
       await windowManager.setPosition(bounds.topLeft);
     }
     if (maximized) await windowManager.maximize();
+    if (alwaysOnTop) await windowManager.setAlwaysOnTop(true);
     await windowManager.show();
     await windowManager.focus();
   });

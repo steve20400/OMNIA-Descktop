@@ -47,6 +47,9 @@ PlayerCommand? commandForPaths(List<String> paths, {bool videoPlaying = false}) 
   for (final path in paths) {
     if (FileSystemEntity.isDirectorySync(path)) return OpenFolder(path);
     if (videoPlaying && isSubtitlePath(path)) return LoadSubtitleFile(path);
+    if (MediaRouter.isSupported(path) && !isSubtitlePath(path)) return OpenFile(path);
+  }
+  for (final path in paths) {
     if (MediaRouter.isSupported(path)) return OpenFile(path);
   }
   final first = paths.firstOrNull;

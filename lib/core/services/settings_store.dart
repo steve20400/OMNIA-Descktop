@@ -18,7 +18,9 @@ abstract final class SettingsKeys {
   static const playlistDescending = 'playlist.descending';
   static const endOfPlaybackMode = 'playback.endMode';
   static const screenshotFolder = 'screenshots.folder';
+  static const recordingFolder = 'recordings.folder';
   static const preferences = 'preferences';
+
   static const lastVolume = 'playback.lastVolume';
   static const keymapOverrides = 'keymap.overrides';
   static const miniLongSide = 'mini.longSide';
@@ -81,7 +83,12 @@ abstract interface class SettingsStore {
   /// Dossier des captures d'écran ; `null` = dossier par défaut du système.
   String? get screenshotFolder;
   Future<void> setScreenshotFolder(String? path);
+
+  /// Dossier des enregistrements audio ; `null` = dossier par défaut du système.
+  String? get recordingFolder;
+  Future<void> setRecordingFolder(String? path);
 }
+
 
 /// Implémentation Hive (fichier local dans le dossier de données de l'app).
 class HiveSettingsStore implements SettingsStore {
@@ -237,7 +244,16 @@ class HiveSettingsStore implements SettingsStore {
   Future<void> setScreenshotFolder(String? path) => path == null
       ? _box.delete(SettingsKeys.screenshotFolder)
       : _box.put(SettingsKeys.screenshotFolder, path);
+
+  @override
+  String? get recordingFolder => _box.get(SettingsKeys.recordingFolder) as String?;
+
+  @override
+  Future<void> setRecordingFolder(String? path) => path == null
+      ? _box.delete(SettingsKeys.recordingFolder)
+      : _box.put(SettingsKeys.recordingFolder, path);
 }
+
 
 /// Implémentation en mémoire : tests, et repli quand le stockage local est
 /// déjà tenu par une autre instance.
@@ -349,4 +365,13 @@ class MemorySettingsStore implements SettingsStore {
 
   @override
   Future<void> setScreenshotFolder(String? path) async => _screenshotFolder = path;
+
+  String? _recordingFolder;
+
+  @override
+  String? get recordingFolder => _recordingFolder;
+
+  @override
+  Future<void> setRecordingFolder(String? path) async => _recordingFolder = path;
 }
+

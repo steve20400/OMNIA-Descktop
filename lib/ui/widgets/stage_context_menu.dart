@@ -61,7 +61,9 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(playbackStateProvider);
+    final prefs = ref.watch(preferencesProvider);
     final panelVisible = ref.watch(panelStateProvider.select((p) => p.visible));
+
 
     final hasMedia =
         state.hasFile && state.status != PlaybackStatus.error && state.mediaType.isAv;
@@ -232,13 +234,29 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
             trailing: ref.shortcutOf(ShortcutAction.miniPlayer, l10n),
             onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
           ),
-        OmniaMenuItem(
+        OmniaSubmenu(
           icon: Icons.push_pin_outlined,
           label: l10n.alwaysOnTop,
-          trailing: ref.shortcutOf(ShortcutAction.alwaysOnTop, l10n),
-          active: state.alwaysOnTop,
-          onPressed: () => ref.dispatch(const ToggleAlwaysOnTop()),
+          children: [
+            OmniaMenuItem(
+              icon: prefs.normalPlayerAlwaysOnTop
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              label: l10n.alwaysOnTopNormal,
+              active: prefs.normalPlayerAlwaysOnTop,
+              onPressed: () => ref.dispatch(const ToggleAlwaysOnTop(forMiniPlayer: false)),
+            ),
+            OmniaMenuItem(
+              icon: prefs.miniPlayerAlwaysOnTop
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              label: l10n.alwaysOnTopMini,
+              active: prefs.miniPlayerAlwaysOnTop,
+              onPressed: () => ref.dispatch(const ToggleAlwaysOnTop(forMiniPlayer: true)),
+            ),
+          ],
         ),
+
         OmniaMenuItem(
           icon: Icons.view_sidebar_outlined,
           label: panelVisible ? l10n.panelHide : l10n.panelShow,

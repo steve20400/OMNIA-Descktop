@@ -43,7 +43,9 @@ void main() {
       // Phase 2
       SetPlaylistSort(PlaylistSort.size, descending: true),
       SetPlaylistFilter(PlaylistFilter.audio),
+      SetPlaylistFilter(PlaylistFilter.images),
       SetPlaylistQuery('ep'),
+
       RemoveFromPlaylist('/videos/ep3.mkv'),
       RescanFolder(),
       RevealInFolder('/videos/ep2.mkv'),
@@ -86,7 +88,10 @@ void main() {
       UpdatePreferences({'seekStepSeconds': 10, 'equalizerGains': Equalizer.flat}),
       SetScreenshotFolder('/captures'),
       SetScreenshotFolder(null),
+      SetRecordingFolder('/recordings'),
+      SetRecordingFolder(null),
     ];
+
 
     for (final command in samples) {
       test('${command.type} survit à toJson → fromJson', () {

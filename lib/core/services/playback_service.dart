@@ -63,8 +63,13 @@ class PlaybackService implements PlaybackStateSink {
         equalizerGains: prefs.equalizerGains,
         readingDark: prefs.readingDark,
         documentLayout: prefs.pdfLayout,
+        alwaysOnTop: prefs.normalPlayerAlwaysOnTop,
       );
+      if (prefs.normalPlayerAlwaysOnTop) {
+        unawaited(window.setAlwaysOnTop(true));
+      }
     }
+
     _subscription = bus.stream.listen(_onCommand);
     _playlistSubscription = playlist.stream.listen(_onPlaylistChanged);
   }
@@ -400,7 +405,14 @@ class PlaybackService implements PlaybackStateSink {
     if (_state.mediaType == MediaType.text && _state.zoom != p.textScale) {
       await tryHandle(SetZoom(p.textScale));
     }
+
+    final shouldBeOnTop = _state.miniPlayer ? p.miniPlayerAlwaysOnTop : p.normalPlayerAlwaysOnTop;
+    if (_state.alwaysOnTop != shouldBeOnTop) {
+      await window.setAlwaysOnTop(shouldBeOnTop);
+      update((st) => st.copyWith(alwaysOnTop: shouldBeOnTop));
+    }
   }
+
 
   // --- Reprise de lecture --------------------------------------------------------
 
@@ -493,11 +505,25 @@ class PlaybackService implements PlaybackStateSink {
         await _setFullscreen(!_state.fullscreen);
       case ExitFullscreen():
         if (_state.fullscreen) await _setFullscreen(false);
-      case ToggleAlwaysOnTop():
-        final next = !_state.alwaysOnTop;
-        await window.setAlwaysOnTop(next);
-        update((st) => st.copyWith(alwaysOnTop: next));
+      case ToggleAlwaysOnTop(:final forMiniPlayer):
+        final targetMini = forMiniPlayer ?? _state.miniPlayer;
+        if (targetMini) {
+          final next = !(settings?.preferences.miniPlayerAlwaysOnTop ?? true);
+          await _applyPreferences(preferences.copyWith(miniPlayerAlwaysOnTop: next));
+          if (_state.miniPlayer) {
+            await window.setAlwaysOnTop(next);
+            update((st) => st.copyWith(alwaysOnTop: next));
+          }
+        } else {
+          final next = !(settings?.preferences.normalPlayerAlwaysOnTop ?? false);
+          await _applyPreferences(preferences.copyWith(normalPlayerAlwaysOnTop: next));
+          if (!_state.miniPlayer) {
+            await window.setAlwaysOnTop(next);
+            update((st) => st.copyWith(alwaysOnTop: next));
+          }
+        }
       case SetLoopMode(:final mode):
+
         update((st) => st.copyWith(endMode: mode));
         unawaited(settings?.setEndOfPlaybackMode(mode.name));
       case CycleLoopMode():
@@ -528,7 +554,10 @@ class PlaybackService implements PlaybackStateSink {
         await _applyPreferences(preferences.merge(changes));
       case SetScreenshotFolder(:final path):
         await settings?.setScreenshotFolder(path);
+      case SetRecordingFolder(:final path):
+        await settings?.setRecordingFolder(path);
       case TakeScreenshot():
+
         await _takeScreenshot();
       case ToggleRecording():
         await (_state.recording ? _stopRecording() : _startRecording());
@@ -634,9 +663,10 @@ class PlaybackService implements PlaybackStateSink {
           visible.right - size.width - _miniMargin,
           visible.bottom - size.height - _miniMargin,
         );
+    final miniOnTop = settings?.preferences.miniPlayerAlwaysOnTop ?? true;
     await _applyMiniShape(shape, origin & size);
-    await window.setAlwaysOnTop(true);
-    update((st) => st.copyWith(miniPlayer: true, alwaysOnTop: true));
+    await window.setAlwaysOnTop(miniOnTop);
+    update((st) => st.copyWith(miniPlayer: true, alwaysOnTop: miniOnTop));
   }
 
   Future<void> _exitMiniPlayer() async {
@@ -651,9 +681,11 @@ class PlaybackService implements PlaybackStateSink {
     final previous = _boundsBeforeMini;
     if (previous != null) await window.setBounds(previous);
     if (_maximizedBeforeMini) await window.setMaximized(true);
-    await window.setAlwaysOnTop(_alwaysOnTopBeforeMini);
-    update((st) => st.copyWith(miniPlayer: false, alwaysOnTop: _alwaysOnTopBeforeMini));
+    final normalOnTop = settings?.preferences.normalPlayerAlwaysOnTop ?? _alwaysOnTopBeforeMini;
+    await window.setAlwaysOnTop(normalOnTop);
+    update((st) => st.copyWith(miniPlayer: false, alwaysOnTop: normalOnTop));
     _boundsBeforeMini = null;
+
     _maximizedBeforeMini = false;
     _miniArea = null;
   }

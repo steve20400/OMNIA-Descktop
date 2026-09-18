@@ -75,9 +75,12 @@ class AppPreferences {
     this.readingDark = false,
     this.textScale = 1.0,
     this.screenshotNamePattern = defaultScreenshotPattern,
+    this.normalPlayerAlwaysOnTop = false,
+    this.miniPlayerAlwaysOnTop = true,
   });
 
   static const AppPreferences defaults = AppPreferences();
+
 
   /// Pas d'avance / recul proposés pour `←` / `→`.
   static const List<int> seekSteps = [5, 10, 30, 60];
@@ -126,6 +129,10 @@ class AppPreferences {
   // Captures
   final String screenshotNamePattern;
 
+  // Premier plan
+  final bool normalPlayerAlwaysOnTop;
+  final bool miniPlayerAlwaysOnTop;
+
   AppPreferences copyWith({
     AppLanguage? language,
     AppThemeMode? themeMode,
@@ -144,6 +151,8 @@ class AppPreferences {
     bool? readingDark,
     double? textScale,
     String? screenshotNamePattern,
+    bool? normalPlayerAlwaysOnTop,
+    bool? miniPlayerAlwaysOnTop,
   }) {
     return AppPreferences(
       language: language ?? this.language,
@@ -163,8 +172,11 @@ class AppPreferences {
       readingDark: readingDark ?? this.readingDark,
       textScale: (textScale ?? this.textScale).clamp(0.6, 3.0),
       screenshotNamePattern: _pattern(screenshotNamePattern ?? this.screenshotNamePattern),
+      normalPlayerAlwaysOnTop: normalPlayerAlwaysOnTop ?? this.normalPlayerAlwaysOnTop,
+      miniPlayerAlwaysOnTop: miniPlayerAlwaysOnTop ?? this.miniPlayerAlwaysOnTop,
     );
   }
+
 
   /// Un pas inconnu retombe sur le plus proche des pas proposés.
   static int _step(int value) {
@@ -203,6 +215,8 @@ class AppPreferences {
         'readingDark': readingDark,
         'textScale': textScale,
         'screenshotNamePattern': screenshotNamePattern,
+        'normalPlayerAlwaysOnTop': normalPlayerAlwaysOnTop,
+        'miniPlayerAlwaysOnTop': miniPlayerAlwaysOnTop,
       };
 
   /// Relecture tolérante : une valeur absente, d'un mauvais type ou hors bornes
@@ -239,8 +253,11 @@ class AppPreferences {
       screenshotNamePattern: json['screenshotNamePattern'] is String
           ? json['screenshotNamePattern']! as String
           : d.screenshotNamePattern,
+      normalPlayerAlwaysOnTop: bool0('normalPlayerAlwaysOnTop', d.normalPlayerAlwaysOnTop),
+      miniPlayerAlwaysOnTop: bool0('miniPlayerAlwaysOnTop', d.miniPlayerAlwaysOnTop),
     );
   }
+
 
   /// Applique des changements partiels (format de [toJson]) ; les clés
   /// inconnues sont ignorées, les valeurs bornées comme à la relecture.

@@ -61,6 +61,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get alwaysOnTop => 'Toujours au premier plan';
 
   @override
+  String get alwaysOnTopNormal => 'Lecteur normal';
+
+  @override
+  String get alwaysOnTopMini => 'Mini-lecteur';
+
+
+  @override
   String get loading => 'Ouverture…';
 
   @override
@@ -165,6 +172,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get filterDocuments => 'Documents';
+
+  @override
+  String get filterImages => 'Images';
+
 
   @override
   String get sortLabel => 'Trier';
@@ -808,7 +819,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsScreenshotFolder => 'Dossier des captures';
 
   @override
+  String get settingsScreenshotFolderVideo => 'Dossier des captures vidéo';
+
+  @override
+  String get settingsRecordingFolder => 'Dossier des extraits audio';
+
+  @override
   String get settingsScreenshotFolderDefault => 'Dossier par défaut';
+
 
   @override
   String get settingsChooseFolder => 'Choisir…';

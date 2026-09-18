@@ -89,6 +89,7 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     await _setProperty('scale', 'spline36');
     await _setProperty('dscale', 'mitchell');
     await _setProperty('correct-downscaling', 'yes');
+    await _setProperty('demuxer-max-back-bytes', '50M');
   }
 
   // Position : mpv la publie à chaque image affichée, soit 25 à 60 fois par
@@ -606,8 +607,9 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
   Future<bool> startRecording(String path) async {
     final platform = player.platform;
     if (platform is! NativePlayer) return false;
+    final normalizedPath = path.replaceAll('\\', '/');
     try {
-      await platform.setProperty('stream-record', path);
+      await platform.setProperty('stream-record', normalizedPath);
       if ((await platform.getProperty('stream-record')).trim().isEmpty) return false;
       // Point de départ du repli : la position exacte du moteur, et non celle
       // de l'état, filtrée à six mises à jour par seconde.
@@ -639,13 +641,16 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     final to = player.state.position;
     // Rien ne s'est écoulé : il n'y a aucune séquence à écrire.
     if (to <= from) return false;
+    final normalizedPath = path.replaceAll('\\', '/');
     try {
-      await platform.command(['dump-cache', _seconds(from), _seconds(to), path]);
+      await platform.command(['dump-cache', _seconds(from), _seconds(to), normalizedPath]);
       return true;
     } on Object {
       return false;
     }
   }
+
+
 
   @override
   Future<void> close() async {
