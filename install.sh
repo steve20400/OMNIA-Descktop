@@ -35,8 +35,18 @@ SEARCH_DIRS=(".")
 [ -d "$HOME/Downloads" ] && SEARCH_DIRS+=("$HOME/Downloads")
 
 for dir in "${SEARCH_DIRS[@]}"; do
-    # Recherche dans l'ordre : .zip (GitHub Actions), .deb, .tar.gz
+    # Recherche dans l'ordre de priorité :
+    # 1. Archive binaire Linux x64
+    for f in "$dir"/*omnia*linux*x64*.zip "$dir"/*omnia*linux*x64*.tar.gz "$dir"/*omnia*.deb; do
+        if [[ "$f" =~ [Cc]aptures ]]; then continue; fi
+        if [ -f "$f" ]; then
+            TARGET_FILE="$f"
+            break 2
+        fi
+    done
+    # 2. Tout autre archive OMNIA hors captures
     for f in "$dir"/omnia*.zip "$dir"/omnia*.deb "$dir"/omnia*.tar.gz; do
+        if [[ "$f" =~ [Cc]aptures ]]; then continue; fi
         if [ -f "$f" ]; then
             TARGET_FILE="$f"
             break 2
@@ -105,9 +115,25 @@ else
         sudo tar -xzf "$TARGET_FILE" -C "$INSTALL_DIR" --strip-components=1
     fi
 
-    # 4. Configuration de l'exécutable
-    sudo chmod +x "$INSTALL_DIR/omnia" 2>/dev/null || true
+    # 4. Vérification et configuration de l'exécutable
+    if [ ! -f "$INSTALL_DIR/omnia" ]; then
+        FOUND_BIN=$(find "$INSTALL_DIR" -maxdepth 2 -name "omnia" -type f | head -n 1)
+        if [ -n "$FOUND_BIN" ] && [ "$FOUND_BIN" != "$INSTALL_DIR/omnia" ]; then
+            SUBDIR=$(dirname "$FOUND_BIN")
+            sudo cp -r "$SUBDIR"/* "$INSTALL_DIR/"
+        fi
+    fi
+
+    if [ ! -f "$INSTALL_DIR/omnia" ]; then
+        echo "Erreur : l'exécutable 'omnia' n'a pas été trouvé dans $INSTALL_DIR après extraction."
+        echo "Contenu extrait dans $INSTALL_DIR :"
+        ls -la "$INSTALL_DIR"
+        exit 1
+    fi
+
+    sudo chmod +x "$INSTALL_DIR/omnia"
     sudo ln -sf "$INSTALL_DIR/omnia" /usr/local/bin/omnia
+    sudo ln -sf "$INSTALL_DIR/omnia" /usr/bin/omnia
 
     # 5. Déploiement des icônes
     # Recherche des icônes dans les emplacements possibles du bundle
