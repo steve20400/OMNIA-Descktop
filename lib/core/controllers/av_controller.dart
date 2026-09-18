@@ -89,6 +89,7 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     await _setProperty('scale', 'spline36');
     await _setProperty('dscale', 'mitchell');
     await _setProperty('correct-downscaling', 'yes');
+    await _setProperty('demuxer-max-back-bytes', '50M');
   }
 
   // Position : mpv la publie à chaque image affichée, soit 25 à 60 fois par
