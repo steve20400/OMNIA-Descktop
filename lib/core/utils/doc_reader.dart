@@ -268,21 +268,31 @@ abstract final class DocReader {
   static ExtractedDocument _extractDocBinary(Uint8List bytes, {String format = 'Word (DOC)'}) {
     final buffer = StringBuffer();
     final words = <String>[];
-    var currentWord = StringBuffer();
+    var currentBytes = <int>[];
 
-    // Recherche de séquences de caractères ASCII / Latin imprimables
+    void flush() {
+      if (currentBytes.length >= 3) {
+        String decoded;
+        try {
+          decoded = utf8.decode(currentBytes);
+        } on FormatException {
+          decoded = latin1.decode(currentBytes);
+        }
+        words.add(decoded);
+      }
+      currentBytes = [];
+    }
+
+    // Recherche de séquences de caractères imprimables (UTF-8, Latin, ASCII)
     for (var i = 0; i < bytes.length; i++) {
       final b = bytes[i];
-      if ((b >= 32 && b <= 126) || b == 10 || b == 13 || b == 9 || (b >= 160 && b <= 255)) {
-        currentWord.writeCharCode(b);
+      if ((b >= 32 && b <= 126) || b == 10 || b == 13 || b == 9 || (b >= 128 && b <= 255)) {
+        currentBytes.add(b);
       } else {
-        if (currentWord.length >= 3) {
-          words.add(currentWord.toString());
-        }
-        currentWord = StringBuffer();
+        flush();
       }
     }
-    if (currentWord.length >= 3) words.add(currentWord.toString());
+    flush();
 
     var paragraph = <String>[];
     for (final w in words) {

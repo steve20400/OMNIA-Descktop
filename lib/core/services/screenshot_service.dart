@@ -17,7 +17,9 @@ class ScreenshotService {
     Future<Directory> Function()? defaultFolder,
     Future<Directory> Function()? defaultRecordingFolder,
   })  : _defaultFolder = defaultFolder ?? defaultScreenshotFolder,
-        _defaultRecordingFolder = defaultRecordingFolder ?? defaultScreenshotFolder;
+        _defaultRecordingFolder =
+            defaultRecordingFolder ?? defaultFolder ?? defaultScreenshotFolder;
+
 
   final SettingsStore? settings;
   final Future<Directory> Function() _defaultFolder;
