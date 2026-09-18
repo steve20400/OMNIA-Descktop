@@ -4,9 +4,11 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'commands/player_command.dart';
 import 'commands/player_command_bus.dart';
 import 'controllers/av_controller.dart';
+import 'controllers/image_controller.dart';
 import 'controllers/media_router.dart';
 import 'controllers/pdf_controller.dart';
 import 'controllers/text_controller.dart';
+
 import 'models/app_preferences.dart';
 import 'models/playback_state.dart';
 import 'models/playlist_state.dart';
@@ -94,13 +96,22 @@ final pdfControllerProvider = Provider<PdfController>((ref) {
   return controller;
 });
 
+/// Images (PNG, JPEG, WebP, SVG, etc.).
+final imageControllerProvider = Provider<ImageController>((ref) {
+  final controller = ImageController();
+  ref.onDispose(controller.dispose);
+  return controller;
+});
+
 final mediaRouterProvider = Provider<MediaRouter>(
   (ref) => MediaRouter([
     ref.watch(avControllerProvider),
     ref.watch(textControllerProvider),
     ref.watch(pdfControllerProvider),
+    ref.watch(imageControllerProvider),
   ]),
 );
+
 
 final playlistServiceProvider = Provider<PlaylistService>((ref) {
   final router = ref.watch(mediaRouterProvider);

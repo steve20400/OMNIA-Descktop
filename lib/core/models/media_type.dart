@@ -7,13 +7,21 @@ enum MediaType {
   audio,
   pdf,
   text,
+  doc,
+  image,
   unknown;
 
   /// Vrai pour les médias lus par le moteur audio/vidéo (mpv).
   bool get isAv => this == video || this == audio;
 
-  /// Vrai pour les documents en lecture seule (PDF, texte).
-  bool get isDocument => this == pdf || this == text;
+  /// Vrai pour les documents en lecture seule (PDF, texte, Word/doc).
+  bool get isDocument => this == pdf || this == text || this == doc;
+
+  /// Vrai pour les images fixes.
+  bool get isImage => this == image;
+
+  /// Vrai pour les médias visuels (vidéo, image).
+  bool get isVisual => this == video || this == image;
 
   /// Vrai si OMNIA sait ouvrir ce type.
   bool get isSupported => this != unknown;

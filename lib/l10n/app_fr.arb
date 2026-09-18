@@ -17,6 +17,9 @@
   "restore": "Restaurer",
   "closeWindow": "Fermer",
   "alwaysOnTop": "Toujours au premier plan",
+  "alwaysOnTopNormal": "Lecteur normal",
+  "alwaysOnTopMini": "Mini-lecteur",
+
   "loading": "Ouverture…",
   "audioOnly": "Audio",
   "speedValue": "{speed}×",
@@ -76,6 +79,8 @@
   "filterVideo": "Vidéo",
   "filterAudio": "Audio",
   "filterDocuments": "Documents",
+  "filterImages": "Images",
+
   "sortLabel": "Trier",
   "sortName": "Nom",
   "sortDate": "Date",
@@ -378,7 +383,10 @@
   "settingsReadingDarkHint": "Inverse doucement les couleurs des documents, pour lire dans le noir.",
   "settingsTextSizeHint": "Taille des fichiers texte et Markdown. Ctrl+molette pendant la lecture.",
   "settingsScreenshotFolder": "Dossier des captures",
+  "settingsScreenshotFolderVideo": "Dossier des captures vidéo",
+  "settingsRecordingFolder": "Dossier des extraits audio",
   "settingsScreenshotFolderDefault": "Dossier par défaut",
+
   "settingsChooseFolder": "Choisir…",
   "settingsResetFolder": "Par défaut",
   "settingsScreenshotPattern": "Nom des fichiers",

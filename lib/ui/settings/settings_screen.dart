@@ -540,10 +540,29 @@ class _GeneralSection extends ConsumerWidget {
             onChanged: (v) => ref.change((p) => p.copyWith(singleInstance: v)),
           ),
         ),
+        const SettingDivider(),
+        SettingRow(
+          title: '${l10n.alwaysOnTop} · ${l10n.alwaysOnTopNormal}',
+          control: OmniaSwitch(
+            label: l10n.alwaysOnTopNormal,
+            value: p.normalPlayerAlwaysOnTop,
+            onChanged: (v) => ref.change((p) => p.copyWith(normalPlayerAlwaysOnTop: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: '${l10n.alwaysOnTop} · ${l10n.alwaysOnTopMini}',
+          control: OmniaSwitch(
+            label: l10n.alwaysOnTopMini,
+            value: p.miniPlayerAlwaysOnTop,
+            onChanged: (v) => ref.change((p) => p.copyWith(miniPlayerAlwaysOnTop: v)),
+          ),
+        ),
       ],
     );
   }
 }
+
 
 // --- Lecture ------------------------------------------------------------------------
 
@@ -783,10 +802,17 @@ class _DocumentsSection extends ConsumerWidget {
 
 // --- Captures -----------------------------------------------------------------------
 
-/// Dossier des captures tel qu'il sera utilisé, et s'il a été choisi à la main.
+/// Dossier des captures d'écran vidéo tel qu'il sera utilisé, et s'il a été choisi à la main.
 final screenshotFolderProvider = FutureProvider<({String path, bool custom})>((ref) async {
-  final folder = await ref.watch(screenshotServiceProvider).folder();
+  final folder = await ref.watch(screenshotServiceProvider).screenshotFolder();
   final custom = ref.watch(settingsStoreProvider).screenshotFolder != null;
+  return (path: folder.path, custom: custom);
+});
+
+/// Dossier des enregistrements audio tel qu'il sera utilisé, et s'il a été choisi à la main.
+final recordingFolderProvider = FutureProvider<({String path, bool custom})>((ref) async {
+  final folder = await ref.watch(screenshotServiceProvider).recordingFolder();
+  final custom = ref.watch(settingsStoreProvider).recordingFolder != null;
   return (path: folder.path, custom: custom);
 });
 
@@ -817,9 +843,9 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
     super.dispose();
   }
 
-  /// Change le dossier par le bus, puis relit le dossier effectif une fois la
+  /// Change le dossier des captures par le bus, puis relit le dossier effectif une fois la
   /// commande traitée.
-  Future<void> _setFolder(String? path) async {
+  Future<void> _setScreenshotFolder(String? path) async {
     final bus = ref.read(commandBusProvider);
     final service = ref.read(playbackServiceProvider);
     bus.dispatch(SetScreenshotFolder(path));
@@ -828,12 +854,30 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
     if (mounted) ref.invalidate(screenshotFolderProvider);
   }
 
-  Future<void> _choose() async {
+  Future<void> _chooseScreenshotFolder() async {
     final dir = await FilePicker.getDirectoryPath(
       windowsOptions: const WindowsOptions(lockParentWindow: true),
       linuxOptions: const LinuxOptions(lockParentWindow: true),
     );
-    if (dir != null && mounted) await _setFolder(dir);
+    if (dir != null && mounted) await _setScreenshotFolder(dir);
+  }
+
+  /// Change le dossier des enregistrements audio par le bus.
+  Future<void> _setRecordingFolder(String? path) async {
+    final bus = ref.read(commandBusProvider);
+    final service = ref.read(playbackServiceProvider);
+    bus.dispatch(SetRecordingFolder(path));
+    await Future<void>.delayed(Duration.zero);
+    await service.idle;
+    if (mounted) ref.invalidate(recordingFolderProvider);
+  }
+
+  Future<void> _chooseRecordingFolder() async {
+    final dir = await FilePicker.getDirectoryPath(
+      windowsOptions: const WindowsOptions(lockParentWindow: true),
+      linuxOptions: const LinuxOptions(lockParentWindow: true),
+    );
+    if (dir != null && mounted) await _setRecordingFolder(dir);
   }
 
   @override
@@ -841,7 +885,8 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
     final l10n = AppLocalizations.of(context);
     final colors = context.colors;
     final type = context.type;
-    final folder = ref.watch(screenshotFolderProvider);
+    final screenshotFolder = ref.watch(screenshotFolderProvider);
+    final recordingFolder = ref.watch(recordingFolderProvider);
 
     final preview = screenshotFileName(
       '/Films/Film.mkv',
@@ -856,13 +901,12 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SettingRow(
-          title: l10n.settingsScreenshotFolder,
-          hint: folder.when(
+          title: l10n.settingsScreenshotFolderVideo,
+          hint: screenshotFolder.when(
             data: (f) => f.custom ? f.path : '${l10n.settingsScreenshotFolderDefault} · ${f.path}',
             loading: () => '…',
             error: (_, _) => l10n.settingsScreenshotFolderDefault,
           ),
-          // Côte à côte quand la place le permet, l'un sous l'autre sinon.
           control: Wrap(
             spacing: OmniaMetrics.space2,
             runSpacing: OmniaMetrics.space2,
@@ -870,13 +914,43 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
               _FittingButton(
                 label: l10n.settingsChooseFolder,
                 icon: Icons.folder_open_rounded,
-                onPressed: _choose,
+                onPressed: _chooseScreenshotFolder,
               ),
               _FittingButton(
                 label: l10n.settingsResetFolder,
                 icon: Icons.restart_alt_rounded,
                 showIcon: false,
-                onPressed: folder.valueOrNull?.custom == true ? () => _setFolder(null) : null,
+                onPressed: screenshotFolder.valueOrNull?.custom == true
+                    ? () => _setScreenshotFolder(null)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: l10n.settingsRecordingFolder,
+          hint: recordingFolder.when(
+            data: (f) => f.custom ? f.path : '${l10n.settingsScreenshotFolderDefault} · ${f.path}',
+            loading: () => '…',
+            error: (_, _) => l10n.settingsScreenshotFolderDefault,
+          ),
+          control: Wrap(
+            spacing: OmniaMetrics.space2,
+            runSpacing: OmniaMetrics.space2,
+            children: [
+              _FittingButton(
+                label: l10n.settingsChooseFolder,
+                icon: Icons.folder_open_rounded,
+                onPressed: _chooseRecordingFolder,
+              ),
+              _FittingButton(
+                label: l10n.settingsResetFolder,
+                icon: Icons.restart_alt_rounded,
+                showIcon: false,
+                onPressed: recordingFolder.valueOrNull?.custom == true
+                    ? () => _setRecordingFolder(null)
+                    : null,
               ),
             ],
           ),
@@ -885,6 +959,7 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
         const SizedBox(height: OmniaMetrics.space3),
         Text(l10n.settingsScreenshotPattern, style: type.bodyStrong),
         const SizedBox(height: OmniaMetrics.space2),
+
         Container(
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space3),

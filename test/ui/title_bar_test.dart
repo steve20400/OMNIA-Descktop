@@ -68,7 +68,9 @@ void main() {
       final settings = byTooltipPrefix('Paramètres');
       expectWithin(tester, settings, bar, reason: '$where : paramètres');
       expectWithin(tester, byTooltipPrefix('Ouvrir un fichier'), bar, reason: '$where : ouvrir');
+      expectWithin(tester, byTooltipPrefix('Toujours au premier plan'), bar, reason: '$where : premier plan');
       expect(
+
         find.text('OMNIA'),
         width >= TitleBar.wordmarkMinWidth ? findsOneWidget : findsNothing,
         reason: '$where : mot « OMNIA »',

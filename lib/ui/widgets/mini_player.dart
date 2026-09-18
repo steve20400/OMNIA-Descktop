@@ -76,9 +76,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   Widget _windowGestures({required Widget child, required bool hasMedia}) {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onPanStart: (_) {
-        windowManager.startDragging();
-      },
       onTap: hasMedia
           ? () {
               _focus.requestFocus();
@@ -86,9 +83,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             }
           : _focus.requestFocus,
       onDoubleTap: () => ref.dispatch(const ToggleMiniPlayer()),
-      child: child,
+      child: DragToMoveArea(
+        child: child,
+      ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -275,6 +275,18 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                                 onPressed: () => ref.dispatch(const ToggleMute()),
                               ),
                             OmniaIconButton(
+                              icon: state.alwaysOnTop
+                                  ? Icons.push_pin_rounded
+                                  : Icons.push_pin_outlined,
+                              size: buttonSize,
+                              iconSize: buttonIcon - 2,
+                              active: state.alwaysOnTop,
+                              tooltip: l10n.alwaysOnTop,
+                              onPressed: () => ref.dispatch(
+                                const ToggleAlwaysOnTop(forMiniPlayer: true),
+                              ),
+                            ),
+                            OmniaIconButton(
                               icon: Icons.open_in_full_rounded,
                               size: buttonSize,
                               iconSize: buttonIcon - 2,
@@ -299,6 +311,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     );
   }
 }
+
 
 /// Les commandes posées sur l'image du mini-lecteur.
 ///
@@ -348,19 +361,37 @@ class _MiniOverlay extends ConsumerWidget {
                   right: OmniaMetrics.space1,
                   child: _plate(
                     colors,
-                    OmniaIconButton(
-                      icon: Icons.open_in_full_rounded,
-                      size: OmniaMetrics.iconButtonSize - 6,
-                      iconSize: OmniaMetrics.iconSize - 6,
-                      tooltip: ref.tooltipWith(
-                        l10n.miniPlayerExit,
-                        ShortcutAction.miniPlayer,
-                        l10n,
-                      ),
-                      onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OmniaIconButton(
+                          icon: state.alwaysOnTop
+                              ? Icons.push_pin_rounded
+                              : Icons.push_pin_outlined,
+                          size: OmniaMetrics.iconButtonSize - 6,
+                          iconSize: OmniaMetrics.iconSize - 6,
+                          active: state.alwaysOnTop,
+                          tooltip: l10n.alwaysOnTop,
+                          onPressed: () => ref.dispatch(
+                            const ToggleAlwaysOnTop(forMiniPlayer: true),
+                          ),
+                        ),
+                        OmniaIconButton(
+                          icon: Icons.open_in_full_rounded,
+                          size: OmniaMetrics.iconButtonSize - 6,
+                          iconSize: OmniaMetrics.iconSize - 6,
+                          tooltip: ref.tooltipWith(
+                            l10n.miniPlayerExit,
+                            ShortcutAction.miniPlayer,
+                            l10n,
+                          ),
+                          onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+
                 Center(
                   child: _plate(
                     colors,

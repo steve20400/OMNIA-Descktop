@@ -52,7 +52,17 @@ void main() {
       expect(MediaRouter.typeForPath('/docs/a.txt'), MediaType.text);
       expect(MediaRouter.typeForPath('/docs/a.md'), MediaType.text);
       expect(MediaRouter.typeForPath('/docs/a.log'), MediaType.text);
+      expect(MediaRouter.typeForPath('/docs/a.docx'), MediaType.doc);
+      expect(MediaRouter.typeForPath('/docs/a.odt'), MediaType.doc);
+      expect(MediaRouter.typeForPath('/docs/a.rtf'), MediaType.doc);
     });
+
+    test('images', () {
+      for (final ext in ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg']) {
+        expect(MediaRouter.typeForPath('/images/a.$ext'), MediaType.image, reason: ext);
+      }
+    });
+
 
     test('insensible à la casse', () {
       expect(MediaRouter.typeForPath('C:\\Films\\A.MKV'), MediaType.video);
@@ -106,13 +116,16 @@ void main() {
 
   test('allExtensions couvre toutes les familles sans doublon', () {
     final all = MediaRouter.allExtensions;
-    expect(all, containsAll(['mkv', 'mp3', 'pdf', 'md']));
+    expect(all, containsAll(['mkv', 'mp3', 'pdf', 'md', 'docx', 'png']));
     expect(
       all.length,
       MediaRouter.videoExtensions.length +
           MediaRouter.audioExtensions.length +
           MediaRouter.pdfExtensions.length +
-          MediaRouter.textExtensions.length,
+          MediaRouter.docExtensions.length +
+          MediaRouter.textExtensions.length +
+          MediaRouter.imageExtensions.length,
     );
   });
+
 }
