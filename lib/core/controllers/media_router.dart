@@ -49,7 +49,8 @@ class MediaRouter {
   static const Set<String> pdfExtensions = {'pdf'};
 
   static const Set<String> docExtensions = {
-    'docx', 'doc', 'odt', 'rtf', 'dotx', 'docm', 'dotm',
+    'docx', 'doc', 'odt', 'rtf', 'dotx', 'docm', 'dotm', 'fodt', 'ott',
+    'pptx', 'ppt', 'ppsx', 'odp', 'fodp', 'otp',
   };
 
   static const Set<String> textExtensions = {
@@ -57,6 +58,9 @@ class MediaRouter {
     'tsv', 'ini', 'conf', 'cfg', 'properties', 'toml', 'srt', 'vtt', 'sub',
     'ass', 'lrc', 'sql', 'sh', 'bash', 'bat', 'cmd', 'ps1', 'html', 'htm',
     'css', 'js', 'dart', 'py', 'c', 'cpp', 'h', 'hpp', 'java', 'rs', 'go',
+    'aux', 'tex', 'latex', 'bib', 'cls', 'sty', 'toc', 'lof', 'lot', 'bbl',
+    'blg', 'idx', 'ilg', 'ind', 'out', 'diff', 'patch', 'env', 'reg', 'inf',
+    'lock',
   };
 
   static const Set<String> imageExtensions = {

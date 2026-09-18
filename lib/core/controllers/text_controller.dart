@@ -79,6 +79,20 @@ class TextController implements MediaController {
     if (!_documents.isClosed) _documents.add(doc);
   }
 
+  /// Met à jour le document courant avec le texte modifié par l'utilisateur.
+  void updateText(String newText) {
+    final doc = _document;
+    if (doc == null) return;
+    _publish(
+      TextDocument(
+        path: doc.path,
+        text: newText,
+        isMarkdown: doc.isMarkdown,
+        encoding: doc.encoding,
+      ),
+    );
+  }
+
   @override
   Future<void> open(MediaFile file, PlaybackStateSink sink) async {
     _sink = sink;

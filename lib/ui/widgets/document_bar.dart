@@ -63,6 +63,8 @@ abstract final class DocumentBarSlots {
   static const rotate = 'rotate';
   static const layout = 'layout';
   static const readingDark = 'readingDark';
+  static const edit = 'edit';
+  static const save = 'save';
   static const find = 'find';
 
   /// Le zoom se montre ou part au menu d'un bloc : un « − » seul, sans sa
@@ -70,7 +72,7 @@ abstract final class DocumentBarSlots {
   static const zoomGroup = {zoomOut, zoomValue, zoomIn};
 
   /// Commandes rangées à droite, après l'espace libre ; les autres à gauche.
-  static const trailing = {readingDark, find};
+  static const trailing = {readingDark, edit, save, find};
 }
 
 /// Répartit les commandes de la barre de documents : [fitControls], puis deux
@@ -480,8 +482,60 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
           ),
         ],
       ),
-      // Le bouton « Modifier » des textes viendra ici, juste avant la
-      // recherche, avec la priorité 2 (voir [DocumentBarSlots]).
+      // Le bouton « Modifier » et « Enregistrer » pour les fichiers texte/code modifiables.
+      if (!isPdf && state.mediaType == MediaType.text) ...[
+        if (ui.isEditing) ...[
+          _DocControl(
+            const ControlSlot(id: DocumentBarSlots.save, width: icon, priority: 2),
+            OmniaIconButton(
+              icon: Icons.save_rounded,
+              tooltip: 'Enregistrer les modifications  ·  Ctrl+S',
+              active: ui.hasUnsavedChanges,
+              onPressed: () => ref.read(documentUiProvider.notifier).requestSave(),
+            ),
+            [
+              OmniaMenuItem(
+                icon: Icons.save_rounded,
+                label: 'Enregistrer les modifications',
+                trailing: 'Ctrl+S',
+                onPressed: () => ref.read(documentUiProvider.notifier).requestSave(),
+              ),
+            ],
+          ),
+          _DocControl(
+            const ControlSlot(id: DocumentBarSlots.edit, width: icon, priority: 2),
+            OmniaIconButton(
+              icon: Icons.visibility_outlined,
+              tooltip: 'Terminer la modification (Lecture seule)',
+              active: true,
+              onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
+            ),
+            [
+              OmniaMenuItem(
+                icon: Icons.visibility_outlined,
+                label: 'Passer en lecture seule',
+                onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
+              ),
+            ],
+          ),
+        ] else ...[
+          _DocControl(
+            const ControlSlot(id: DocumentBarSlots.edit, width: icon, priority: 2),
+            OmniaIconButton(
+              icon: Icons.edit_outlined,
+              tooltip: 'Modifier le fichier texte',
+              onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
+            ),
+            [
+              OmniaMenuItem(
+                icon: Icons.edit_outlined,
+                label: 'Modifier le fichier',
+                onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
+              ),
+            ],
+          ),
+        ],
+      ],
       _DocControl(
         const ControlSlot(id: DocumentBarSlots.find, width: icon, priority: 0),
         OmniaIconButton(

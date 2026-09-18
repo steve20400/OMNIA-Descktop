@@ -103,5 +103,80 @@ Ceci est un paragraphe avec du texte standard.\par
         if (await file.exists()) await file.delete();
       }
     });
+
+    test('PPTX parsing extrait le texte des diapos', () async {
+      const slide1 = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+       xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:spTree>
+      <p:sp>
+        <p:txBody>
+          <a:p><a:r><a:t>Titre Diapositive 1</a:t></a:r></a:p>
+          <a:p><a:r><a:t>Sous-titre explicatif</a:t></a:r></a:p>
+        </p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+</p:sld>''';
+
+      const slide2 = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+       xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:spTree>
+      <p:sp>
+        <p:txBody>
+          <a:p><a:r><a:t>Deuxième diapositive</a:t></a:r></a:p>
+        </p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+</p:sld>''';
+
+      final archive = Archive();
+      final s1Bytes = utf8.encode(slide1);
+      final s2Bytes = utf8.encode(slide2);
+      archive.addFile(ArchiveFile('ppt/slides/slide1.xml', s1Bytes.length, s1Bytes));
+      archive.addFile(ArchiveFile('ppt/slides/slide2.xml', s2Bytes.length, s2Bytes));
+      final zipEncoder = ZipEncoder();
+      final zipBytes = zipEncoder.encode(archive);
+
+      final file = File('${Directory.systemTemp.path}/test_pres.pptx');
+      await file.writeAsBytes(zipBytes);
+      try {
+        final text = await DocReader.read(file.path);
+        expect(text, contains('Titre Diapositive 1'));
+        expect(text, contains('Sous-titre explicatif'));
+        expect(text, contains('Deuxième diapositive'));
+      } finally {
+        if (await file.exists()) await file.delete();
+      }
+    });
+
+    test('FODT / FODP XML plat extrait les paragraphes sans zip', () async {
+      const xml = '''<?xml version="1.0" encoding="UTF-8"?>
+<office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                 xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
+  <office:body>
+    <office:drawing>
+      <draw:page draw:name="Slide 1">
+        <text:p>Présentation plate FODP</text:p>
+        <text:p>Deuxième point important</text:p>
+      </draw:page>
+    </office:drawing>
+  </office:body>
+</office:document>''';
+
+      final file = File('${Directory.systemTemp.path}/test_pres.fodp');
+      await file.writeAsString(xml);
+      try {
+        final text = await DocReader.read(file.path);
+        expect(text, contains('Présentation plate FODP'));
+        expect(text, contains('Deuxième point important'));
+      } finally {
+        if (await file.exists()) await file.delete();
+      }
+    });
   });
 }

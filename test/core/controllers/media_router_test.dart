@@ -53,8 +53,22 @@ void main() {
       expect(MediaRouter.typeForPath('/docs/a.md'), MediaType.text);
       expect(MediaRouter.typeForPath('/docs/a.log'), MediaType.text);
       expect(MediaRouter.typeForPath('/docs/a.docx'), MediaType.doc);
+      expect(MediaRouter.typeForPath('/docs/a.doc'), MediaType.doc);
       expect(MediaRouter.typeForPath('/docs/a.odt'), MediaType.doc);
       expect(MediaRouter.typeForPath('/docs/a.rtf'), MediaType.doc);
+      expect(MediaRouter.typeForPath('/docs/a.pptx'), MediaType.doc);
+      expect(MediaRouter.typeForPath('/docs/a.ppt'), MediaType.doc);
+      expect(MediaRouter.typeForPath('/docs/a.odp'), MediaType.doc);
+      expect(MediaRouter.typeForPath('/docs/a.fodt'), MediaType.doc);
+      expect(MediaRouter.typeForPath('/docs/a.fodp'), MediaType.doc);
+      expect(MediaRouter.typeForPath('/docs/a.aux'), MediaType.text);
+      expect(MediaRouter.typeForPath('/docs/a.tex'), MediaType.text);
+      expect(MediaRouter.typeForPath('/docs/a.bib'), MediaType.text);
+      expect(MediaRouter.typeForPath('/docs/a.cls'), MediaType.text);
+      expect(MediaRouter.typeForPath('/docs/a.sty'), MediaType.text);
+      expect(MediaRouter.typeForPath('/docs/a.diff'), MediaType.text);
+      expect(MediaRouter.typeForPath('/docs/a.patch'), MediaType.text);
+      expect(MediaRouter.typeForPath('/docs/a.env'), MediaType.text);
     });
 
     test('images', () {

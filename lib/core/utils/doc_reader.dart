@@ -33,22 +33,126 @@ abstract final class DocReader {
   }
 
   /// Extrait le contenu de [bytes] selon l'extension de [path].
-
   static ExtractedDocument extract(Uint8List bytes, String path) {
     final ext = p.extension(path).toLowerCase().replaceFirst('.', '');
     switch (ext) {
       case 'docx' || 'dotx' || 'docm' || 'dotm':
         return _extractDocx(bytes);
-      case 'odt':
+      case 'pptx' || 'ppsx':
+        return _extractPptx(bytes);
+      case 'odt' || 'ott':
         return _extractOdt(bytes);
+      case 'odp' || 'otp':
+        return _extractOdp(bytes);
+      case 'fodt' || 'fodp':
+        return _extractFod(bytes, ext);
       case 'rtf':
         return _extractRtf(bytes);
-      case 'doc':
-        return _extractDocBinary(bytes);
+      case 'doc' || 'ppt':
+        return _extractDocBinary(bytes, format: ext == 'ppt' ? 'PowerPoint (PPT)' : 'Word (DOC)');
       default:
         // Essai de décodage standard si extension méconnue
         return _extractDocx(bytes);
     }
+  }
+
+  /// Décodage d'une présentation PowerPoint moderne (.pptx / OOXML).
+  static ExtractedDocument _extractPptx(Uint8List bytes) {
+    try {
+      final archive = ZipDecoder().decodeBytes(bytes);
+      final buffer = StringBuffer();
+      var slideIndex = 1;
+
+      // Parcourir les diapositives ppt/slides/slide1.xml, slide2.xml...
+      final slideFiles = archive.where((f) => RegExp(r'ppt/slides/slide\d+\.xml$').hasMatch(f.name)).toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+
+      for (final slide in slideFiles) {
+        final content = slide.content as List<int>;
+        final xml = utf8.decode(content, allowMalformed: true);
+        final tMatches = RegExp(r'<a:t(?:\s+[^>]*)?>([^<]*)</a:t>').allMatches(xml);
+        final slideTexts = tMatches.map((m) => _unescapeXml(m.group(1) ?? '').trim()).where((t) => t.isNotEmpty).toList();
+
+        if (slideTexts.isNotEmpty) {
+          buffer.writeln('### Diapositive $slideIndex\n');
+          for (final t in slideTexts) {
+            buffer.writeln('- $t');
+          }
+          buffer.writeln();
+          slideIndex++;
+        }
+      }
+
+      final res = buffer.toString().trim();
+      return ExtractedDocument(
+        text: res.isNotEmpty ? res : '*(Présentation PowerPoint vide)*',
+        isMarkdown: true,
+        formatDescription: 'PowerPoint (PPTX)',
+      );
+    } on Object catch (_) {
+      return _extractDocBinary(bytes, format: 'PowerPoint (PPTX)');
+    }
+  }
+
+  /// Décodage d'une présentation OpenDocument (.odp).
+  static ExtractedDocument _extractOdp(Uint8List bytes) {
+    try {
+      final archive = ZipDecoder().decodeBytes(bytes);
+      ArchiveFile? contentXml;
+      for (final file in archive) {
+        if (file.name == 'content.xml') {
+          contentXml = file;
+          break;
+        }
+      }
+
+      if (contentXml == null) {
+        return const ExtractedDocument(
+          text: '# Présentation LibreOffice / OpenOffice\n\n*(content.xml introuvable)*',
+          isMarkdown: true,
+          formatDescription: 'OpenDocument Presentation (ODP)',
+        );
+      }
+
+      final content = contentXml.content as List<int>;
+      final xml = utf8.decode(content, allowMalformed: true);
+      return _parseOdfXml(xml, 'OpenDocument Presentation (ODP)');
+    } on Object catch (_) {
+      return _extractDocBinary(bytes, format: 'OpenDocument (ODP)');
+    }
+  }
+
+  /// Décodage d'un document Flat XML ODF (.fodt / .fodp).
+  static ExtractedDocument _extractFod(Uint8List bytes, String ext) {
+    try {
+      final xml = utf8.decode(bytes, allowMalformed: true);
+      return _parseOdfXml(xml, ext.toUpperCase());
+    } on Object catch (_) {
+      return _extractDocBinary(bytes, format: ext.toUpperCase());
+    }
+  }
+
+  static ExtractedDocument _parseOdfXml(String xml, String format) {
+    final buffer = StringBuffer();
+    final blockRegex = RegExp(r'<text:(h|p)[^>]*>(.*?)</text:\1>', dotAll: true);
+    for (final m in blockRegex.allMatches(xml)) {
+      final tag = m.group(1);
+      final body = m.group(2) ?? '';
+      final text = _cleanXmlTags(body).trim();
+      if (text.isEmpty) continue;
+
+      if (tag == 'h') {
+        buffer.writeln('## $text\n');
+      } else {
+        buffer.writeln('$text\n');
+      }
+    }
+    final res = buffer.toString().trim();
+    return ExtractedDocument(
+      text: res.isNotEmpty ? res : '*(Document sans contenu texte)*',
+      isMarkdown: true,
+      formatDescription: format,
+    );
   }
 
   /// Décodage d'un document Word moderne (.docx / OOXML).

@@ -134,6 +134,16 @@ void main() {
     });
   });
 
+  test('updateText met à jour le texte et le nombre de lignes', () async {
+    final file = write('edit.txt', 'texte original'.codeUnits);
+    await controller.open(file, sink);
+    expect(controller.document?.text, 'texte original');
+
+    controller.updateText('ligne 1\nligne 2\nligne 3');
+    expect(controller.document?.text, 'ligne 1\nligne 2\nligne 3');
+    expect(controller.document?.lineCount, 3);
+  });
+
   test('sans document, toute commande est refusée', () async {
     expect(await controller.handle(const ZoomRelative(2)), isFalse);
   });
