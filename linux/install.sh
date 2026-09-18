@@ -32,9 +32,11 @@ fi
 
 # 2. Fichier .desktop
 if [ -f "$SCRIPT_DIR/dev.omnia.omnia.desktop" ]; then
-  cp "$SCRIPT_DIR/dev.omnia.omnia.desktop" "$APP_DIR/"
+  cp "$SCRIPT_DIR/dev.omnia.omnia.desktop" "$APP_DIR/dev.omnia.omnia.desktop"
+  cp "$SCRIPT_DIR/dev.omnia.omnia.desktop" "$APP_DIR/omnia.desktop"
 elif [ -f "$ROOT_DIR/linux/dev.omnia.omnia.desktop" ]; then
-  cp "$ROOT_DIR/linux/dev.omnia.omnia.desktop" "$APP_DIR/"
+  cp "$ROOT_DIR/linux/dev.omnia.omnia.desktop" "$APP_DIR/dev.omnia.omnia.desktop"
+  cp "$ROOT_DIR/linux/dev.omnia.omnia.desktop" "$APP_DIR/omnia.desktop"
 fi
 
 # 3. Icônes Hicolor (SVG vectoriel et matriciel PNG toutes résolutions)
@@ -47,13 +49,22 @@ fi
 
 if [ -n "$ICONS_SRC" ]; then
   cp -r "$ICONS_SRC"/* "$ICON_BASE/"
+  for icon in "$ICON_BASE"/*/apps/dev.omnia.omnia.*; do
+    if [ -f "$icon" ]; then
+      dir=$(dirname "$icon")
+      ext="${icon##*.}"
+      cp -f "$icon" "$dir/omnia.$ext" 2>/dev/null || true
+    fi
+  done
 fi
 
 # 4. Icône pixmaps pour compatibilité maximale (menus GNOME / KDE / XFCE)
 if [ -f "$SCRIPT_DIR/dev.omnia.omnia.png" ]; then
   cp "$SCRIPT_DIR/dev.omnia.omnia.png" "$PIXMAPS_DIR/dev.omnia.omnia.png"
+  cp "$SCRIPT_DIR/dev.omnia.omnia.png" "$PIXMAPS_DIR/omnia.png"
 elif [ -f "$ROOT_DIR/linux/dev.omnia.omnia.png" ]; then
   cp "$ROOT_DIR/linux/dev.omnia.omnia.png" "$PIXMAPS_DIR/dev.omnia.omnia.png"
+  cp "$ROOT_DIR/linux/dev.omnia.omnia.png" "$PIXMAPS_DIR/omnia.png"
 fi
 
 # 5. Mise à jour des bases de données et caches d'icônes
