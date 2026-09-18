@@ -106,7 +106,18 @@ de dossier ; un test vérifie qu'elles ne divergent pas. Après avoir ajouté un
 python tool/make_installer_assoc.py
 ```
 
-### Ubuntu
+### Installation rapide sous Linux (Debian, Ubuntu, Fedora, Arch)
+
+Pour les utilisateurs ayant téléchargé l'archive `.tar.gz` ou le paquet `.deb` depuis les Releases :
+
+```bash
+# Exécuter simplement le script d'installation depuis le dépôt ou après extraction :
+./install.sh
+```
+
+Ce script installe automatiquement les dépendances multimédia (`libmpv`), configure les icônes haute résolution et crée le raccourci dans le menu des applications.
+
+### Compilation manuelle (Ubuntu)
 
 ```bash
 flutter build linux --release
