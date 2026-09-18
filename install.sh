@@ -27,34 +27,24 @@ fi
 
 # 2. Localisation du fichier d'installation
 TARGET_FILE=""
-shopt -s nullglob nocaseglob
 
 # Dossiers à inspecter (dossier courant, puis Téléchargements / Downloads)
 SEARCH_DIRS=(".")
 [ -d "$HOME/Téléchargements" ] && SEARCH_DIRS+=("$HOME/Téléchargements")
 [ -d "$HOME/Downloads" ] && SEARCH_DIRS+=("$HOME/Downloads")
 
+# Recherche de tous les paquets OMNIA et tri par date de modification (le plus récent en premier)
+ALL_CANDIDATES=()
 for dir in "${SEARCH_DIRS[@]}"; do
-    # Recherche dans l'ordre de priorité :
-    # 1. Archive binaire Linux x64
-    for f in "$dir"/*omnia*linux*x64*.zip "$dir"/*omnia*linux*x64*.tar.gz "$dir"/*omnia*.deb; do
-        if [[ "$f" =~ [Cc]aptures ]]; then continue; fi
-        if [ -f "$f" ]; then
-            TARGET_FILE="$f"
-            break 2
-        fi
-    done
-    # 2. Tout autre archive OMNIA hors captures
-    for f in "$dir"/omnia*.zip "$dir"/omnia*.deb "$dir"/omnia*.tar.gz; do
-        if [[ "$f" =~ [Cc]aptures ]]; then continue; fi
-        if [ -f "$f" ]; then
-            TARGET_FILE="$f"
-            break 2
-        fi
-    done
+    [ -d "$dir" ] || continue
+    while IFS= read -r f; do
+        [ -n "$f" ] && ALL_CANDIDATES+=("$f")
+    done < <(find "$dir" -maxdepth 2 -type f \( -iname "*omnia*linux*x64*.zip" -o -iname "*omnia*linux*x64*.tar.gz" -o -iname "*omnia*.deb" -o -iname "omnia*.zip" -o -iname "omnia*.tar.gz" \) ! -iname "*captures*" -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2-)
 done
 
-shopt -u nocaseglob
+if [ ${#ALL_CANDIDATES[@]} -gt 0 ]; then
+    TARGET_FILE="${ALL_CANDIDATES[0]}"
+fi
 
 if [ -z "$TARGET_FILE" ]; then
     echo "Erreur : aucun fichier OMNIA (.zip, .deb ou .tar.gz) trouvé dans :"
@@ -63,7 +53,7 @@ if [ -z "$TARGET_FILE" ]; then
     exit 1
 fi
 
-echo "--> Fichier détecté : $TARGET_FILE"
+echo "--> Fichier détecté : $TARGET_FILE (dernière version téléchargée)"
 
 INSTALL_DIR="/opt/omnia"
 TEMP_DIR=$(mktemp -d /tmp/omnia_install_XXXXXX)
