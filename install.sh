@@ -136,42 +136,90 @@ else
     sudo ln -sf "$INSTALL_DIR/omnia" /usr/bin/omnia
 
     # 5. Déploiement des icônes
-    # Recherche des icônes dans les emplacements possibles du bundle
+    echo "--> Configuration des icônes..."
+    sudo mkdir -p /usr/share/icons/hicolor /usr/share/pixmaps
+
+    # 5.1 Déploiement de l'arborescence hicolor
     if [ -d "$INSTALL_DIR/icons/hicolor" ]; then
         sudo cp -r "$INSTALL_DIR/icons/hicolor/"* /usr/share/icons/hicolor/ 2>/dev/null || true
     elif [ -d "$INSTALL_DIR/data/flutter_assets/assets/icons" ]; then
         sudo cp -r "$INSTALL_DIR/data/flutter_assets/assets/icons/"* /usr/share/icons/hicolor/ 2>/dev/null || true
     fi
 
+    # Dupliquer les icônes dans hicolor sous le nom "omnia" en plus de "dev.omnia.omnia"
+    for icon in /usr/share/icons/hicolor/*/apps/dev.omnia.omnia.*; do
+        if [ -f "$icon" ]; then
+            dir=$(dirname "$icon")
+            ext="${icon##*.}"
+            sudo cp -f "$icon" "$dir/omnia.$ext" 2>/dev/null || true
+        fi
+    done
+
+    # 5.2 Déploiement dans /usr/share/pixmaps (indispensable pour GNOME / XFCE / KDE)
     if [ -f "$INSTALL_DIR/dev.omnia.omnia.png" ]; then
-        sudo cp "$INSTALL_DIR/dev.omnia.omnia.png" /usr/share/pixmaps/omnia.png 2>/dev/null || true
+        sudo cp -f "$INSTALL_DIR/dev.omnia.omnia.png" /usr/share/pixmaps/dev.omnia.omnia.png
+        sudo cp -f "$INSTALL_DIR/dev.omnia.omnia.png" /usr/share/pixmaps/omnia.png
     fi
+    if [ -f "$INSTALL_DIR/dev.omnia.omnia.svg" ]; then
+        sudo cp -f "$INSTALL_DIR/dev.omnia.omnia.svg" /usr/share/pixmaps/dev.omnia.omnia.svg
+        sudo cp -f "$INSTALL_DIR/dev.omnia.omnia.svg" /usr/share/pixmaps/omnia.svg
+    fi
+
+    # Fixer les droits de lecture sur les icônes
+    sudo chmod -R 644 /usr/share/icons/hicolor/*/apps/*omnia* 2>/dev/null || true
+    sudo chmod 644 /usr/share/pixmaps/*omnia* 2>/dev/null || true
 
     # 6. Création ou copie du lanceur .desktop
+    echo "--> Configuration du lanceur de bureau..."
+    sudo mkdir -p /usr/share/applications
+
     if [ -f "$INSTALL_DIR/dev.omnia.omnia.desktop" ]; then
-        sudo cp "$INSTALL_DIR/dev.omnia.omnia.desktop" /usr/share/applications/omnia.desktop
-        sudo sed -i 's|^Exec=.*|Exec=/usr/local/bin/omnia %U|' /usr/share/applications/omnia.desktop 2>/dev/null || true
+        sudo cp -f "$INSTALL_DIR/dev.omnia.omnia.desktop" /usr/share/applications/dev.omnia.omnia.desktop
+        sudo sed -i 's|^Exec=.*|Exec=/usr/local/bin/omnia %U|' /usr/share/applications/dev.omnia.omnia.desktop 2>/dev/null || true
+        sudo cp -f /usr/share/applications/dev.omnia.omnia.desktop /usr/share/applications/omnia.desktop
     else
-        cat << 'EOF' | sudo tee /usr/share/applications/omnia.desktop > /dev/null
+        cat << 'EOF' | sudo tee /usr/share/applications/dev.omnia.omnia.desktop > /dev/null
 [Desktop Entry]
-Name=OMNIA
-Comment=Lecteur multimédia et visionneur universel
-Exec=/usr/local/bin/omnia %U
-Terminal=false
+Version=1.0
 Type=Application
-Icon=omnia
+Name=OMNIA
+GenericName=Lecteur universel
+GenericName[en]=Universal player
+Comment=Vidéo, audio, PDF et texte dans une seule application
+Exec=/usr/local/bin/omnia %U
+Icon=dev.omnia.omnia
+Terminal=false
 Categories=AudioVideo;Player;Viewer;
+StartupWMClass=dev.omnia.omnia
 MimeType=video/mp4;video/x-matroska;video/quicktime;audio/mpeg;audio/flac;audio/wav;image/png;image/jpeg;image/webp;application/pdf;
 EOF
+        sudo cp -f /usr/share/applications/dev.omnia.omnia.desktop /usr/share/applications/omnia.desktop
+    fi
+    sudo chmod 644 /usr/share/applications/dev.omnia.omnia.desktop /usr/share/applications/omnia.desktop 2>/dev/null || true
+
+    # Nettoyage d'éventuels vieux lanceurs corrompus dans ~/.local/share/applications
+    if [ -f "$HOME/.local/share/applications/omnia.desktop" ]; then
+        rm -f "$HOME/.local/share/applications/omnia.desktop" 2>/dev/null || true
+    fi
+    if [ -f "$HOME/.local/share/applications/dev.omnia.omnia.desktop" ]; then
+        rm -f "$HOME/.local/share/applications/dev.omnia.omnia.desktop" 2>/dev/null || true
     fi
 
-    # 7. Actualisation des caches système
+    # 7. Actualisation immédiate des caches système
+    echo "--> Actualisation des caches système (icônes et applications)..."
+    for updater in gtk-update-icon-cache gtk-update-icon-cache-3.0; do
+        if command -v "$updater" >/dev/null 2>&1; then
+            sudo "$updater" -f -q /usr/share/icons/hicolor 2>/dev/null || sudo "$updater" -f -t /usr/share/icons/hicolor 2>/dev/null || true
+        fi
+    done
+    if command -v update-icon-caches >/dev/null 2>&1; then
+        sudo update-icon-caches /usr/share/icons/hicolor 2>/dev/null || true
+    fi
     if command -v update-desktop-database >/dev/null 2>&1; then
         sudo update-desktop-database /usr/share/applications 2>/dev/null || true
     fi
-    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-        sudo gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
-    fi
+    sudo touch /usr/share/icons/hicolor 2>/dev/null || true
+    sudo touch /usr/share/applications 2>/dev/null || true
 fi
 
 echo ""
