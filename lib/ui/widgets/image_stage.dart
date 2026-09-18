@@ -62,8 +62,9 @@ class _ImageStageState extends ConsumerState<ImageStage> {
           onPointerSignal: _onPointerSignal,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onDoubleTap: () => ref.dispatch(const FitZoom(FitMode.contain)),
+            onDoubleTap: () => ref.dispatch(const FitZoom(FitMode.page)),
             child: Container(
+
 
               color: colors.velvet,
               alignment: Alignment.center,
