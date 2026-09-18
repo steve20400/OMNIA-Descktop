@@ -106,16 +106,33 @@ de dossier ; un test vérifie qu'elles ne divergent pas. Après avoir ajouté un
 python tool/make_installer_assoc.py
 ```
 
-### Installation rapide sous Linux (Debian, Ubuntu, Fedora, Arch)
+### Scripts d'installation et de désinstallation pour Ubuntu / Linux
 
-Pour les utilisateurs ayant téléchargé l'archive `.tar.gz` ou le paquet `.deb` depuis les Releases :
+Deux scripts automatisés à la racine du dépôt permettent de gérer l'installation et la désinstallation propre d'OMNIA sur **Ubuntu** (et distributions dérivées Debian) :
 
+#### 1. Désinstaller une ancienne version avant une mise à jour (`uninstall.sh`)
+Pour supprimer proprement toute ancienne version installée (fichiers `.deb`, archive dans `/opt/omnia`, lanceurs `.desktop`, icônes et liens système) afin de repartir sur une base saine :
 ```bash
-# Exécuter simplement le script d'installation depuis le dépôt ou après extraction :
-./install.sh
+./uninstall.sh
+```
+*Ou directement depuis GitHub sans cloner :*
+```bash
+curl -sSL https://raw.githubusercontent.com/steve20400/OMNIA-Descktop/fix/linux-x11-video/uninstall.sh | bash
 ```
 
-Ce script installe automatiquement les dépendances multimédia (`libmpv`), configure les icônes haute résolution et crée le raccourci dans le menu des applications.
+#### 2. Installer ou mettre à jour OMNIA (`install.sh`)
+Après avoir téléchargé la nouvelle version (`.deb` ou `.tar.gz`) depuis les Releases ou dans votre dossier `~/Téléchargements` :
+```bash
+./install.sh
+```
+*Ou directement depuis GitHub :*
+```bash
+curl -sSL https://raw.githubusercontent.com/steve20400/OMNIA-Descktop/fix/linux-x11-video/install.sh | bash
+```
+Ce script :
+- Installe automatiquement la bibliothèque multimédia essentielle **`libmpv`** (`libmpv2`, `libmpv-dev`, `mpv`).
+- Détecte le fichier d'installation dans le dossier courant ou dans `~/Téléchargements`.
+- Déploie l'exécutable, configure `/usr/local/bin/omnia`, installe les icônes haute résolution et le lanceur d'application pour le menu Ubuntu.
 
 ### Compilation manuelle (Ubuntu)
 
