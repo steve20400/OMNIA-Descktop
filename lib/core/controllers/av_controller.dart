@@ -592,6 +592,8 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
   /// Position du média au début de l'extrait en cours, point de départ du
   /// repli par le cache. `null` : aucun extrait commencé.
   Duration? _recordingFrom;
+  String? _recordingTargetOriginal;
+  String? _recordingTargetMpv;
 
   /// Enregistrement d'extrait : propriété `stream-record` de mpv. Elle
   /// recopie les paquets lus par le démultiplexeur dans un fichier dont
@@ -608,12 +610,19 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     final platform = player.platform;
     if (platform is! NativePlayer) return false;
     final normalizedPath = path.replaceAll('\\', '/');
+    // Sous Windows, la compilation FFmpeg de libmpv ne reconnaît pas l'extension .mka
+    // pour le muxer Matroska (Output format not found), alors qu'il associe .mkv à Matroska.
+    final mpvPath = Platform.isWindows && normalizedPath.toLowerCase().endsWith('.mka')
+        ? '$normalizedPath.mkv'
+        : normalizedPath;
     try {
-      await platform.setProperty('stream-record', normalizedPath);
+      await platform.setProperty('stream-record', mpvPath);
       if ((await platform.getProperty('stream-record')).trim().isEmpty) return false;
       // Point de départ du repli : la position exacte du moteur, et non celle
       // de l'état, filtrée à six mises à jour par seconde.
       _recordingFrom = player.state.position;
+      _recordingTargetOriginal = path;
+      _recordingTargetMpv = mpvPath;
       return true;
     } on Object {
       return false;
@@ -622,7 +631,25 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
 
   /// Une chaîne vide ferme l'enregistreur, qui finalise le fichier.
   @override
-  Future<void> stopRecording() => _setProperty('stream-record', '');
+  Future<void> stopRecording() async {
+    await _setProperty('stream-record', '');
+    final original = _recordingTargetOriginal;
+    final mpvPath = _recordingTargetMpv;
+    _recordingTargetOriginal = null;
+    _recordingTargetMpv = null;
+    if (original != null && mpvPath != null && original != mpvPath) {
+      for (var i = 0; i < 20; i++) {
+        final f = File(mpvPath);
+        if (await f.exists() && await f.length() > 0) {
+          try {
+            await f.rename(original);
+            break;
+          } catch (_) {}
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    }
+  }
 
   /// Repli quand l'écriture au fil de l'eau n'a rien donné : `dump-cache`
   /// recopie dans [path] les paquets que le démultiplexeur garde en mémoire
@@ -642,8 +669,23 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     // Rien ne s'est écoulé : il n'y a aucune séquence à écrire.
     if (to <= from) return false;
     final normalizedPath = path.replaceAll('\\', '/');
+    final mpvPath = Platform.isWindows && normalizedPath.toLowerCase().endsWith('.mka')
+        ? '$normalizedPath.mkv'
+        : normalizedPath;
     try {
-      await platform.command(['dump-cache', _seconds(from), _seconds(to), normalizedPath]);
+      await platform.command(['dump-cache', _seconds(from), _seconds(to), mpvPath]);
+      if (mpvPath != normalizedPath) {
+        for (var i = 0; i < 25; i++) {
+          final f = File(mpvPath);
+          if (await f.exists() && await f.length() > 0) {
+            try {
+              await f.rename(path);
+              break;
+            } catch (_) {}
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+      }
       return true;
     } on Object {
       return false;

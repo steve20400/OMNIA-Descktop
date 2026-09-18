@@ -105,8 +105,6 @@ void main() {
       MediaKit.ensureInitialized();
       work = Directory.systemTemp.createTempSync('omnia_libmpv_');
       player = Player(configuration: const PlayerConfiguration(libass: true));
-      player.stream.log.listen((e) => print('MPV: $e'));
-      await (player.platform! as NativePlayer).setProperty('msg-level', 'all=v');
       // Les machines de la CI n'ont pas de sortie audio : sans pilote nul,
       // mpv abandonnerait le fichier au lieu de le lire. Le pilote nul suit le
       // temps réel, donc la lecture avance comme chez l'utilisateur.
@@ -154,13 +152,9 @@ void main() {
       // puis le repli par son cache. Un fichier local est lu d'avance et tient
       // entier dans le cache : le repli est ici le chemin normal.
       await Future<void>.delayed(const Duration(milliseconds: 600));
-      print('DEBUG: clip = $clip');
-      print('DEBUG: exists before dump = ${File(clip).existsSync()}');
       var written = File(clip).existsSync() ? File(clip).lengthSync() : 0;
-      print('DEBUG: length before dump = $written');
       if (written < 32 * 1024) {
         final dumpOk = await controller.dumpRecording(clip);
-        print('DEBUG: dumpOk = $dumpOk');
         expect(
           dumpOk,
           isTrue,
@@ -172,8 +166,6 @@ void main() {
           if (written > 32 * 1024) break;
         }
       }
-      print('DEBUG: written final = $written');
-      print('DEBUG: work contents = ${work.listSync()}');
 
       // Deux secondes de PCM 16 bits à 22 050 Hz font 88 ko : un fichier plus
       // petit que 32 ko ne contient qu'un en-tête de conteneur, donc aucun son.
