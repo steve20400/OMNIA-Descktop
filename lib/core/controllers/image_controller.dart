@@ -4,10 +4,10 @@ import 'dart:io';
 import '../commands/player_command.dart';
 import '../models/media_file.dart';
 import '../models/media_type.dart';
-import '../models/playback_state.dart';
 import '../models/playback_status.dart';
 import '../utils/os_errors.dart';
 import 'media_controller.dart';
+
 
 /// Contrôleur dédié à l'affichage des images (`.png`, `.jpg`, `.webp`, `.svg`, etc.).
 ///
@@ -38,7 +38,7 @@ class ImageController implements MediaController {
         duration: Duration.zero,
         hasVideo: false,
         zoom: 1.0,
-        videoRotation: 0,
+        rotation: 0,
         videoZoom: 0,
         clearError: true,
       ),
@@ -54,9 +54,10 @@ class ImageController implements MediaController {
         (st) => st.copyWith(
           status: PlaybackStatus.playing,
           zoom: 1.0,
-          videoRotation: 0,
+          rotation: 0,
         ),
       );
+
     } on FileSystemException catch (e) {
       _currentFile = null;
       sink.update(
@@ -109,10 +110,11 @@ class ImageController implements MediaController {
         clearFile: true,
         status: PlaybackStatus.idle,
         zoom: 1.0,
-        videoRotation: 0,
+        rotation: 0,
         clearError: true,
       ),
     );
+
     _sink = null;
   }
 

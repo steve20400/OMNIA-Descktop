@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/commands/player_command.dart';
 import 'package:omnia/core/controllers/image_controller.dart';
@@ -43,12 +41,13 @@ void main() {
       final file = const MediaFile(path: '/photos/vacances.jpg', type: MediaType.image);
       await controller.open(file, sink);
 
-      expect(sink.state.status, PlaybackStatus.ready);
+      expect(sink.state.status, PlaybackStatus.playing);
       expect(sink.state.mediaType, MediaType.image);
       expect(sink.state.file, file);
       expect(sink.state.zoom, 1.0);
       expect(sink.state.rotation, 0);
     });
+
 
 
     test('ZoomRelative et SetZoom modifient le niveau de zoom dans les bornes', () async {

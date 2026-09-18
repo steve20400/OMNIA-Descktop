@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
+import '../../core/models/document_layout.dart';
 import '../../core/models/media_file.dart';
 import '../../core/providers.dart';
+
 import '../shortcuts/shortcut_handler.dart';
 import '../theme/omnia_theme.dart';
 
