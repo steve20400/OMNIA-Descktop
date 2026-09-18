@@ -125,7 +125,7 @@ void main() {
 
     test('un extrait de son est écrit, non vide, par le moteur réel', () async {
       final source = File(p.join(work.path, 'essai.wav'))..writeAsBytesSync(_sineWav());
-      final clip = p.join(work.path, 'extrait.mka');
+      final clip = p.join(work.path, Platform.isWindows ? 'extrait.wav' : 'extrait.mka');
 
       await controller.open(MediaFile(path: source.path, type: MediaType.audio), sink);
       await waitFor(
