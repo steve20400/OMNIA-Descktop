@@ -482,8 +482,8 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
           ),
         ],
       ),
-      // Le bouton « Modifier » et « Enregistrer » pour les fichiers texte/code modifiables.
-      if (!isPdf && state.mediaType == MediaType.text) ...[
+      // Le bouton « Modifier » et « Enregistrer » pour les fichiers texte/code/bureautique modifiables.
+      if (!isPdf && (state.mediaType == MediaType.text || state.mediaType == MediaType.doc)) ...[
         if (ui.isEditing) ...[
           _DocControl(
             const ControlSlot(id: DocumentBarSlots.save, width: icon, priority: 2),
@@ -523,13 +523,13 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
             const ControlSlot(id: DocumentBarSlots.edit, width: icon, priority: 2),
             OmniaIconButton(
               icon: Icons.edit_outlined,
-              tooltip: 'Modifier le fichier texte',
+              tooltip: 'Modifier le document',
               onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
             ),
             [
               OmniaMenuItem(
                 icon: Icons.edit_outlined,
-                label: 'Modifier le fichier',
+                label: 'Modifier le document',
                 onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
               ),
             ],

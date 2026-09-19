@@ -35,6 +35,21 @@ abstract final class DocReader {
   /// Extrait le contenu de [bytes] selon l'extension de [path].
   static ExtractedDocument extract(Uint8List bytes, String path) {
     final ext = p.extension(path).toLowerCase().replaceFirst('.', '');
+
+    // Si le document a été enregistré en texte brut ou Markdown (ex. modification et sauvegarde)
+    if (!_isBinaryPackage(bytes)) {
+      try {
+        final text = utf8.decode(bytes);
+        if (text.trim().isNotEmpty) {
+          return ExtractedDocument(
+            text: text,
+            isMarkdown: ext == 'md' || ext == 'markdown' || text.trimLeft().startsWith('#'),
+            formatDescription: ext.toUpperCase(),
+          );
+        }
+      } catch (_) {}
+    }
+
     switch (ext) {
       case 'docx' || 'dotx' || 'docm' || 'dotm':
         return _extractDocx(bytes);
@@ -54,6 +69,19 @@ abstract final class DocReader {
         // Essai de décodage standard si extension méconnue
         return _extractDocx(bytes);
     }
+  }
+
+  static bool _isBinaryPackage(Uint8List bytes) {
+    if (bytes.length >= 2 && bytes[0] == 0x50 && bytes[1] == 0x4B) {
+      return true; // En-tête ZIP standard (PK..)
+    }
+    if (bytes.length >= 4 && bytes[0] == 0xD0 && bytes[1] == 0xCF && bytes[2] == 0x11 && bytes[3] == 0xE0) {
+      return true; // En-tête OLE2 binaire (Word 97-2003, PPT legacy)
+    }
+    if (bytes.length >= 5 && bytes[0] == 0x7B && bytes[1] == 0x5C && bytes[2] == 0x72 && bytes[3] == 0x74 && bytes[4] == 0x66) {
+      return true; // {\rtf
+    }
+    return false;
   }
 
   /// Décodage d'une présentation PowerPoint moderne (.pptx / OOXML).

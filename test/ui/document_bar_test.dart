@@ -213,5 +213,16 @@ void main() {
       expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('document bureautique (DOC/PPTX) : affiche le bouton modifier', (tester) async {
+      const docState = PlaybackState(
+        file: MediaFile(path: '/docs/Presentation.pptx', type: MediaType.doc),
+      );
+      await pumpBar(tester, docState);
+      await resizeWindow(tester, const Size(1200, 400));
+
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

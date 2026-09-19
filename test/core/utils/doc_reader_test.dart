@@ -178,5 +178,16 @@ Ceci est un paragraphe avec du texte standard.\par
         if (await file.exists()) await file.delete();
       }
     });
+
+    test('document bureautique modifié et réenregistré en texte est relu directement', () async {
+      final file = File('${Directory.systemTemp.path}/saved_pres.pptx');
+      await file.writeAsString('### Diapositive 1 Modifiée\n\nNouveau contenu texte.');
+      try {
+        final text = await DocReader.read(file.path);
+        expect(text, '### Diapositive 1 Modifiée\n\nNouveau contenu texte.');
+      } finally {
+        if (await file.exists()) await file.delete();
+      }
+    });
   });
 }
