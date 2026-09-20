@@ -40,6 +40,12 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
     });
     _lifecycle = AppLifecycleListener(
       onExitRequested: () async {
+        try {
+          await ref.read(avControllerProvider).player.stop();
+        } catch (_) {}
+        try {
+          await ref.read(playbackServiceProvider).stopImmediately();
+        } catch (_) {}
         await widget.onExit?.call();
         return AppExitResponse.exit;
       },

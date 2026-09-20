@@ -16,6 +16,7 @@ import '../../core/models/window_sizes.dart';
 import '../../core/providers.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
+import '../app_close.dart';
 import '../audio_tags_provider.dart';
 import '../chrome_controller.dart';
 import '../document_search.dart';
@@ -173,9 +174,13 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       if (HardwareKeyboard.instance.isControlPressed) {
         ref.dispatch(ZoomRelative(dy < 0 ? 1.15 : 1 / 1.15));
       } else if (state.mediaType == MediaType.pdf) {
-        ref.dispatch(dy > 0 ? const NextPage() : const PreviousPage());
+        if (state.documentLayout == DocumentLayout.continuous) {
+          ref.dispatch(ScrollDocument(dy > 0 ? 175.0 : -175.0));
+        } else {
+          ref.dispatch(dy > 0 ? const NextPage() : const PreviousPage());
+        }
       } else {
-        // Document texte / code : défilement du document
+        // Document texte / code : défilement du document (~5 crans pour traverser une vue)
         final currentFraction = state.scrollFraction;
         final step = dy > 0 ? 0.05 : -0.05;
         ref.dispatch(ScrollTo((currentFraction + step).clamp(0.0, 1.0)));
@@ -599,7 +604,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                                     iconSize: buttonIcon - 2,
                                     tooltip: l10n.closeWindow,
                                     danger: true,
-                                    onPressed: () => ref.read(windowServiceProvider).close(),
+                                    onPressed: () => closeApplication(ref),
                                   ),
                                 ],
                               ),
@@ -653,6 +658,9 @@ class _MiniOverlay extends ConsumerWidget {
             return Stack(
               fit: StackFit.expand,
               children: [
+                const Positioned.fill(
+                  child: DragToMoveArea(child: SizedBox.expand()),
+                ),
                 _shade(colors, top: true),
                 _shade(colors, top: false),
                 Positioned(
@@ -703,7 +711,7 @@ class _MiniOverlay extends ConsumerWidget {
                           iconSize: OmniaMetrics.iconSize - 6,
                           tooltip: l10n.closeWindow,
                           danger: true,
-                          onPressed: () => ref.read(windowServiceProvider).close(),
+                          onPressed: () => closeApplication(ref),
                         ),
                       ],
                     ),
@@ -784,12 +792,14 @@ class _MiniOverlay extends ConsumerWidget {
         top: top ? 0 : null,
         bottom: top ? null : 0,
         height: _shadeHeight,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-              end: top ? Alignment.bottomCenter : Alignment.topCenter,
-              colors: [colors.velvet.withValues(alpha: 0.55), Colors.transparent],
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: top ? Alignment.topCenter : Alignment.bottomCenter,
+                end: top ? Alignment.bottomCenter : Alignment.topCenter,
+                colors: [colors.velvet.withValues(alpha: 0.55), Colors.transparent],
+              ),
             ),
           ),
         ),
@@ -829,6 +839,9 @@ class _MiniImageOverlay extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            const Positioned.fill(
+              child: DragToMoveArea(child: SizedBox.expand()),
+            ),
             _shade(colors, top: true),
             _shade(colors, top: false),
             Positioned(
@@ -892,7 +905,7 @@ class _MiniImageOverlay extends ConsumerWidget {
                           iconSize: OmniaMetrics.iconSize - 6,
                           tooltip: l10n.closeWindow,
                           danger: true,
-                          onPressed: () => ref.read(windowServiceProvider).close(),
+                          onPressed: () => closeApplication(ref),
                         ),
                       ],
                     ),
@@ -972,12 +985,14 @@ class _MiniImageOverlay extends ConsumerWidget {
         top: top ? 0 : null,
         bottom: top ? null : 0,
         height: _shadeHeight,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-              end: top ? Alignment.bottomCenter : Alignment.topCenter,
-              colors: [colors.velvet.withValues(alpha: 0.55), Colors.transparent],
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: top ? Alignment.topCenter : Alignment.bottomCenter,
+                end: top ? Alignment.bottomCenter : Alignment.topCenter,
+                colors: [colors.velvet.withValues(alpha: 0.55), Colors.transparent],
+              ),
             ),
           ),
         ),
@@ -1017,6 +1032,9 @@ class _MiniDocumentOverlay extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            const Positioned.fill(
+              child: DragToMoveArea(child: SizedBox.expand()),
+            ),
             _shade(colors, top: true),
             _shade(colors, top: false),
             Positioned(
@@ -1080,7 +1098,7 @@ class _MiniDocumentOverlay extends ConsumerWidget {
                           iconSize: OmniaMetrics.iconSize - 6,
                           tooltip: l10n.closeWindow,
                           danger: true,
-                          onPressed: () => ref.read(windowServiceProvider).close(),
+                          onPressed: () => closeApplication(ref),
                         ),
                       ],
                     ),
@@ -1152,12 +1170,14 @@ class _MiniDocumentOverlay extends ConsumerWidget {
         top: top ? 0 : null,
         bottom: top ? null : 0,
         height: _shadeHeight,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-              end: top ? Alignment.bottomCenter : Alignment.topCenter,
-              colors: [colors.velvet.withValues(alpha: 0.55), Colors.transparent],
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: top ? Alignment.topCenter : Alignment.bottomCenter,
+                end: top ? Alignment.bottomCenter : Alignment.topCenter,
+                colors: [colors.velvet.withValues(alpha: 0.55), Colors.transparent],
+              ),
             ),
           ),
         ),

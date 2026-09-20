@@ -717,7 +717,7 @@ class PlaybackService implements PlaybackStateSink {
     }
     await window.setMinimumSize(_miniMinimum(shape));
     await window.setBounds(bounds);
-    if (shape > 0) {
+    if (shape > 0 && _state.hasVideo && _state.videoAspect != null) {
       await window.setAspectRatio(shape);
       _aspectLocked = true;
     }
@@ -1043,6 +1043,14 @@ class PlaybackService implements PlaybackStateSink {
       if (attempt < attempts - 1) await Future<void>.delayed(recordingCheckDelay);
     }
     return size;
+  }
+
+  /// Interrompt immédiatement et sans délai la lecture en cours.
+  Future<void> stopImmediately() async {
+    final active = _active;
+    if (active != null) {
+      await active.close();
+    }
   }
 
   /// Libère ce service. Les contrôleurs de média ne sont pas libérés ici :

@@ -140,6 +140,7 @@ class _TextViewState extends ConsumerState<TextView> {
   Widget build(BuildContext context) {
     final scale = ref.watch(playbackStateProvider.select((s) => s.zoom));
     final dark = ref.watch(playbackStateProvider.select((s) => s.readingDark));
+    final miniPlayer = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
 
     // Le core demande une position (reprise, télécommande) : on s'y rend une
     // fois, sans boucler avec les positions qu'on lui renvoie nous-mêmes.
@@ -152,7 +153,13 @@ class _TextViewState extends ConsumerState<TextView> {
     });
 
     final reading = ReadingPalette.of(dark: dark);
-    final baseSize = 15.0 * scale;
+    final baseSize = (miniPlayer ? 12.5 : 15.0) * scale;
+    final docPadding = miniPlayer
+        ? const EdgeInsets.all(OmniaMetrics.space2)
+        : const EdgeInsets.symmetric(
+            horizontal: OmniaMetrics.space8,
+            vertical: OmniaMetrics.space6,
+          );
     final body = TextStyle(
       fontFamily: OmniaFonts.ui,
       fontSize: baseSize,
@@ -187,14 +194,11 @@ class _TextViewState extends ConsumerState<TextView> {
           controller: _scroll,
           child: SingleChildScrollView(
             controller: _scroll,
-            padding: const EdgeInsets.symmetric(
-              horizontal: OmniaMetrics.space8,
-              vertical: OmniaMetrics.space6,
-            ),
+            padding: docPadding,
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 900),
+                constraints: BoxConstraints(maxWidth: miniPlayer ? double.infinity : 900),
                 child: TextField(
                   controller: _editController,
                   maxLines: null,
@@ -219,10 +223,7 @@ class _TextViewState extends ConsumerState<TextView> {
         data: doc.text,
         controller: _scroll,
         selectable: true,
-        padding: EdgeInsets.symmetric(
-          horizontal: OmniaMetrics.space8,
-          vertical: OmniaMetrics.space6,
-        ),
+        padding: docPadding,
         styleSheet: _markdownStyle(reading, body, mono, baseSize),
       );
     } else {
@@ -230,14 +231,11 @@ class _TextViewState extends ConsumerState<TextView> {
         controller: _scroll,
         child: SingleChildScrollView(
           controller: _scroll,
-          padding: const EdgeInsets.symmetric(
-            horizontal: OmniaMetrics.space8,
-            vertical: OmniaMetrics.space6,
-          ),
+          padding: docPadding,
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
+              constraints: BoxConstraints(maxWidth: miniPlayer ? double.infinity : 900),
               child: SelectableText.rich(
                 _highlighted(doc.text, widget.search?.state, mono, reading),
               ),

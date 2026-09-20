@@ -190,6 +190,10 @@ class TextController implements MediaController {
         sink.update((st) => st.copyWith(readingDark: !st.readingDark));
       case ScrollTo(:final fraction):
         sink.update((st) => st.copyWith(scrollFraction: fraction.clamp(0.0, 1.0)));
+      case ScrollDocument(:final delta):
+        final step = (delta / 2500.0).clamp(-0.1, 0.1);
+        final next = (sink.state.scrollFraction + step).clamp(0.0, 1.0);
+        sink.update((st) => st.copyWith(scrollFraction: next));
       default:
         return false;
     }

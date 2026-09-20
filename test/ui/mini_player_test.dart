@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/commands/player_command.dart';
+import 'package:omnia/core/models/document_layout.dart';
 import 'package:omnia/core/models/media_file.dart';
 import 'package:omnia/core/models/media_type.dart';
 import 'package:omnia/core/models/playback_state.dart';
@@ -225,11 +226,12 @@ void main() {
       expect(find.byType(IgnorePointer), findsWidgets);
     });
 
-    testWidgets('mode document PDF : la molette déclenche NextPage / PreviousPage', (tester) async {
-      final harness = await pumpMini(
+    testWidgets('mode document PDF : la molette déclenche ScrollDocument en continu et NextPage en page par page', (tester) async {
+      final harnessContinuous = await pumpMini(
         tester,
         state: const PlaybackState(
           file: MediaFile(path: '/docs/document.pdf', type: MediaType.pdf),
+          documentLayout: DocumentLayout.continuous,
           miniPlayer: true,
         ),
       );
@@ -238,7 +240,21 @@ void main() {
       await tester.sendEventToBinding(pointer.hover(const Offset(100, 100)));
       await tester.sendEventToBinding(pointer.scroll(const Offset(0, 50)));
       await tester.pumpAndSettle();
-      expect(harness.commands.whereType<NextPage>(), hasLength(1));
+      expect(harnessContinuous.commands.whereType<ScrollDocument>(), hasLength(1));
+
+      final harnessPaged = await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/docs/document.pdf', type: MediaType.pdf),
+          documentLayout: DocumentLayout.paged,
+          miniPlayer: true,
+        ),
+      );
+
+      await tester.sendEventToBinding(pointer.hover(const Offset(100, 100)));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 50)));
+      await tester.pumpAndSettle();
+      expect(harnessPaged.commands.whereType<NextPage>(), hasLength(1));
     });
 
     testWidgets('mode image : la vue est enveloppée dans IgnorePointer et la molette zoome', (tester) async {
@@ -355,11 +371,12 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('sur un PDF, les touches fléchées haut et bas déclenchent PreviousPage / NextPage et jamais Volume', (tester) async {
+    testWidgets('sur un PDF, les touches fléchées haut et bas naviguent dans le document et jamais Volume', (tester) async {
       final harness = await pumpMini(
         tester,
         state: const PlaybackState(
           file: MediaFile(path: '/docs/document.pdf', type: MediaType.pdf),
+          documentLayout: DocumentLayout.continuous,
           miniPlayer: true,
         ),
       );
@@ -367,13 +384,13 @@ void main() {
       // Appui sur flèche bas (descendre)
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
-      expect(harness.commands.whereType<NextPage>(), hasLength(1));
+      expect(harness.commands.whereType<ScrollDocument>(), hasLength(1));
       expect(harness.commands.whereType<VolumeRelative>(), isEmpty);
 
       // Appui sur flèche haut (monter)
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pumpAndSettle();
-      expect(harness.commands.whereType<PreviousPage>(), hasLength(1));
+      expect(harness.commands.whereType<ScrollDocument>(), hasLength(2));
       expect(harness.commands.whereType<VolumeRelative>(), isEmpty);
     });
   });

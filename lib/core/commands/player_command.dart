@@ -95,6 +95,7 @@ sealed class PlayerCommand {
         SetDocumentLayout(DocumentLayout.fromJson(json['layout'])),
       'toggleDocumentLayout' => const ToggleDocumentLayout(),
       'scrollTo' => ScrollTo(_num(json, 'fraction').toDouble()),
+      'scrollDocument' => ScrollDocument(_num(json, 'delta').toDouble()),
       'setSubtitleTrack' => SetSubtitleTrack(json['id'] as String?),
       'toggleSubtitles' => const ToggleSubtitles(),
       'loadSubtitleFile' => LoadSubtitleFile(_string(json, 'path')),
@@ -611,6 +612,16 @@ final class ScrollTo extends PlayerCommand {
   String get type => 'scrollTo';
   @override
   Map<String, Object?> get arguments => {'fraction': fraction};
+}
+
+/// Émise pour faire défiler le document d'une distance en pixels (positif vers le bas).
+final class ScrollDocument extends PlayerCommand {
+  const ScrollDocument(this.delta);
+  final double delta;
+  @override
+  String get type => 'scrollDocument';
+  @override
+  Map<String, Object?> get arguments => {'delta': delta};
 }
 
 // --- Sous-titres et pistes audio ------------------------------------------

@@ -59,6 +59,7 @@ void main() {
       SetDocumentLayout(DocumentLayout.paged),
       ToggleDocumentLayout(),
       ScrollTo(0.42),
+      ScrollDocument(175.0),
       // Phase 5
       SetSubtitleTrack('2'),
       SetSubtitleTrack(null),

@@ -114,7 +114,7 @@ class _PdfStageState extends ConsumerState<PdfStage> {
   ];
 }
 
-class _ContinuousView extends ConsumerWidget {
+class _ContinuousView extends ConsumerStatefulWidget {
   const _ContinuousView({
     super.key,
     required this.session,
@@ -129,29 +129,81 @@ class _ContinuousView extends ConsumerWidget {
   final Color paper;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ContinuousView> createState() => _ContinuousViewState();
+}
+
+class _ContinuousViewState extends ConsumerState<_ContinuousView> {
+  double? _lastWidth;
+
+  void _fitWidth() {
+    final viewer = widget.session.viewer;
+    if (!viewer.isReady) return;
+    final cover = viewer.coverScale;
+    if (cover > 0) {
+      viewer.setZoom(viewer.visibleRect.center, cover);
+    }
+  }
+
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) return;
+    if (HardwareKeyboard.instance.isControlPressed) return; // Ctrl gère le zoom
+    final dy = event.scrollDelta.dy;
+    if (dy.abs() < 0.5) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+      final viewer = widget.session.viewer;
+      if (!viewer.isReady) return;
+      final center = viewer.visibleRect.center;
+      // Étalonnage du défilement continu : ~5 crans de molette par page (environ 175 px par cran)
+      final step = dy > 0 ? 175.0 : -175.0;
+      viewer.setZoom(Offset(center.dx, center.dy + step), viewer.currentZoom);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
-    return PdfViewer(
-      // Le document appartient au contrôleur du core : la vue ne doit pas le
-      // libérer quand elle se démonte (passage en mode page par page).
-      PdfDocumentRefDirect(session.document, autoDispose: false),
-      controller: session.viewer,
-      params: PdfViewerParams(
-        backgroundColor: paper,
-        margin: OmniaMetrics.space3,
-        // Les raccourcis sont ceux d'OMNIA, pas ceux de pdfrx.
-        enableKeyboardNavigation: false,
-        pageDropShadow: BoxShadow(
-          color: Colors.black.withValues(alpha: 0.35),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
-        ),
-        matchTextColor: colors.projector.withValues(alpha: 0.35),
-        activeMatchTextColor: colors.projector.withValues(alpha: 0.7),
-        textSelectionParams: const PdfTextSelectionParams(enabled: true),
-        onViewerReady: (_, controller) => onReady(controller),
-        onDocumentChanged: (document) {
-          if (document == null) onDocumentClosed();
+    final isMini = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
+
+    return Listener(
+      onPointerSignal: _onPointerSignal,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (_lastWidth != null && (constraints.maxWidth - _lastWidth!).abs() > 4) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _fitWidth();
+            });
+          }
+          _lastWidth = constraints.maxWidth;
+
+          return PdfViewer(
+            // Le document appartient au contrôleur du core : la vue ne doit pas le
+            // libérer quand elle se démonte (passage en mode page par page).
+            PdfDocumentRefDirect(widget.session.document, autoDispose: false),
+            controller: widget.session.viewer,
+            params: PdfViewerParams(
+              backgroundColor: widget.paper,
+              margin: isMini ? 2.0 : OmniaMetrics.space3,
+              // Les raccourcis sont ceux d'OMNIA, pas ceux de pdfrx.
+              enableKeyboardNavigation: false,
+              pageDropShadow: BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+              matchTextColor: colors.projector.withValues(alpha: 0.35),
+              activeMatchTextColor: colors.projector.withValues(alpha: 0.7),
+              textSelectionParams: const PdfTextSelectionParams(enabled: true),
+              onViewerReady: (_, controller) {
+                widget.onReady(controller);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _fitWidth();
+                });
+              },
+              onDocumentChanged: (document) {
+                if (document == null) widget.onDocumentClosed();
+              },
+            ),
+          );
         },
       ),
     );
@@ -219,20 +271,23 @@ class _PagedViewState extends ConsumerState<_PagedView> {
         },
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(OmniaMetrics.space4),
-            child: PdfPageView(
-              document: widget.session.document,
-              pageNumber: page.clamp(1, widget.session.pageCount),
-              rotationOverride: PdfPageRotation.values[widget.rotation % 4],
-              backgroundColor: widget.paper,
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.35),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+            padding: EdgeInsets.all(miniPlayer ? 2.0 : OmniaMetrics.space4),
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: PdfPageView(
+                document: widget.session.document,
+                pageNumber: page.clamp(1, widget.session.pageCount),
+                rotationOverride: PdfPageRotation.values[widget.rotation % 4],
+                backgroundColor: widget.paper,
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -180,6 +180,11 @@ class PdfController implements MediaController {
         sink.update((st) => st.copyWith(documentLayout: layout));
       case ToggleDocumentLayout():
         sink.update((st) => st.copyWith(documentLayout: st.documentLayout.other));
+      case ScrollDocument(:final delta):
+        if (viewer.isReady) {
+          final center = viewer.visibleRect.center;
+          await viewer.setZoom(Offset(center.dx, center.dy + delta), viewer.currentZoom);
+        }
       default:
         return false;
     }

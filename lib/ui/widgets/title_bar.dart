@@ -7,6 +7,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../app_close.dart';
 import '../settings/settings_controller.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
@@ -174,7 +175,7 @@ class TitleBar extends ConsumerWidget {
                         glyph: _WindowGlyph.close,
                         tooltip: l10n.closeWindow,
                         danger: true,
-                        onPressed: window.close,
+                        onPressed: () => closeApplication(ref),
                       ),
                     ],
                   ),
