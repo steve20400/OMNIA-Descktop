@@ -64,5 +64,22 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
 fi
 
+# 7. Nettoyage de la barre des tâches / Dash
+if command -v gsettings >/dev/null 2>&1; then
+    python3 -c "
+import subprocess, ast
+
+try:
+    res = subprocess.check_output(['gsettings', 'get', 'org.gnome.shell', 'favorite-apps'], text=True).strip()
+    raw = res[4:] if res.startswith('@as ') else res
+    favs = ast.literal_eval(raw)
+    new_favs = [f for f in favs if f not in ('omnia.desktop', 'dev.omnia.omnia.desktop')]
+    if len(new_favs) != len(favs):
+        subprocess.run(['gsettings', 'set', 'org.gnome.shell', 'favorite-apps', str(new_favs)], check=True)
+except Exception:
+    pass
+" 2>/dev/null || true
+fi
+
 echo "==> OMNIA a été entièrement désinstallé avec succès."
 echo "Vous pouvez désormais installer une nouvelle version proprement."

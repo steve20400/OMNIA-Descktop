@@ -166,7 +166,6 @@ else
     if [ -f "$INSTALL_DIR/dev.omnia.omnia.desktop" ]; then
         sudo cp -f "$INSTALL_DIR/dev.omnia.omnia.desktop" /usr/share/applications/dev.omnia.omnia.desktop
         sudo sed -i 's|^Exec=.*|Exec=/usr/local/bin/omnia %U|' /usr/share/applications/dev.omnia.omnia.desktop 2>/dev/null || true
-        sudo cp -f /usr/share/applications/dev.omnia.omnia.desktop /usr/share/applications/omnia.desktop
     else
         cat << 'EOF' | sudo tee /usr/share/applications/dev.omnia.omnia.desktop > /dev/null
 [Desktop Entry]
@@ -183,11 +182,11 @@ Categories=AudioVideo;Player;Viewer;
 StartupWMClass=dev.omnia.omnia
 MimeType=video/mp4;video/x-matroska;video/quicktime;audio/mpeg;audio/flac;audio/wav;image/png;image/jpeg;image/webp;application/pdf;
 EOF
-        sudo cp -f /usr/share/applications/dev.omnia.omnia.desktop /usr/share/applications/omnia.desktop
     fi
-    sudo chmod 644 /usr/share/applications/dev.omnia.omnia.desktop /usr/share/applications/omnia.desktop 2>/dev/null || true
+    sudo chmod 644 /usr/share/applications/dev.omnia.omnia.desktop 2>/dev/null || true
 
-    # Nettoyage d'éventuels vieux lanceurs corrompus dans ~/.local/share/applications
+    # Nettoyage impératif de tout vieux lanceur doublon pour éviter les icônes doubles
+    sudo rm -f /usr/share/applications/omnia.desktop 2>/dev/null || true
     if [ -f "$HOME/.local/share/applications/omnia.desktop" ]; then
         rm -f "$HOME/.local/share/applications/omnia.desktop" 2>/dev/null || true
     fi
@@ -210,6 +209,30 @@ EOF
     fi
     sudo touch /usr/share/icons/hicolor 2>/dev/null || true
     sudo touch /usr/share/applications 2>/dev/null || true
+
+    # 8. Épinglage automatique dans la barre des tâches / Dash (GNOME / Ubuntu)
+    if command -v gsettings >/dev/null 2>&1; then
+        echo "--> Épinglage d'OMNIA dans la barre des tâches..."
+        python3 -c "
+import subprocess, ast
+
+try:
+    res = subprocess.check_output(['gsettings', 'get', 'org.gnome.shell', 'favorite-apps'], text=True).strip()
+    raw = res[4:] if res.startswith('@as ') else res
+    favs = ast.literal_eval(raw)
+    changed = False
+    if 'omnia.desktop' in favs:
+        favs = [f for f in favs if f != 'omnia.desktop']
+        changed = True
+    if 'dev.omnia.omnia.desktop' not in favs:
+        favs.append('dev.omnia.omnia.desktop')
+        changed = True
+    if changed:
+        subprocess.run(['gsettings', 'set', 'org.gnome.shell', 'favorite-apps', str(favs)], check=True)
+except Exception:
+    pass
+" 2>/dev/null || true
+    fi
 fi
 
 echo ""
