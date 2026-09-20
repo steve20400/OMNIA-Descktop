@@ -223,6 +223,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       content = _audioStrip(context, state);
     }
 
+    final mediaContent = Listener(
+      onPointerSignal: _onPointerSignal,
+      child: content,
+    );
+
     return Focus(
       focusNode: _focus,
       autofocus: true,
@@ -245,7 +250,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         child: Listener(
           onPointerDown: (_) => _chrome.activity(),
           onPointerMove: (_) => _chrome.activity(),
-          onPointerSignal: _onPointerSignal,
           child: ColoredBox(
             color: colors.velvet,
             child: LayoutBuilder(
@@ -262,21 +266,21 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                           width: panelWidth,
                           child: _MiniSidePanel(onClose: _closeDrawer),
                         ),
-                      Expanded(child: content),
+                      Expanded(child: mediaContent),
                     ],
                   );
                 } else {
                   // Mode compact : la playlist se déroule EN DESSOUS (vers le bas) sous la vidéo.
                   // La vidéo reste toujours visible en haut et n'est jamais masquée !
                   if (!_drawerOpen) {
-                    return content;
+                    return mediaContent;
                   }
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
                         flex: 5,
-                        child: content,
+                        child: mediaContent,
                       ),
                       Expanded(
                         flex: 5,
@@ -322,9 +326,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         StageContextMenu(
           child: _windowGestures(
             hasMedia: false,
-            child: ImageStage(
-              key: ValueKey('mini-image:${state.file!.path}'),
-              file: state.file!,
+            child: IgnorePointer(
+              child: ImageStage(
+                key: ValueKey('mini-image:${state.file!.path}'),
+                file: state.file!,
+              ),
             ),
           ),
         ),
@@ -776,11 +782,13 @@ class _MiniImageOverlay extends ConsumerWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      fileName,
-                      style: type.caption.copyWith(color: colors.screen),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: DragToMoveArea(
+                      child: Text(
+                        fileName,
+                        style: type.caption.copyWith(color: colors.screen),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                   _plate(
@@ -962,11 +970,13 @@ class _MiniDocumentOverlay extends ConsumerWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      fileName,
-                      style: type.caption.copyWith(color: colors.screen),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: DragToMoveArea(
+                      child: Text(
+                        fileName,
+                        style: type.caption.copyWith(color: colors.screen),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                   _plate(

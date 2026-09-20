@@ -234,5 +234,54 @@ void main() {
       await tester.pumpAndSettle();
       expect(harness.commands.whereType<NextPage>(), hasLength(1));
     });
+
+    testWidgets('mode image : la vue est enveloppée dans IgnorePointer et la molette zoome', (tester) async {
+      final harness = await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/images/photo.png', type: MediaType.image),
+          miniPlayer: true,
+        ),
+      );
+
+      expect(find.byType(IgnorePointer), findsWidgets);
+
+      final pointer = TestPointer(1, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(pointer.hover(const Offset(100, 100)));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, -50)));
+      await tester.pumpAndSettle();
+      expect(harness.commands.whereType<ZoomRelative>(), hasLength(1));
+    });
+
+    testWidgets('défilement sur la liste de lecture : n\'altère ni le zoom ni la page du média', (tester) async {
+      final harness = await pumpMini(
+        tester,
+        size: const Size(600, 300),
+        state: const PlaybackState(
+          file: MediaFile(path: '/images/photo.png', type: MediaType.image),
+          miniPlayer: true,
+        ),
+      );
+
+      // Ouvrir le volet de liste de lecture (en mode large >= 480px, affiché à gauche)
+      await tester.tap(find.byIcon(Icons.playlist_play_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('Dossier'), findsOneWidget);
+
+      // Molette au-dessus de la liste de lecture (à gauche, ex: x=50, y=100)
+      final pointer = TestPointer(1, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(pointer.hover(const Offset(50, 100)));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 50)));
+      await tester.pumpAndSettle();
+
+      // Aucun ZoomRelative ne doit avoir été déclenché par le défilement du volet !
+      expect(harness.commands.whereType<ZoomRelative>(), isEmpty);
+
+      // En revanche, molette au-dessus de l'image (à droite, ex: x=400, y=100) déclenche bien le zoom
+      await tester.sendEventToBinding(pointer.hover(const Offset(400, 100)));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, -50)));
+      await tester.pumpAndSettle();
+      expect(harness.commands.whereType<ZoomRelative>(), hasLength(1));
+    });
   });
 }
