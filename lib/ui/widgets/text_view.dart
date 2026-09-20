@@ -35,6 +35,7 @@ class _TextViewState extends ConsumerState<TextView> {
   final ScrollController _scroll = ScrollController();
   late final TextEditingController _editController;
   Timer? _reportDebounce;
+  Timer? _autoSaveTimer;
   double? _pendingRestore;
   int _lastMatch = -1;
   int _seenSaveRequest = 0;
@@ -55,6 +56,12 @@ class _TextViewState extends ConsumerState<TextView> {
       widget.search?.addListener(_onSearchChanged);
     }
     if (old.document.path != widget.document.path) {
+      if (ref.read(documentUiProvider).hasUnsavedChanges) {
+        _autoSaveTimer?.cancel();
+        try {
+          File(old.document.path).writeAsStringSync(_editController.text);
+        } catch (_) {}
+      }
       _lastMatch = -1;
       _editController.text = widget.document.text;
       if (_scroll.hasClients) _scroll.jumpTo(0);
@@ -64,36 +71,61 @@ class _TextViewState extends ConsumerState<TextView> {
   @override
   void dispose() {
     _reportDebounce?.cancel();
+    _autoSaveTimer?.cancel();
+    if (ref.read(documentUiProvider).hasUnsavedChanges) {
+      try {
+        File(widget.document.path).writeAsStringSync(_editController.text);
+      } catch (_) {}
+    }
     _scroll.dispose();
     _editController.dispose();
     widget.search?.removeListener(_onSearchChanged);
     super.dispose();
   }
 
-  Future<void> _saveFile() async {
+  Future<void> _saveFile({bool silent = false}) async {
+    _autoSaveTimer?.cancel();
     try {
       final file = File(widget.document.path);
       await file.writeAsString(_editController.text);
       if (mounted) {
         ref.read(textControllerProvider).updateText(_editController.text);
         ref.read(documentUiProvider.notifier).setUnsavedChanges(false);
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(
-            content: Text('Fichier enregistré avec succès.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        if (!silent) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            const SnackBar(
+              content: Text('Fichier enregistré avec succès.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
             content: Text('Erreur lors de l’enregistrement : $e'),
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
     }
+  }
+
+  void _onTextChanged(String text) {
+    ref.read(documentUiProvider.notifier).setUnsavedChanges(true);
+    _scheduleAutoSave();
+  }
+
+  void _scheduleAutoSave() {
+    _autoSaveTimer?.cancel();
+    final prefs = ref.read(preferencesProvider);
+    if (!prefs.docAutoSave) return;
+    _autoSaveTimer = Timer(Duration(seconds: prefs.docAutoSaveIntervalSeconds), () {
+      if (mounted && ref.read(documentUiProvider).hasUnsavedChanges) {
+        _saveFile(silent: true);
+      }
+    });
   }
 
   void _onScrolled() {
@@ -177,6 +209,13 @@ class _TextViewState extends ConsumerState<TextView> {
     final ui = ref.watch(documentUiProvider);
     _restoreIfNeeded(ref.read(playbackStateProvider).scrollFraction);
 
+    ref.listen<bool>(documentUiProvider.select((u) => u.isEditing), (prev, next) {
+      if (prev == true && next == false && ref.read(documentUiProvider).hasUnsavedChanges) {
+        _autoSaveTimer?.cancel();
+        _saveFile(silent: true);
+      }
+    });
+
     if (ui.saveRequest != _seenSaveRequest) {
       _seenSaveRequest = ui.saveRequest;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -209,9 +248,7 @@ class _TextViewState extends ConsumerState<TextView> {
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
-                  onChanged: (_) {
-                    ref.read(documentUiProvider.notifier).setUnsavedChanges(true);
-                  },
+                  onChanged: _onTextChanged,
                 ),
               ),
             ),

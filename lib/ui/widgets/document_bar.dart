@@ -490,7 +490,9 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
             const ControlSlot(id: DocumentBarSlots.save, width: icon, priority: 2),
             OmniaIconButton(
               icon: Icons.save_rounded,
-              tooltip: 'Enregistrer les modifications  ·  Ctrl+S',
+              tooltip: ui.hasUnsavedChanges
+                  ? 'Enregistrer les modifications  ·  Ctrl+S'
+                  : 'Modifications enregistrées',
               active: ui.hasUnsavedChanges,
               onPressed: () => ref.read(documentUiProvider.notifier).requestSave(),
             ),

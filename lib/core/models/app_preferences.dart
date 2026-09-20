@@ -79,6 +79,8 @@ class AppPreferences {
     this.miniPlayerAlwaysOnTop = true,
     this.imageEditSuffix = defaultImageEditSuffix,
     this.imageEditQuality = 92,
+    this.docAutoSave = true,
+    this.docAutoSaveIntervalSeconds = 2,
   });
 
   static const AppPreferences defaults = AppPreferences();
@@ -89,6 +91,9 @@ class AppPreferences {
 
   /// Vitesses proposées comme vitesse par défaut.
   static const List<double> speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+  /// Intervalles de sauvegarde automatique proposés (en secondes).
+  static const List<int> docAutoSaveIntervals = [1, 2, 3, 5, 10];
 
   /// Motif de nom des captures : `{name}`, `{date}`, `{time}`, `{position}`.
   static const String defaultScreenshotPattern = '{name} {date} {time}';
@@ -131,6 +136,12 @@ class AppPreferences {
   /// Taille du texte des fichiers `.txt` / `.md` (1.0 = normale).
   final double textScale;
 
+  /// Sauvegarde automatique des documents texte et code modifiés.
+  final bool docAutoSave;
+
+  /// Délai d'inactivité avant la sauvegarde automatique (en secondes).
+  final int docAutoSaveIntervalSeconds;
+
   // Captures
   final String screenshotNamePattern;
 
@@ -159,6 +170,8 @@ class AppPreferences {
     DocumentLayout? pdfLayout,
     bool? readingDark,
     double? textScale,
+    bool? docAutoSave,
+    int? docAutoSaveIntervalSeconds,
     String? screenshotNamePattern,
     bool? normalPlayerAlwaysOnTop,
     bool? miniPlayerAlwaysOnTop,
@@ -182,6 +195,9 @@ class AppPreferences {
       pdfLayout: pdfLayout ?? this.pdfLayout,
       readingDark: readingDark ?? this.readingDark,
       textScale: (textScale ?? this.textScale).clamp(0.6, 3.0),
+      docAutoSave: docAutoSave ?? this.docAutoSave,
+      docAutoSaveIntervalSeconds: _autoSaveInterval(
+          docAutoSaveIntervalSeconds ?? this.docAutoSaveIntervalSeconds),
       screenshotNamePattern: _pattern(screenshotNamePattern ?? this.screenshotNamePattern),
       normalPlayerAlwaysOnTop: normalPlayerAlwaysOnTop ?? this.normalPlayerAlwaysOnTop,
       miniPlayerAlwaysOnTop: miniPlayerAlwaysOnTop ?? this.miniPlayerAlwaysOnTop,
@@ -195,6 +211,14 @@ class AppPreferences {
   static int _step(int value) {
     var best = seekSteps.first;
     for (final s in seekSteps) {
+      if ((s - value).abs() < (best - value).abs()) best = s;
+    }
+    return best;
+  }
+
+  static int _autoSaveInterval(int value) {
+    var best = docAutoSaveIntervals.first;
+    for (final s in docAutoSaveIntervals) {
       if ((s - value).abs() < (best - value).abs()) best = s;
     }
     return best;
@@ -227,6 +251,8 @@ class AppPreferences {
         'pdfLayout': pdfLayout.name,
         'readingDark': readingDark,
         'textScale': textScale,
+        'docAutoSave': docAutoSave,
+        'docAutoSaveIntervalSeconds': docAutoSaveIntervalSeconds,
         'screenshotNamePattern': screenshotNamePattern,
         'normalPlayerAlwaysOnTop': normalPlayerAlwaysOnTop,
         'miniPlayerAlwaysOnTop': miniPlayerAlwaysOnTop,
@@ -265,6 +291,10 @@ class AppPreferences {
       pdfLayout: DocumentLayout.fromJson(json['pdfLayout']),
       readingDark: bool0('readingDark', d.readingDark),
       textScale: num0('textScale', d.textScale),
+      docAutoSave: bool0('docAutoSave', d.docAutoSave),
+      docAutoSaveIntervalSeconds: (json['docAutoSaveIntervalSeconds'] is num)
+          ? (json['docAutoSaveIntervalSeconds']! as num).round()
+          : d.docAutoSaveIntervalSeconds,
       screenshotNamePattern: json['screenshotNamePattern'] is String
           ? json['screenshotNamePattern']! as String
           : d.screenshotNamePattern,

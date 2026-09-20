@@ -1241,7 +1241,9 @@ class _MiniDocumentOverlay extends ConsumerWidget {
                                   icon: Icons.save_rounded,
                                   size: OmniaMetrics.iconButtonSize - 8,
                                   iconSize: OmniaMetrics.iconSize - 4,
-                                  tooltip: 'Enregistrer les modifications',
+                                  tooltip: ui.hasUnsavedChanges
+                                      ? 'Enregistrer les modifications'
+                                      : 'Modifications enregistrées',
                                   active: ui.hasUnsavedChanges,
                                   onPressed: () => ref.read(documentUiProvider.notifier).requestSave(),
                                 ),
@@ -1336,7 +1338,9 @@ class _MiniDocumentOverlay extends ConsumerWidget {
                                 icon: Icons.save_rounded,
                                 size: OmniaMetrics.iconButtonSize - 8,
                                 iconSize: OmniaMetrics.iconSize - 4,
-                                tooltip: 'Enregistrer les modifications',
+                                tooltip: ui.hasUnsavedChanges
+                                    ? 'Enregistrer les modifications'
+                                    : 'Modifications enregistrées',
                                 active: ui.hasUnsavedChanges,
                                 onPressed: () => ref.read(documentUiProvider.notifier).requestSave(),
                               ),

@@ -795,6 +795,29 @@ class _DocumentsSection extends ConsumerWidget {
             onChanged: (v) => ref.change((p) => p.copyWith(textScale: v)),
           ),
         ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Sauvegarde automatique des documents',
+          hint: 'Enregistre automatiquement les fichiers texte et code modifiés pour éviter toute perte de données',
+          control: OmniaSwitch(
+            label: 'Sauvegarde automatique',
+            value: p.docAutoSave,
+            onChanged: (v) => ref.change((p) => p.copyWith(docAutoSave: v)),
+          ),
+        ),
+        if (p.docAutoSave) ...[
+          const SettingDivider(),
+          SettingRow(
+            title: 'Délai d’inactivité avant sauvegarde',
+            hint: 'Temps d’attente après la dernière touche saisie avant d’écrire sur le disque',
+            control: OmniaSegmented<int>(
+              values: AppPreferences.docAutoSaveIntervals,
+              selected: p.docAutoSaveIntervalSeconds,
+              labelOf: (v) => '${v} s',
+              onChanged: (v) => ref.change((p) => p.copyWith(docAutoSaveIntervalSeconds: v)),
+            ),
+          ),
+        ],
       ],
     );
   }

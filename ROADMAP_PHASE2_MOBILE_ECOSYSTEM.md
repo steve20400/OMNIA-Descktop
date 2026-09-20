@@ -22,6 +22,10 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
 - **Bouton Modifier & Enregistrer actif en mini-lecteur** : Les documents modifiables (texte brut, code source, markdown) peuvent être modifiés directement depuis la fenêtre compacte.
 - **Bascule fluide lecture/édition** : En mode lecture, la fenêtre reste déplaçable au doigt/à la souris ; en mode édition, le champ de saisie prend la main pour permettre la frappe et les sélections sans friction.
 - **Enregistrement direct** : Sauvegarde instantanée sur le disque avec raccourci `Ctrl+S` ou bouton dédié.
+- **Sauvegarde automatique intelligente & anti-coupure** :
+  - Enregistrement continu silencieux après un délai d'inactivité de frappe paramétrable (1s, 2s, 3s, 5s, 10s, activé par défaut à 2s dans les Paramètres).
+  - Écriture synchrone d'urgence lors du passage en lecture seule, du changement de fichier ou de la fermeture de la fenêtre, éliminant tout risque de perte de données en cas de coupure de courant.
+  - Indicateur visuel discret dans la barre d'outils (icône active quand des modifications sont en attente, état enregistré quand l'écriture est terminée).
 
 ### 1.4 Suite de Retouche & Redimensionnement d'Images (Non-Destructif)
 - **Outil d'ajustement complet** : Accessible en mode normal et en mini-lecteur (`Icons.tune_rounded`).

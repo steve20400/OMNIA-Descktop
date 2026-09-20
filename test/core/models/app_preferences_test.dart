@@ -20,6 +20,8 @@ void main() {
       expect(p.screenshotNamePattern, AppPreferences.defaultScreenshotPattern);
       expect(p.normalPlayerAlwaysOnTop, isFalse);
       expect(p.miniPlayerAlwaysOnTop, isTrue);
+      expect(p.docAutoSave, isTrue);
+      expect(p.docAutoSaveIntervalSeconds, 2);
     });
   });
 
@@ -42,6 +44,8 @@ void main() {
         pdfLayout: DocumentLayout.paged,
         readingDark: true,
         textScale: 1.4,
+        docAutoSave: false,
+        docAutoSaveIntervalSeconds: 5,
         screenshotNamePattern: '{name} @ {position}',
         normalPlayerAlwaysOnTop: true,
         miniPlayerAlwaysOnTop: false,
