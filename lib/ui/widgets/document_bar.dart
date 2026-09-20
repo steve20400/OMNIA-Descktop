@@ -65,6 +65,7 @@ abstract final class DocumentBarSlots {
   static const readingDark = 'readingDark';
   static const edit = 'edit';
   static const save = 'save';
+  static const miniPlayer = 'miniPlayer';
   static const find = 'find';
 
   /// Le zoom se montre ou part au menu d'un bloc : un « − » seul, sans sa
@@ -72,7 +73,7 @@ abstract final class DocumentBarSlots {
   static const zoomGroup = {zoomOut, zoomValue, zoomIn};
 
   /// Commandes rangées à droite, après l'espace libre ; les autres à gauche.
-  static const trailing = {readingDark, edit, save, find};
+  static const trailing = {readingDark, edit, save, miniPlayer, find};
 }
 
 /// Répartit les commandes de la barre de documents : [fitControls], puis deux
@@ -536,6 +537,22 @@ class _DocumentBarState extends ConsumerState<DocumentBar> {
           ),
         ],
       ],
+      _DocControl(
+        const ControlSlot(id: DocumentBarSlots.miniPlayer, width: icon, priority: 3),
+        OmniaIconButton(
+          icon: Icons.picture_in_picture_alt_rounded,
+          tooltip: ref.tooltipWith(l10n.miniPlayer, ShortcutAction.miniPlayer, l10n),
+          onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
+        ),
+        [
+          OmniaMenuItem(
+            icon: Icons.picture_in_picture_alt_rounded,
+            label: l10n.miniPlayer,
+            trailing: ref.shortcutOf(ShortcutAction.miniPlayer, l10n),
+            onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
+          ),
+        ],
+      ),
       _DocControl(
         const ControlSlot(id: DocumentBarSlots.find, width: icon, priority: 0),
         OmniaIconButton(

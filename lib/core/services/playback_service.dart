@@ -730,6 +730,8 @@ class PlaybackService implements PlaybackStateSink {
   static double? _miniShapeFor(PlaybackState s) {
     final aspect = s.videoAspect;
     if (aspect != null) return aspect;
+    if (s.mediaType == MediaType.image) return 16.0 / 10.0;
+    if (s.isDocument) return 4.0 / 3.0;
     return s.hasVideo ? null : 0.0;
   }
 
@@ -766,9 +768,9 @@ class PlaybackService implements PlaybackStateSink {
     final file = MediaFile(path: path, type: type);
     final controller = router.controllerFor(type);
 
-    // Le mini-lecteur ne sait montrer que l'audio et la vidéo : un document
-    // déposé dessus (ou une erreur de format) reprend la fenêtre entière.
-    if (_state.miniPlayer && !type.isAv) await _setMiniPlayer(false);
+    // Le mini-lecteur affiche désormais vidéos, audios, images et documents :
+    // seul un type inconnu ou invalide provoque la reprise de la fenêtre entière.
+    if (_state.miniPlayer && type == MediaType.unknown) await _setMiniPlayer(false);
 
     playlist.setCurrent(path);
     unawaited(playlist.ensureFolderFor(path));

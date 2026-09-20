@@ -94,7 +94,7 @@ class ImageBar extends ConsumerWidget {
     );
   }
 
-  static const _trailingSlots = {'fullscreen'};
+  static const _trailingSlots = {'miniPlayer', 'fullscreen'};
 
   List<_ImageControl> _controls(
     BuildContext context,
@@ -243,6 +243,23 @@ class ImageBar extends ConsumerWidget {
             label: 'Pivoter de 90°',
             active: state.rotation != 0,
             onPressed: () => ref.dispatch(const RotateDocument()),
+          ),
+        ],
+      ),
+      // Mini-lecteur
+      _ImageControl(
+        const ControlSlot(id: 'miniPlayer', width: icon, priority: 1),
+        OmniaIconButton(
+          icon: Icons.picture_in_picture_alt_rounded,
+          tooltip: ref.tooltipWith(l10n.miniPlayer, ShortcutAction.miniPlayer, l10n),
+          onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
+        ),
+        [
+          OmniaMenuItem(
+            icon: Icons.picture_in_picture_alt_rounded,
+            label: l10n.miniPlayer,
+            trailing: ref.shortcutOf(ShortcutAction.miniPlayer, l10n),
+            onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
           ),
         ],
       ),

@@ -224,5 +224,15 @@ void main() {
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('bouton mini-lecteur présent et émet ToggleMiniPlayer', (tester) async {
+      final harness = await pumpBar(tester, _pdf);
+      await resizeWindow(tester, const Size(1200, 400));
+
+      expect(find.byIcon(Icons.picture_in_picture_alt_rounded), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.picture_in_picture_alt_rounded));
+      await tester.pumpAndSettle();
+      expect(harness.commands.whereType<ToggleMiniPlayer>(), hasLength(1));
+    });
   });
 }

@@ -40,11 +40,17 @@ void main() {
       expect(find.byIcon(Icons.fit_screen_outlined), findsOneWidget);
       expect(find.byIcon(Icons.rotate_right_rounded), findsOneWidget);
       expect(find.byIcon(Icons.skip_next_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.picture_in_picture_alt_rounded), findsOneWidget);
       expect(find.byIcon(Icons.fullscreen_rounded), findsOneWidget);
     });
 
     testWidgets('les boutons émettent les commandes attendues sur le bus', (tester) async {
       final harness = await pumpBar(tester);
+
+      // Mini-lecteur
+      await tester.tap(find.byIcon(Icons.picture_in_picture_alt_rounded));
+      await tester.pumpAndSettle();
+      expect(harness.commands.whereType<ToggleMiniPlayer>(), hasLength(1));
 
       // Zoom out
       await tester.tap(find.byIcon(Icons.remove_rounded));

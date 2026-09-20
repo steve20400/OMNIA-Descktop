@@ -1161,7 +1161,7 @@ void main() {
       expect(service.state.miniPlayer, isTrue);
     });
 
-    test('un document déposé sur le mini-lecteur rend la fenêtre entière', () async {
+    test('un format inconnu déposé sur le mini-lecteur rend la fenêtre entière, médias et documents restent', () async {
       window.bounds = const Rect.fromLTWH(100, 80, 1200, 760);
       await service.openPath('/serie/ep1.mkv');
       bus.dispatch(const ToggleMiniPlayer());
@@ -1172,8 +1172,16 @@ void main() {
       await service.openPath('/serie/ep2.mkv');
       expect(service.state.miniPlayer, isTrue);
 
-      // Un PDF : il faut la fenêtre entière pour le lire.
+      // Une image : le mini-lecteur sait l'afficher, il reste.
+      await service.openPath('/serie/photo.jpg');
+      expect(service.state.miniPlayer, isTrue);
+
+      // Un PDF : le mini-lecteur sait désormais l'afficher, il reste.
       await service.openPath('/serie/notes.pdf');
+      expect(service.state.miniPlayer, isTrue);
+
+      // Un fichier inconnu / non supporté : il faut la fenêtre entière.
+      await service.openPath('/serie/archive.unknownformatxyz');
       expect(service.state.miniPlayer, isFalse);
       expect(window.bounds, const Rect.fromLTWH(100, 80, 1200, 760));
       expect(window.minimumSize, WindowSizes.mainMinimum);
