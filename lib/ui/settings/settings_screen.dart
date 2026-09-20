@@ -1012,10 +1012,10 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
         const SizedBox(height: OmniaMetrics.space3),
         Text(l10n.settingsScreenshotPreview(preview), style: type.caption),
         const SizedBox(height: OmniaMetrics.space6),
-        _Row(
+        SettingRow(
           title: 'Suffixe des copies modifiées',
           hint: 'Ajouté au nom de fichier lors de la retouche (ex. photo_modifié.png)',
-          child: SizedBox(
+          control: SizedBox(
             width: 140,
             child: DecoratedBox(
               decoration: BoxDecoration(

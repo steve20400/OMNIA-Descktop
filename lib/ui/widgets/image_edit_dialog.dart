@@ -137,6 +137,9 @@ class _ImageEditDialogState extends ConsumerState<ImageEditDialog> {
 
   Future<void> _saveCopy() async {
     setState(() => _isSaving = true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final curtainColor = context.colors.curtain;
+
     try {
       final prefs = ref.read(preferencesProvider);
       final params = ImageEditParams(
@@ -171,18 +174,18 @@ class _ImageEditDialogState extends ConsumerState<ImageEditDialog> {
         // Bascule immédiate de la lecture sur la NOUVELLE COPIE
         await ref.read(playbackServiceProvider).openPath(newPath);
 
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        messenger?.showSnackBar(
           SnackBar(
             content: Text('Nouvelle copie enregistrée : ${p.basename(newPath)}'),
             duration: const Duration(seconds: 3),
-            backgroundColor: context.colors.curtain,
+            backgroundColor: curtainColor,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        messenger?.showSnackBar(
           SnackBar(
             content: Text('Erreur lors de l’enregistrement de l’image : $e'),
             backgroundColor: Colors.red.shade800,
@@ -367,8 +370,11 @@ class _ImageEditDialogState extends ConsumerState<ImageEditDialog> {
     if (_flipHorizontal || _flipVertical) {
       imgWidget = Transform(
         alignment: Alignment.center,
-        transform: Matrix4.identity()
-          ..scale(_flipHorizontal ? -1.0 : 1.0, _flipVertical ? -1.0 : 1.0),
+        transform: Matrix4.diagonal3Values(
+          _flipHorizontal ? -1.0 : 1.0,
+          _flipVertical ? -1.0 : 1.0,
+          1.0,
+        ),
         child: imgWidget,
       );
     }
@@ -535,7 +541,7 @@ class _ImageEditDialogState extends ConsumerState<ImageEditDialog> {
           children: [
             OutlinedButton.icon(
               icon: const Icon(Icons.rotate_right_rounded, size: 18),
-              label: Text('${_rotationAngle}°'),
+              label: Text('$_rotationAngle°'),
               onPressed: () {
                 setState(() => _rotationAngle = (_rotationAngle + 90) % 360);
               },

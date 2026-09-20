@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/models/end_of_playback_mode.dart';
+import '../../core/models/media_type.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/models/video_adjust.dart';
 import '../../core/providers.dart';
