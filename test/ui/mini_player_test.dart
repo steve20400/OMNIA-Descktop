@@ -52,7 +52,12 @@ void main() {
         ],
       );
       harness.attach(tester);
+      tester.view.devicePixelRatio = 1.0;
       tester.view.physicalSize = size;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       await tester.pumpWidget(
         omniaTestApp(
           harness.container,

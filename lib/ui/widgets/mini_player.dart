@@ -224,6 +224,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     }
 
     final mediaContent = Listener(
+      behavior: HitTestBehavior.translucent,
       onPointerSignal: _onPointerSignal,
       child: content,
     );
