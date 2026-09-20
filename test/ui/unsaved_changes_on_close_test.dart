@@ -266,6 +266,56 @@ void main() {
       expect(harness.window.closed, isTrue);
       expect(File(filePath).readAsStringSync(), 'Original file text');
     });
+
+    testWidgets('Mode Mini-lecteur compact : le dialogue s’affiche et fonctionne sans débordement', (tester) async {
+      final harness = LeafHarness(
+        state: PlaybackState(
+          file: MediaFile(path: filePath, type: MediaType.text),
+          miniPlayer: true,
+        ),
+      );
+      harness.attach(tester);
+
+      harness.container.read(documentUiProvider.notifier).setEditing(true);
+      harness.container.read(documentUiProvider.notifier).setDraft(
+            path: filePath,
+            text: 'Mini player modifications',
+          );
+
+      late BuildContext testContext;
+      // Simuler une surface compacte typique d’un mini-lecteur (380x280)
+      tester.view.physicalSize = const Size(380, 280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        omniaTestApp(
+          harness.container,
+          Builder(
+            builder: (ctx) {
+              testContext = ctx;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      bool? closedResult;
+      closeApplication(harness.container, testContext).then((res) => closedResult = res);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(UnsavedChangesDialog), findsOneWidget);
+      expect(find.text('Enregistrer les modifications ?'), findsOneWidget);
+
+      await tester.tap(find.text('Enregistrer'));
+      await tester.pumpAndSettle();
+
+      expect(closedResult, isTrue);
+      expect(harness.window.closed, isTrue);
+      expect(File(filePath).readAsStringSync(), 'Mini player modifications');
+    });
   });
 }
 

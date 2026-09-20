@@ -74,9 +74,10 @@ class _TextViewState extends ConsumerState<TextView> {
   void dispose() {
     _reportDebounce?.cancel();
     _autoSaveTimer?.cancel();
-    if (_hasUnsavedChanges) {
+    final docUi = ref.read(documentUiProvider);
+    if (_hasUnsavedChanges && docUi.hasUnsavedChanges) {
       try {
-        File(widget.document.path).writeAsStringSync(_editController.text);
+        File(widget.document.path).writeAsStringSync(_editController.text, flush: true);
       } catch (_) {}
     }
     _scroll.dispose();
@@ -221,6 +222,13 @@ class _TextViewState extends ConsumerState<TextView> {
       if (prev == true && next == false && ref.read(documentUiProvider).hasUnsavedChanges) {
         _autoSaveTimer?.cancel();
         _saveFile(silent: true);
+      }
+    });
+
+    ref.listen<bool>(documentUiProvider.select((u) => u.hasUnsavedChanges), (prev, next) {
+      if (prev == true && next == false) {
+        _hasUnsavedChanges = false;
+        _autoSaveTimer?.cancel();
       }
     });
 

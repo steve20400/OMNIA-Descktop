@@ -52,6 +52,7 @@ L'application mobile sera développée sous Flutter dans un environnement dédi�
 - **Prise en charge universelle** : Lecture identique au bureau (Vidéos, Audios Hi-Res, Images, PDF, Présentations PPTX/ODP, Documents Word DOCX/ODT, Textes & Code).
 - **Édition et enregistrement sur stockage mobile** : Modification directe des fichiers texte et code, et sauvegarde transparente.
 - **Retouche et redimensionnement d'images sur mobile** : Suite intégrée identique au bureau permettant de recadrer, redimensionner, ajuster les couleurs et exporter une copie sans toucher au fichier d'origine de la galerie.
+- **Protection des données et politique de fermeture/arrière-plan** : Même politique paramétrable (`ask`, `save`, `discard`) et sauvegarde automatique qu'en Desktop lors du basculement en arrière-plan ou du kill de l'application mobile.
 - **Barres contextuelles et menu 3 points mobile** : Adaptation dynamique des barres d'outils selon l'orientation portrait/paysage et la taille de l'écran avec menu overflow « ... ».
 - **Intégration au système d'exploitation** : Déclaration des intent-filters Android et types UTType iOS pour figurer dans la boîte de dialogue « Ouvrir avec » pour chaque extension prise en charge.
 

@@ -558,6 +558,21 @@ class _GeneralSection extends ConsumerWidget {
             onChanged: (v) => ref.change((p) => p.copyWith(miniPlayerAlwaysOnTop: v)),
           ),
         ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Modifications non enregistrées à la fermeture',
+          hint: 'En mode normal comme en mini-lecteur : demander confirmation, enregistrer automatiquement ou fermer sans enregistrer',
+          control: OmniaSegmented<UnsavedChangesPolicy>(
+            values: UnsavedChangesPolicy.values,
+            selected: p.unsavedChangesPolicy,
+            labelOf: (v) => switch (v) {
+              UnsavedChangesPolicy.ask => 'Demander',
+              UnsavedChangesPolicy.save => 'Enregistrer',
+              UnsavedChangesPolicy.discard => 'Ignorer',
+            },
+            onChanged: (v) => ref.change((p) => p.copyWith(unsavedChangesPolicy: v)),
+          ),
+        ),
       ],
     );
   }
