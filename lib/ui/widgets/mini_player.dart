@@ -253,16 +253,15 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                   if (!_drawerOpen) {
                     return content;
                   }
-                  final bottomHeight = math.min(
-                    math.max(120.0, constraints.maxHeight * 0.50),
-                    240.0,
-                  );
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(child: content),
-                      SizedBox(
-                        height: bottomHeight,
+                      Expanded(
+                        flex: 5,
+                        child: content,
+                      ),
+                      Expanded(
+                        flex: 5,
                         child: _MiniBottomPlaylist(onClose: _closeDrawer),
                       ),
                     ],
@@ -1199,129 +1198,136 @@ class _MiniBottomPlaylist extends ConsumerWidget {
         ? 'File d\'attente • ${playlist.currentIndex + 1} / ${playlist.entries.length}'
         : l10n.panelFileCount(visibleEntries.length);
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: colors.curtain.withValues(alpha: 0.98),
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(OmniaMetrics.radiusLarge),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 14,
-            offset: const Offset(0, -3),
-          ),
-        ],
-        border: Border(
-          top: BorderSide(color: colors.screen.withValues(alpha: 0.12), width: 1),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // En-tête : Titre, info file d'attente (YouTube) et boutons de repli
-          InkWell(
-            onTap: onClose,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                OmniaMetrics.space3,
-                OmniaMetrics.space1,
-                OmniaMetrics.space2,
-                OmniaMetrics.space1,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showFilters = constraints.maxHeight >= 100;
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: colors.curtain.withValues(alpha: 0.98),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(OmniaMetrics.radiusLarge),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 14,
+                offset: const Offset(0, -3),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.playlist_play_rounded, size: 20, color: colors.projector),
-                  const SizedBox(width: OmniaMetrics.space2),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+            ],
+            border: Border(
+              top: BorderSide(color: colors.screen.withValues(alpha: 0.12), width: 1),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // En-tête : Titre, info file d'attente (YouTube) et boutons de repli
+              InkWell(
+                onTap: onClose,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    OmniaMetrics.space3,
+                    OmniaMetrics.space1,
+                    OmniaMetrics.space2,
+                    OmniaMetrics.space1,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.playlist_play_rounded, size: 20, color: colors.projector),
+                      const SizedBox(width: OmniaMetrics.space2),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              currentTitle,
+                              style: type.bodyStrong.copyWith(color: colors.screen, fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              queueInfo,
+                              style: type.caption.copyWith(color: colors.dust, fontSize: 10),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      OmniaIconButton(
+                        icon: Icons.keyboard_arrow_down_rounded,
+                        size: 26,
+                        iconSize: 20,
+                        tooltip: l10n.closePanel,
+                        onPressed: onClose,
+                      ),
+                      OmniaIconButton(
+                        icon: Icons.close_rounded,
+                        size: 26,
+                        iconSize: 16,
+                        tooltip: l10n.closePanel,
+                        onPressed: onClose,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Filtres par type de média (affichés si la hauteur le permet)
+              if (showFilters) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: OmniaMetrics.space3,
+                    vertical: OmniaMetrics.space1,
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
                       children: [
-                        Text(
-                          currentTitle,
-                          style: type.bodyStrong.copyWith(color: colors.screen, fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          queueInfo,
-                          style: type.caption.copyWith(color: colors.dust, fontSize: 10),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        for (final filter in PlaylistFilter.values)
+                          Padding(
+                            padding: const EdgeInsets.only(right: OmniaMetrics.space1),
+                            child: _MiniFilterChip(
+                              label: _labelForFilter(filter, l10n),
+                              selected: filter == currentFilter,
+                              onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                  OmniaIconButton(
-                    icon: Icons.keyboard_arrow_down_rounded,
-                    size: 26,
-                    iconSize: 20,
-                    tooltip: l10n.closePanel,
-                    onPressed: onClose,
-                  ),
-                  OmniaIconButton(
-                    icon: Icons.close_rounded,
-                    size: 26,
-                    iconSize: 16,
-                    tooltip: l10n.closePanel,
-                    onPressed: onClose,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Filtres par type de média (Tout, Vidéos, Audios, Documents, Images)
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: OmniaMetrics.space3,
-              vertical: OmniaMetrics.space1,
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final filter in PlaylistFilter.values)
-                    Padding(
-                      padding: const EdgeInsets.only(right: OmniaMetrics.space1),
-                      child: _MiniFilterChip(
-                        label: _labelForFilter(filter, l10n),
-                        selected: filter == currentFilter,
-                        onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
+                ),
+                const Divider(height: 1, thickness: 0.5),
+              ],
+              // Liste des fichiers (clé mini-pl pour compatibilité des tests)
+              Expanded(
+                child: visibleEntries.isEmpty
+                    ? Center(
+                        child: Text(
+                          l10n.panelEmpty,
+                          style: type.caption.copyWith(color: colors.dust),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: visibleEntries.length,
+                        itemExtent: 38,
+                        itemBuilder: (context, index) {
+                          final entry = visibleEntries[index];
+                          final isCurrent = entry.path == playlist.currentPath;
+                          return PlaylistTile(
+                            key: ValueKey('mini-pl:${entry.path}'),
+                            entry: entry,
+                            current: isCurrent,
+                            height: 38,
+                            onTap: () => ref.dispatch(OpenFile(entry.path)),
+                            onSecondaryTap: (_) {},
+                          );
+                        },
                       ),
-                    ),
-                ],
               ),
-            ),
+            ],
           ),
-          const Divider(height: 1, thickness: 0.5),
-          // Liste des fichiers (clé mini-pl pour compatibilité des tests)
-          Expanded(
-            child: visibleEntries.isEmpty
-                ? Center(
-                    child: Text(
-                      l10n.panelEmpty,
-                      style: type.caption.copyWith(color: colors.dust),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: visibleEntries.length,
-                    itemExtent: 38,
-                    itemBuilder: (context, index) {
-                      final entry = visibleEntries[index];
-                      final isCurrent = entry.path == playlist.currentPath;
-                      return PlaylistTile(
-                        key: ValueKey('mini-pl:${entry.path}'),
-                        entry: entry,
-                        current: isCurrent,
-                        height: 38,
-                        onTap: () => ref.dispatch(OpenFile(entry.path)),
-                        onSecondaryTap: (_) {},
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
