@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -65,18 +66,38 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   final WheelSteps _volumeWheel = WheelSteps();
 
   late final ChromeController _chrome = ref.read(chromeProvider.notifier);
+  StreamSubscription<PlayerCommand>? _commandSub;
   bool _drawerOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _commandSub = ref.read(commandBusProvider).commands.listen((cmd) {
+      if (!mounted) return;
+      if (cmd is ToggleSidePanel) {
+        _toggleDrawer();
+      } else if (cmd is SetSidePanelVisible) {
+        if (_drawerOpen != cmd.visible) {
+          setState(() => _drawerOpen = cmd.visible);
+        }
+      }
+    });
+  }
 
   void _toggleDrawer() {
     setState(() => _drawerOpen = !_drawerOpen);
   }
 
   void _closeDrawer() {
-    if (_drawerOpen) setState(() => _drawerOpen = false);
+    if (_drawerOpen) {
+      setState(() => _drawerOpen = false);
+      ref.dispatch(const SetSidePanelVisible(false));
+    }
   }
 
   @override
   void dispose() {
+    _commandSub?.cancel();
     _focus.dispose();
     super.dispose();
   }
@@ -124,7 +145,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     } else if (state.isDocument && state.hasFile) {
       content = _document(state);
     } else {
-      content = _audioStrip(context, state, onTogglePlaylist: _toggleDrawer);
+      content = _audioStrip(context, state);
     }
 
     return Focus(
@@ -133,7 +154,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.tab) {
-            _toggleDrawer();
+            ref.dispatch(const ToggleSidePanel());
             return KeyEventResult.handled;
           }
           if (_drawerOpen && event.logicalKey == LogicalKeyboardKey.escape) {
@@ -181,7 +202,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             child: surface(context, fit: BoxFit.contain, aspectRatio: null),
           ),
         ),
-        _MiniOverlay(state: state, onTogglePlaylist: _toggleDrawer),
+        _MiniOverlay(state: state),
       ],
     );
   }
@@ -201,7 +222,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             ),
           ),
         ),
-        _MiniImageOverlay(state: state, onTogglePlaylist: _toggleDrawer),
+        _MiniImageOverlay(state: state),
       ],
     );
   }
@@ -232,18 +253,14 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             child: docWidget,
           ),
         ),
-        _MiniDocumentOverlay(state: state, onTogglePlaylist: _toggleDrawer),
+        _MiniDocumentOverlay(state: state),
       ],
     );
   }
 
   // --- Sans image : le bandeau audio --------------------------------------
 
-  Widget _audioStrip(
-    BuildContext context,
-    PlaybackState state, {
-    required VoidCallback onTogglePlaylist,
-  }) {
+  Widget _audioStrip(BuildContext context, PlaybackState state) {
     final colors = context.colors;
     final type = context.type;
     final l10n = AppLocalizations.of(context);
@@ -271,147 +288,153 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         final buttonSize = math.max(18.0, rowHeight - 4);
         final buttonIcon = math.max(10.0, buttonSize - 8);
 
-        return _windowGestures(
-          hasMedia: false,
-          child: Padding(
-            padding: EdgeInsets.all(inset),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: OmniaMetrics.controlRadius,
-                  child: SizedBox(
-                    width: coverSide,
-                    height: coverSide,
-                    child: cover != null
-                        ? Image.memory(cover, fit: BoxFit.cover, gaplessPlayback: true)
-                        : ColoredBox(
-                            color: colors.curtain,
-                            child: Icon(
-                              state.mediaType == MediaType.video
-                                  ? Icons.movie_outlined
-                                  : Icons.music_note_rounded,
-                              color: colors.dust,
-                              size: math.min(36.0, coverSide * 0.4),
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            _windowGestures(
+              hasMedia: false,
+              child: const SizedBox.expand(),
+            ),
+            Padding(
+              padding: EdgeInsets.all(inset),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: OmniaMetrics.controlRadius,
+                    child: SizedBox(
+                      width: coverSide,
+                      height: coverSide,
+                      child: cover != null
+                          ? Image.memory(cover, fit: BoxFit.cover, gaplessPlayback: true)
+                          : ColoredBox(
+                              color: colors.curtain,
+                              child: Icon(
+                                state.mediaType == MediaType.video
+                                    ? Icons.movie_outlined
+                                    : Icons.music_note_rounded,
+                                color: colors.dust,
+                                size: math.min(36.0, coverSide * 0.4),
+                              ),
                             ),
-                          ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: OmniaMetrics.space3),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: type.bodyStrong,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (!compact)
+                  const SizedBox(width: OmniaMetrics.space3),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Flexible(
                           child: Text(
-                            subtitle,
-                            style: type.caption,
+                            title,
+                            style: type.bodyStrong,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      SizedBox(
-                        height: beamHeight,
-                        child: BeamProgressBar(
-                          progress: state.progress,
-                          duration: state.duration,
-                          enabled: hasMedia && state.duration > Duration.zero,
-                          onSeek: (position) => ref.dispatch(SeekAbsolute(position)),
+                        if (!compact)
+                          Flexible(
+                            child: Text(
+                              subtitle,
+                              style: type.caption,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        SizedBox(
+                          height: beamHeight,
+                          child: BeamProgressBar(
+                            progress: state.progress,
+                            duration: state.duration,
+                            enabled: hasMedia && state.duration > Duration.zero,
+                            onSeek: (position) => ref.dispatch(SeekAbsolute(position)),
+                          ),
                         ),
-                      ),
-                      SizedBox(
-                        height: rowHeight,
-                        child: Row(
-                          children: [
-                            if (columnWidth >= 170)
+                        SizedBox(
+                          height: rowHeight,
+                          child: Row(
+                            children: [
+                              if (columnWidth >= 170)
+                                OmniaIconButton(
+                                  icon: Icons.skip_previous_rounded,
+                                  size: buttonSize,
+                                  iconSize: buttonIcon,
+                                  tooltip: l10n.previousFile,
+                                  onPressed:
+                                      hasPlaylist ? () => ref.dispatch(const PreviousFile()) : null,
+                                ),
                               OmniaIconButton(
-                                icon: Icons.skip_previous_rounded,
+                                icon:
+                                    state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                size: buttonSize + 4,
+                                iconSize: buttonIcon + 4,
+                                tooltip: state.isPlaying ? l10n.pause : l10n.play,
+                                onPressed: hasMedia ? () => ref.dispatch(const TogglePlay()) : null,
+                              ),
+                              if (columnWidth >= 170)
+                                OmniaIconButton(
+                                  icon: Icons.skip_next_rounded,
+                                  size: buttonSize,
+                                  iconSize: buttonIcon,
+                                  tooltip: l10n.nextFile,
+                                  onPressed:
+                                      hasPlaylist ? () => ref.dispatch(const NextFile()) : null,
+                                ),
+                              const Spacer(),
+                              OmniaIconButton(
+                                icon: Icons.playlist_play_rounded,
                                 size: buttonSize,
                                 iconSize: buttonIcon,
-                                tooltip: l10n.previousFile,
-                                onPressed:
-                                    hasPlaylist ? () => ref.dispatch(const PreviousFile()) : null,
+                                tooltip: ref.tooltipWith(
+                                  l10n.panelShow,
+                                  ShortcutAction.toggleSidePanel,
+                                  l10n,
+                                ),
+                                onPressed: () => ref.dispatch(const ToggleSidePanel()),
                               ),
-                            OmniaIconButton(
-                              icon:
-                                  state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                              size: buttonSize + 4,
-                              iconSize: buttonIcon + 4,
-                              tooltip: state.isPlaying ? l10n.pause : l10n.play,
-                              onPressed: hasMedia ? () => ref.dispatch(const TogglePlay()) : null,
-                            ),
-                            if (columnWidth >= 170)
+                              if (columnWidth >= 120)
+                                OmniaIconButton(
+                                  icon: state.muted
+                                      ? Icons.volume_off_rounded
+                                      : Icons.volume_up_rounded,
+                                  size: buttonSize,
+                                  iconSize: buttonIcon,
+                                  tooltip: state.muted ? l10n.unmute : l10n.mute,
+                                  onPressed: () => ref.dispatch(const ToggleMute()),
+                                ),
                               OmniaIconButton(
-                                icon: Icons.skip_next_rounded,
+                                icon: state.alwaysOnTop
+                                    ? Icons.push_pin_rounded
+                                    : Icons.push_pin_outlined,
                                 size: buttonSize,
-                                iconSize: buttonIcon,
-                                tooltip: l10n.nextFile,
-                                onPressed:
-                                    hasPlaylist ? () => ref.dispatch(const NextFile()) : null,
+                                iconSize: buttonIcon - 2,
+                                active: state.alwaysOnTop,
+                                tooltip: l10n.alwaysOnTop,
+                                onPressed: () => ref.dispatch(
+                                  const ToggleAlwaysOnTop(forMiniPlayer: true),
+                                ),
                               ),
-                            const Spacer(),
-                            OmniaIconButton(
-                              icon: Icons.playlist_play_rounded,
-                              size: buttonSize,
-                              iconSize: buttonIcon,
-                              tooltip: ref.tooltipWith(
-                                l10n.panelShow,
-                                ShortcutAction.toggleSidePanel,
-                                l10n,
-                              ),
-                              onPressed: onTogglePlaylist,
-                            ),
-                            if (columnWidth >= 120)
                               OmniaIconButton(
-                                icon: state.muted
-                                    ? Icons.volume_off_rounded
-                                    : Icons.volume_up_rounded,
+                                icon: Icons.open_in_full_rounded,
                                 size: buttonSize,
-                                iconSize: buttonIcon,
-                                tooltip: state.muted ? l10n.unmute : l10n.mute,
-                                onPressed: () => ref.dispatch(const ToggleMute()),
+                                iconSize: buttonIcon - 2,
+                                tooltip: ref.tooltipWith(
+                                  l10n.miniPlayerExit,
+                                  ShortcutAction.miniPlayer,
+                                  l10n,
+                                ),
+                                onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
                               ),
-                            OmniaIconButton(
-                              icon: state.alwaysOnTop
-                                  ? Icons.push_pin_rounded
-                                  : Icons.push_pin_outlined,
-                              size: buttonSize,
-                              iconSize: buttonIcon - 2,
-                              active: state.alwaysOnTop,
-                              tooltip: l10n.alwaysOnTop,
-                              onPressed: () => ref.dispatch(
-                                const ToggleAlwaysOnTop(forMiniPlayer: true),
-                              ),
-                            ),
-                            OmniaIconButton(
-                              icon: Icons.open_in_full_rounded,
-                              size: buttonSize,
-                              iconSize: buttonIcon - 2,
-                              tooltip: ref.tooltipWith(
-                                l10n.miniPlayerExit,
-                                ShortcutAction.miniPlayer,
-                                l10n,
-                              ),
-                              onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         );
       },
     );
@@ -420,10 +443,9 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
 
 /// Les commandes posées sur l'image vidéo du mini-lecteur.
 class _MiniOverlay extends ConsumerWidget {
-  const _MiniOverlay({required this.state, required this.onTogglePlaylist});
+  const _MiniOverlay({required this.state});
 
   final PlaybackState state;
-  final VoidCallback onTogglePlaylist;
 
   static const double _shadeHeight = 64;
 
@@ -472,7 +494,7 @@ class _MiniOverlay extends ConsumerWidget {
                             ShortcutAction.toggleSidePanel,
                             l10n,
                           ),
-                          onPressed: onTogglePlaylist,
+                          onPressed: () => ref.dispatch(const ToggleSidePanel()),
                         ),
                         OmniaIconButton(
                           icon: state.alwaysOnTop
@@ -598,10 +620,9 @@ class _MiniOverlay extends ConsumerWidget {
 
 /// Commandes superposées pour le mode image en mini-lecteur.
 class _MiniImageOverlay extends ConsumerWidget {
-  const _MiniImageOverlay({required this.state, required this.onTogglePlaylist});
+  const _MiniImageOverlay({required this.state});
 
   final PlaybackState state;
-  final VoidCallback onTogglePlaylist;
   static const double _shadeHeight = 64;
 
   @override
@@ -652,7 +673,7 @@ class _MiniImageOverlay extends ConsumerWidget {
                             ShortcutAction.toggleSidePanel,
                             l10n,
                           ),
-                          onPressed: onTogglePlaylist,
+                          onPressed: () => ref.dispatch(const ToggleSidePanel()),
                         ),
                         OmniaIconButton(
                           icon: state.alwaysOnTop
@@ -777,10 +798,9 @@ class _MiniImageOverlay extends ConsumerWidget {
 
 /// Commandes superposées pour le mode document (PDF/texte/code) en mini-lecteur.
 class _MiniDocumentOverlay extends ConsumerWidget {
-  const _MiniDocumentOverlay({required this.state, required this.onTogglePlaylist});
+  const _MiniDocumentOverlay({required this.state});
 
   final PlaybackState state;
-  final VoidCallback onTogglePlaylist;
   static const double _shadeHeight = 64;
 
   @override
@@ -831,7 +851,7 @@ class _MiniDocumentOverlay extends ConsumerWidget {
                             ShortcutAction.toggleSidePanel,
                             l10n,
                           ),
-                          onPressed: onTogglePlaylist,
+                          onPressed: () => ref.dispatch(const ToggleSidePanel()),
                         ),
                         OmniaIconButton(
                           icon: state.alwaysOnTop
@@ -965,113 +985,115 @@ class _MiniPlaylistBottomDrawer extends ConsumerWidget {
       alignment: Alignment.bottomCenter,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final drawerHeight = math.min(constraints.maxHeight * 0.85, 300.0);
+          final drawerHeight = constraints.maxHeight < 200
+              ? constraints.maxHeight
+              : math.min(constraints.maxHeight * 0.85, 300.0);
           return Container(
             height: drawerHeight,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: colors.curtain.withValues(alpha: 0.96),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(OmniaMetrics.radiusLarge),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: 16,
-                      offset: const Offset(0, -4),
-                    ),
-                  ],
-                  border: Border(
-                    top: BorderSide(color: colors.screen.withValues(alpha: 0.12), width: 1),
-                  ),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: colors.curtain.withValues(alpha: 0.96),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(OmniaMetrics.radiusLarge),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  blurRadius: 16,
+                  offset: const Offset(0, -4),
                 ),
-                child: Column(
-                  children: [
-                    // En-tête
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        OmniaMetrics.space3,
-                        OmniaMetrics.space2,
-                        OmniaMetrics.space2,
-                        OmniaMetrics.space1,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.playlist_play_rounded, size: 20, color: colors.projector),
-                          const SizedBox(width: OmniaMetrics.space2),
-                          Expanded(
-                            child: Text(
-                              '${l10n.panelTabFolder} (${visibleEntries.length})',
-                              style: type.bodyStrong.copyWith(color: colors.screen, fontSize: 13),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          OmniaIconButton(
-                            icon: Icons.close_rounded,
-                            size: 26,
-                            iconSize: 16,
-                            tooltip: l10n.closePanel,
-                            onPressed: onClose,
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Filtres par type de média (Tout, Vidéos, Audios, Documents, Images)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: OmniaMetrics.space3,
-                        vertical: OmniaMetrics.space1,
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            for (final filter in PlaylistFilter.values)
-                              Padding(
-                                padding: const EdgeInsets.only(right: OmniaMetrics.space1),
-                                child: _MiniFilterChip(
-                                  label: _labelForFilter(filter, l10n),
-                                  selected: filter == currentFilter,
-                                  onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
-                                ),
-                              ),
-                          ],
+              ],
+              border: Border(
+                top: BorderSide(color: colors.screen.withValues(alpha: 0.12), width: 1),
+              ),
+            ),
+            child: Column(
+              children: [
+                // En-tête
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    OmniaMetrics.space3,
+                    OmniaMetrics.space2,
+                    OmniaMetrics.space2,
+                    OmniaMetrics.space1,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.playlist_play_rounded, size: 20, color: colors.projector),
+                      const SizedBox(width: OmniaMetrics.space2),
+                      Expanded(
+                        child: Text(
+                          '${l10n.panelTabFolder} (${visibleEntries.length})',
+                          style: type.bodyStrong.copyWith(color: colors.screen, fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                    const Divider(height: 1, thickness: 0.5),
-                    // Liste des fichiers
-                    Expanded(
-                      child: visibleEntries.isEmpty
-                          ? Center(
-                              child: Text(
-                                l10n.panelEmpty,
-                                style: type.caption.copyWith(color: colors.dust),
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: visibleEntries.length,
-                              itemExtent: 40,
-                              itemBuilder: (context, index) {
-                                final entry = visibleEntries[index];
-                                final isCurrent = entry.path == playlist.currentPath;
-                                return PlaylistTile(
-                                  key: ValueKey('mini-pl:${entry.path}'),
-                                  entry: entry,
-                                  current: isCurrent,
-                                  height: 40,
-                                  onTap: () => ref.dispatch(OpenFile(entry.path)),
-                                  onSecondaryTap: (_) {},
-                                );
-                              },
-                            ),
-                    ),
-                  ],
+                      OmniaIconButton(
+                        icon: Icons.close_rounded,
+                        size: 26,
+                        iconSize: 16,
+                        tooltip: l10n.closePanel,
+                        onPressed: onClose,
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
-          ),
-        );
+                // Filtres par type de média (Tout, Vidéos, Audios, Documents, Images)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: OmniaMetrics.space3,
+                    vertical: OmniaMetrics.space1,
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final filter in PlaylistFilter.values)
+                          Padding(
+                            padding: const EdgeInsets.only(right: OmniaMetrics.space1),
+                            child: _MiniFilterChip(
+                              label: _labelForFilter(filter, l10n),
+                              selected: filter == currentFilter,
+                              onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, thickness: 0.5),
+                // Liste des fichiers
+                Expanded(
+                  child: visibleEntries.isEmpty
+                      ? Center(
+                          child: Text(
+                            l10n.panelEmpty,
+                            style: type.caption.copyWith(color: colors.dust),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: visibleEntries.length,
+                          itemExtent: 40,
+                          itemBuilder: (context, index) {
+                            final entry = visibleEntries[index];
+                            final isCurrent = entry.path == playlist.currentPath;
+                            return PlaylistTile(
+                              key: ValueKey('mini-pl:${entry.path}'),
+                              entry: entry,
+                              current: isCurrent,
+                              height: 40,
+                              onTap: () => ref.dispatch(OpenFile(entry.path)),
+                              onSecondaryTap: (_) {},
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   static String _labelForFilter(PlaylistFilter f, AppLocalizations l10n) => switch (f) {

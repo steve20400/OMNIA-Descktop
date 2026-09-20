@@ -106,6 +106,7 @@ void main() {
         tester,
         state: const PlaybackState(
           file: MediaFile(path: '/media/video.mp4', type: MediaType.video),
+          hasVideo: true,
           miniPlayer: true,
         ),
       );
