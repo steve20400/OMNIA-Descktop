@@ -12,6 +12,7 @@ import '../../core/models/document_layout.dart';
 import '../../core/models/media_type.dart';
 import '../../core/models/playback_state.dart';
 import '../../core/models/playlist_sort.dart';
+import '../../core/models/window_sizes.dart';
 import '../../core/providers.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
@@ -53,6 +54,10 @@ class MiniPlayer extends ConsumerStatefulWidget {
   /// En deçà, le timecode s'efface : le faisceau suffit.
   static const double timecodeWidth = 300;
 
+  /// Seuil de largeur au-delà duquel la liste de lecture se déploie à GAUCHE
+  /// (comme le lecteur normal) ; en deçà, elle se déroule EN DESSOUS (vers le bas).
+  static const double sidePanelBreakpoint = 520;
+
   @override
   ConsumerState<MiniPlayer> createState() => _MiniPlayerState();
 }
@@ -67,6 +72,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   late final ChromeController _chrome = ref.read(chromeProvider.notifier);
   StreamSubscription<PlayerCommand>? _commandSub;
   bool _drawerOpen = false;
+  double _windowExpandedHeight = 0;
 
   @override
   void initState() {
@@ -77,20 +83,72 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         _toggleDrawer();
       } else if (cmd is SetSidePanelVisible) {
         if (_drawerOpen != cmd.visible) {
-          setState(() => _drawerOpen = cmd.visible);
+          if (cmd.visible) {
+            _toggleDrawer();
+          } else {
+            _closeDrawer();
+          }
         }
       }
     });
   }
 
-  void _toggleDrawer() {
-    setState(() => _drawerOpen = !_drawerOpen);
+  Future<void> _toggleDrawer() async {
+    final nextState = !_drawerOpen;
+    setState(() => _drawerOpen = nextState);
+    ref.dispatch(SetSidePanelVisible(nextState));
+
+    try {
+      final window = ref.read(windowServiceProvider);
+      final bounds = await window.getBounds();
+      if (bounds.width < MiniPlayer.sidePanelBreakpoint) {
+        if (nextState && bounds.height < 360) {
+          await window.setAspectRatio(0);
+          _windowExpandedHeight = 160;
+          await window.setBounds(Rect.fromLTWH(
+            bounds.left,
+            bounds.top,
+            bounds.width,
+            bounds.height + _windowExpandedHeight,
+          ));
+        } else if (!nextState && _windowExpandedHeight > 0) {
+          final targetHeight = math.max(
+            WindowSizes.miniAudioMinimum.height,
+            bounds.height - _windowExpandedHeight,
+          );
+          _windowExpandedHeight = 0;
+          await window.setBounds(Rect.fromLTWH(
+            bounds.left,
+            bounds.top,
+            bounds.width,
+            targetHeight,
+          ));
+        }
+      }
+    } catch (_) {}
   }
 
-  void _closeDrawer() {
+  Future<void> _closeDrawer() async {
     if (_drawerOpen) {
       setState(() => _drawerOpen = false);
       ref.dispatch(const SetSidePanelVisible(false));
+      try {
+        if (_windowExpandedHeight > 0) {
+          final window = ref.read(windowServiceProvider);
+          final bounds = await window.getBounds();
+          final targetHeight = math.max(
+            WindowSizes.miniAudioMinimum.height,
+            bounds.height - _windowExpandedHeight,
+          );
+          _windowExpandedHeight = 0;
+          await window.setBounds(Rect.fromLTWH(
+            bounds.left,
+            bounds.top,
+            bounds.width,
+            targetHeight,
+          ));
+        }
+      } catch (_) {}
     }
   }
 
@@ -172,13 +230,45 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
           onPointerSignal: _onPointerSignal,
           child: ColoredBox(
             color: colors.velvet,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                content,
-                // Tiroir inférieur de liste de lecture (style YouTube)
-                if (_drawerOpen) _MiniPlaylistBottomDrawer(onClose: _closeDrawer),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= MiniPlayer.sidePanelBreakpoint;
+                if (isWide) {
+                  // Mode grande fenêtre : la barre latérale s'affiche à GAUCHE comme pour le lecteur normal
+                  final panelWidth = math.min(260.0, constraints.maxWidth * 0.42);
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_drawerOpen)
+                        SizedBox(
+                          width: panelWidth,
+                          child: _MiniSidePanel(onClose: _closeDrawer),
+                        ),
+                      Expanded(child: content),
+                    ],
+                  );
+                } else {
+                  // Mode compact : la playlist se déroule EN DESSOUS (vers le bas) sous la vidéo.
+                  // La vidéo reste toujours visible en haut et n'est jamais masquée !
+                  if (!_drawerOpen) {
+                    return content;
+                  }
+                  final bottomHeight = math.min(
+                    math.max(120.0, constraints.maxHeight * 0.50),
+                    240.0,
+                  );
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: content),
+                      SizedBox(
+                        height: bottomHeight,
+                        child: _MiniBottomPlaylist(onClose: _closeDrawer),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
           ),
         ),
@@ -965,9 +1055,9 @@ class _MiniDocumentOverlay extends ConsumerWidget {
       );
 }
 
-/// Tiroir inférieur de liste de lecture pour le mini-lecteur (style YouTube).
-class _MiniPlaylistBottomDrawer extends ConsumerWidget {
-  const _MiniPlaylistBottomDrawer({required this.onClose});
+/// Panneau latéral de liste de lecture pour le mini-lecteur en mode grand format (déploiement à gauche).
+class _MiniSidePanel extends ConsumerWidget {
+  const _MiniSidePanel({required this.onClose});
 
   final VoidCallback onClose;
 
@@ -980,117 +1070,257 @@ class _MiniPlaylistBottomDrawer extends ConsumerWidget {
     final currentFilter = playlist.filter;
     final visibleEntries = playlist.visible;
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final drawerHeight = constraints.maxHeight < 200
-              ? constraints.maxHeight
-              : math.min(constraints.maxHeight * 0.85, 300.0);
-          return Container(
-            height: drawerHeight,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: colors.curtain.withValues(alpha: 0.96),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(OmniaMetrics.radiusLarge),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  blurRadius: 16,
-                  offset: const Offset(0, -4),
-                ),
-              ],
-              border: Border(
-                top: BorderSide(color: colors.screen.withValues(alpha: 0.12), width: 1),
-              ),
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.curtain,
+        border: Border(right: BorderSide(color: colors.seam)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // En-tête panneau latéral gauche
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              OmniaMetrics.space3,
+              OmniaMetrics.space2,
+              OmniaMetrics.space2,
+              OmniaMetrics.space1,
             ),
-            child: Column(
+            child: Row(
               children: [
-                // En-tête
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    OmniaMetrics.space3,
-                    OmniaMetrics.space2,
-                    OmniaMetrics.space2,
-                    OmniaMetrics.space1,
-                  ),
-                  child: Row(
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.playlist_play_rounded, size: 20, color: colors.projector),
-                      const SizedBox(width: OmniaMetrics.space2),
-                      Expanded(
-                        child: Text(
-                          '${l10n.panelTabFolder} (${visibleEntries.length})',
-                          style: type.bodyStrong.copyWith(color: colors.screen, fontSize: 13),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Text(
+                        l10n.panelTabFolder,
+                        style: type.bodyStrong.copyWith(color: colors.screen, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      OmniaIconButton(
-                        icon: Icons.close_rounded,
-                        size: 26,
-                        iconSize: 16,
-                        tooltip: l10n.closePanel,
-                        onPressed: onClose,
+                      Text(
+                        l10n.panelFileCountFiltered(visibleEntries.length, playlist.entries.length),
+                        style: type.caption.copyWith(color: colors.dust, fontSize: 11),
                       ),
                     ],
                   ),
                 ),
-                // Filtres par type de média (Tout, Vidéos, Audios, Documents, Images)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: OmniaMetrics.space3,
-                    vertical: OmniaMetrics.space1,
-                  ),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final filter in PlaylistFilter.values)
-                          Padding(
-                            padding: const EdgeInsets.only(right: OmniaMetrics.space1),
-                            child: _MiniFilterChip(
-                              label: _labelForFilter(filter, l10n),
-                              selected: filter == currentFilter,
-                              onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                OmniaIconButton(
+                  icon: Icons.keyboard_double_arrow_left_rounded,
+                  size: 26,
+                  iconSize: 16,
+                  tooltip: l10n.closePanel,
+                  onPressed: onClose,
                 ),
-                const Divider(height: 1, thickness: 0.5),
-                // Liste des fichiers
-                Expanded(
-                  child: visibleEntries.isEmpty
-                      ? Center(
-                          child: Text(
-                            l10n.panelEmpty,
-                            style: type.caption.copyWith(color: colors.dust),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: visibleEntries.length,
-                          itemExtent: 40,
-                          itemBuilder: (context, index) {
-                            final entry = visibleEntries[index];
-                            final isCurrent = entry.path == playlist.currentPath;
-                            return PlaylistTile(
-                              key: ValueKey('mini-pl:${entry.path}'),
-                              entry: entry,
-                              current: isCurrent,
-                              height: 40,
-                              onTap: () => ref.dispatch(OpenFile(entry.path)),
-                              onSecondaryTap: (_) {},
-                            );
-                          },
-                        ),
+                OmniaIconButton(
+                  icon: Icons.close_rounded,
+                  size: 26,
+                  iconSize: 16,
+                  tooltip: l10n.closePanel,
+                  onPressed: onClose,
                 ),
               ],
             ),
-          );
-        },
+          ),
+          // Filtres par type de média
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: OmniaMetrics.space3,
+              vertical: OmniaMetrics.space1,
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final filter in PlaylistFilter.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: OmniaMetrics.space1),
+                      child: _MiniFilterChip(
+                        label: _labelForFilter(filter, l10n),
+                        selected: filter == currentFilter,
+                        onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1, thickness: 0.5),
+          // Liste des éléments
+          Expanded(
+            child: visibleEntries.isEmpty
+                ? Center(
+                    child: Text(
+                      l10n.panelEmpty,
+                      style: type.caption.copyWith(color: colors.dust),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: visibleEntries.length,
+                    itemExtent: 40,
+                    itemBuilder: (context, index) {
+                      final entry = visibleEntries[index];
+                      final isCurrent = entry.path == playlist.currentPath;
+                      return PlaylistTile(
+                        key: ValueKey('mini-side-pl:${entry.path}'),
+                        entry: entry,
+                        current: isCurrent,
+                        height: 40,
+                        onTap: () => ref.dispatch(OpenFile(entry.path)),
+                        onSecondaryTap: (_) {},
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Déroulé inférieur de liste de lecture pour le mini-lecteur (style YouTube : en dessous, vers le bas).
+class _MiniBottomPlaylist extends ConsumerWidget {
+  const _MiniBottomPlaylist({required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.colors;
+    final type = context.type;
+    final l10n = AppLocalizations.of(context);
+    final playlist = ref.watch(playlistStateProvider);
+    final state = ref.watch(playbackStateProvider);
+    final currentFilter = playlist.filter;
+    final visibleEntries = playlist.visible;
+
+    final currentTitle = state.file?.baseName ?? l10n.panelTabFolder;
+    final queueInfo = playlist.entries.isNotEmpty
+        ? 'File d\'attente • ${playlist.currentIndex + 1} / ${playlist.entries.length}'
+        : l10n.panelFileCount(visibleEntries.length);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colors.curtain.withValues(alpha: 0.98),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(OmniaMetrics.radiusLarge),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 14,
+            offset: const Offset(0, -3),
+          ),
+        ],
+        border: Border(
+          top: BorderSide(color: colors.screen.withValues(alpha: 0.12), width: 1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // En-tête : Titre, info file d'attente (YouTube) et boutons de repli
+          InkWell(
+            onTap: onClose,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                OmniaMetrics.space3,
+                OmniaMetrics.space1,
+                OmniaMetrics.space2,
+                OmniaMetrics.space1,
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.playlist_play_rounded, size: 20, color: colors.projector),
+                  const SizedBox(width: OmniaMetrics.space2),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          currentTitle,
+                          style: type.bodyStrong.copyWith(color: colors.screen, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          queueInfo,
+                          style: type.caption.copyWith(color: colors.dust, fontSize: 10),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  OmniaIconButton(
+                    icon: Icons.keyboard_arrow_down_rounded,
+                    size: 26,
+                    iconSize: 20,
+                    tooltip: l10n.closePanel,
+                    onPressed: onClose,
+                  ),
+                  OmniaIconButton(
+                    icon: Icons.close_rounded,
+                    size: 26,
+                    iconSize: 16,
+                    tooltip: l10n.closePanel,
+                    onPressed: onClose,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Filtres par type de média (Tout, Vidéos, Audios, Documents, Images)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: OmniaMetrics.space3,
+              vertical: OmniaMetrics.space1,
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final filter in PlaylistFilter.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: OmniaMetrics.space1),
+                      child: _MiniFilterChip(
+                        label: _labelForFilter(filter, l10n),
+                        selected: filter == currentFilter,
+                        onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1, thickness: 0.5),
+          // Liste des fichiers (clé mini-pl pour compatibilité des tests)
+          Expanded(
+            child: visibleEntries.isEmpty
+                ? Center(
+                    child: Text(
+                      l10n.panelEmpty,
+                      style: type.caption.copyWith(color: colors.dust),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: visibleEntries.length,
+                    itemExtent: 38,
+                    itemBuilder: (context, index) {
+                      final entry = visibleEntries[index];
+                      final isCurrent = entry.path == playlist.currentPath;
+                      return PlaylistTile(
+                        key: ValueKey('mini-pl:${entry.path}'),
+                        entry: entry,
+                        current: isCurrent,
+                        height: 38,
+                        onTap: () => ref.dispatch(OpenFile(entry.path)),
+                        onSecondaryTap: (_) {},
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }

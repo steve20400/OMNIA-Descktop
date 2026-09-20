@@ -140,5 +140,53 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.close_rounded), findsNothing);
     });
+
+    testWidgets('mode compact (< 520px) : la playlist se déroule en dessous avec chevron bas et vidéo préservée', (tester) async {
+      await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/media/video.mp4', type: MediaType.video),
+          hasVideo: true,
+          miniPlayer: true,
+        ),
+        size: const Size(400, 240),
+      );
+
+      // Déclenchement de l'ouverture
+      await tester.tap(find.byIcon(Icons.playlist_play_rounded));
+      await tester.pumpAndSettle();
+
+      // En mode compact : chevron bas et liste déroulée en dessous
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+      expect(find.byType(ColoredBox), findsWidgets);
+    });
+
+    testWidgets('mode large (>= 520px) : la barre latérale s\'affiche à gauche comme le lecteur normal', (tester) async {
+      await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/media/video.mp4', type: MediaType.video),
+          hasVideo: true,
+          miniPlayer: true,
+        ),
+        size: const Size(600, 300),
+      );
+
+      // Au départ, pas de panneau
+      expect(find.byIcon(Icons.keyboard_double_arrow_left_rounded), findsNothing);
+
+      // Ouverture
+      await tester.tap(find.byIcon(Icons.playlist_play_rounded));
+      await tester.pumpAndSettle();
+
+      // Panneau gauche affiché avec son bouton de repli à gauche
+      expect(find.byIcon(Icons.keyboard_double_arrow_left_rounded), findsOneWidget);
+      expect(find.text('Tous'), findsOneWidget);
+
+      // Fermeture
+      await tester.tap(find.byIcon(Icons.keyboard_double_arrow_left_rounded));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.keyboard_double_arrow_left_rounded), findsNothing);
+    });
   });
 }
