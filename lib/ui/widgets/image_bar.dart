@@ -14,6 +14,7 @@ import '../theme/omnia_theme.dart';
 import 'chrome_menu_anchor.dart';
 import 'control_layout.dart';
 import 'floating_surface.dart';
+import 'image_edit_dialog.dart';
 import 'omnia_icon_button.dart';
 import 'omnia_menu.dart';
 
@@ -246,6 +247,23 @@ class ImageBar extends ConsumerWidget {
           ),
         ],
       ),
+      // Retoucher et redimensionner l'image
+      if (state.file != null)
+        _ImageControl(
+          const ControlSlot(id: 'editImage', width: icon, priority: 2),
+          OmniaIconButton(
+            icon: Icons.tune_rounded,
+            tooltip: 'Retoucher et redimensionner',
+            onPressed: () => ImageEditDialog.show(context, state.file!),
+          ),
+          [
+            OmniaMenuItem(
+              icon: Icons.tune_rounded,
+              label: 'Retoucher et redimensionner...',
+              onPressed: () => ImageEditDialog.show(context, state.file!),
+            ),
+          ],
+        ),
       // Mini-lecteur
       _ImageControl(
         const ControlSlot(id: 'miniPlayer', width: icon, priority: 1),

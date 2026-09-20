@@ -393,5 +393,49 @@ void main() {
       expect(harness.commands.whereType<ScrollDocument>(), hasLength(2));
       expect(harness.commands.whereType<VolumeRelative>(), isEmpty);
     });
+
+    testWidgets('mode document texte : le bouton modifier est présent en mini-lecteur et bascule en édition', (tester) async {
+      await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/docs/notes.txt', type: MediaType.text),
+          miniPlayer: true,
+        ),
+      );
+
+      // Bouton modifier présent
+      final editButton = find.byTooltip('Modifier le document');
+      expect(editButton, findsOneWidget);
+
+      // Clic pour passer en mode édition
+      await tester.tap(editButton);
+      await tester.pumpAndSettle();
+
+      // En mode édition, les boutons enregistrer et lecture seule sont affichés
+      expect(find.byTooltip('Enregistrer les modifications'), findsOneWidget);
+      expect(find.byTooltip('Terminer la modification (Lecture seule)'), findsOneWidget);
+    });
+
+    testWidgets('mode image : le bouton de retouche est présent et le menu 3 points s\'affiche en mode compact', (tester) async {
+      await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/images/photo.png', type: MediaType.image),
+          miniPlayer: true,
+        ),
+        size: const Size(320, 220),
+      );
+
+      // En mode compact (< 360px), le menu 3 points est présent
+      expect(find.byTooltip('Plus d’actions'), findsOneWidget);
+      expect(find.byTooltip('Retoucher l’image'), findsOneWidget);
+
+      // Clic sur le menu 3 points pour afficher les options cachées
+      await tester.tap(find.byTooltip('Plus d’actions'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pivoter de 90°'), findsOneWidget);
+      expect(find.text('Ajuster à la fenêtre'), findsOneWidget);
+    });
   });
 }

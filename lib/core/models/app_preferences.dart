@@ -77,6 +77,8 @@ class AppPreferences {
     this.screenshotNamePattern = defaultScreenshotPattern,
     this.normalPlayerAlwaysOnTop = false,
     this.miniPlayerAlwaysOnTop = true,
+    this.imageEditSuffix = defaultImageEditSuffix,
+    this.imageEditQuality = 92,
   });
 
   static const AppPreferences defaults = AppPreferences();
@@ -90,6 +92,9 @@ class AppPreferences {
 
   /// Motif de nom des captures : `{name}`, `{date}`, `{time}`, `{position}`.
   static const String defaultScreenshotPattern = '{name} {date} {time}';
+
+  /// Suffixe par défaut pour les copies d'images modifiées.
+  static const String defaultImageEditSuffix = '_modifié';
 
   // Général
   final AppLanguage language;
@@ -133,6 +138,10 @@ class AppPreferences {
   final bool normalPlayerAlwaysOnTop;
   final bool miniPlayerAlwaysOnTop;
 
+  // Images
+  final String imageEditSuffix;
+  final int imageEditQuality;
+
   AppPreferences copyWith({
     AppLanguage? language,
     AppThemeMode? themeMode,
@@ -153,6 +162,8 @@ class AppPreferences {
     String? screenshotNamePattern,
     bool? normalPlayerAlwaysOnTop,
     bool? miniPlayerAlwaysOnTop,
+    String? imageEditSuffix,
+    int? imageEditQuality,
   }) {
     return AppPreferences(
       language: language ?? this.language,
@@ -174,6 +185,8 @@ class AppPreferences {
       screenshotNamePattern: _pattern(screenshotNamePattern ?? this.screenshotNamePattern),
       normalPlayerAlwaysOnTop: normalPlayerAlwaysOnTop ?? this.normalPlayerAlwaysOnTop,
       miniPlayerAlwaysOnTop: miniPlayerAlwaysOnTop ?? this.miniPlayerAlwaysOnTop,
+      imageEditSuffix: imageEditSuffix ?? this.imageEditSuffix,
+      imageEditQuality: (imageEditQuality ?? this.imageEditQuality).clamp(50, 100),
     );
   }
 
@@ -217,6 +230,8 @@ class AppPreferences {
         'screenshotNamePattern': screenshotNamePattern,
         'normalPlayerAlwaysOnTop': normalPlayerAlwaysOnTop,
         'miniPlayerAlwaysOnTop': miniPlayerAlwaysOnTop,
+        'imageEditSuffix': imageEditSuffix,
+        'imageEditQuality': imageEditQuality,
       };
 
   /// Relecture tolérante : une valeur absente, d'un mauvais type ou hors bornes
@@ -255,6 +270,12 @@ class AppPreferences {
           : d.screenshotNamePattern,
       normalPlayerAlwaysOnTop: bool0('normalPlayerAlwaysOnTop', d.normalPlayerAlwaysOnTop),
       miniPlayerAlwaysOnTop: bool0('miniPlayerAlwaysOnTop', d.miniPlayerAlwaysOnTop),
+      imageEditSuffix: json['imageEditSuffix'] is String
+          ? json['imageEditSuffix']! as String
+          : d.imageEditSuffix,
+      imageEditQuality: (json['imageEditQuality'] is num)
+          ? (json['imageEditQuality']! as num).round()
+          : d.imageEditQuality,
     );
   }
 

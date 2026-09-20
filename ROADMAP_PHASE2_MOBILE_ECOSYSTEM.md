@@ -18,6 +18,22 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
 - **Tiroir inférieur contextuel** : Lorsque le mini-lecteur est actif, l'ouverture de la liste de lecture (via la touche `Tab` ou le bouton playlist) ne déploie pas un panneau latéral gauche inadapté aux dimensions compactes, mais déploie un **tiroir vertical coulissant par le bas**, calqué sur l'ergonomie du mini-lecteur YouTube.
 - **Filtres complets** : Accès direct aux filtres par type : *Tout*, *Vidéos*, *Audios*, *Documents* et *Images*.
 
+### 1.3 Édition & Modification de Documents en Mode Mini-Lecteur
+- **Bouton Modifier & Enregistrer actif en mini-lecteur** : Les documents modifiables (texte brut, code source, markdown) peuvent être modifiés directement depuis la fenêtre compacte.
+- **Bascule fluide lecture/édition** : En mode lecture, la fenêtre reste déplaçable au doigt/à la souris ; en mode édition, le champ de saisie prend la main pour permettre la frappe et les sélections sans friction.
+- **Enregistrement direct** : Sauvegarde instantanée sur le disque avec raccourci `Ctrl+S` ou bouton dédié.
+
+### 1.4 Suite de Retouche & Redimensionnement d'Images (Non-Destructif)
+- **Outil d'ajustement complet** : Accessible en mode normal et en mini-lecteur (`Icons.tune_rounded`).
+- **Redimensionnement sur mesure** : Ajustement largeur × hauteur en pixels avec verrouillage de proportions et boutons d'échelle rapide (25 %, 50 %, 75 %, 100 %, 150 %, 200 %).
+- **Retouche des couleurs** : Réglages précis de luminosité (-100 % à +100 %), de contraste (0 % à 200 %) et de saturation (0 % à 200 %, avec passage noir & blanc).
+- **Orientation & Filtres** : Rotation 90°, miroir horizontal/vertical, filtres Noir & Blanc, Sépia et Négatif avec prévisualisation en temps réel.
+- **Sauvegarde non-destructive d'une nouvelle copie** : L'image originale n'est JAMAIS écrasée. Une copie propre (suffixe paramétrable, ex: `_modifié`) est générée, et l'application bascule automatiquement la lecture sur cette nouvelle copie.
+
+### 1.5 Barres d'Outils Adaptatives & Menu 3 Points (« ... »)
+- **Menu overflow compact** : Sur toutes les barres d'outils, lorsque la fenêtre est rétrécie ou en mini-lecteur compact, les commandes secondaires se regroupent automatiquement dans le menu 3 points (`Icons.more_horiz_rounded`).
+- **Restauration automatique** : Dès que la fenêtre est agrandie, toutes les icônes reprennent naturellement leur place en ligne sans surcharge.
+
 ---
 
 ## 2. Phase 2 : Application OMNIA Mobile Autonome (Android / iOS)
@@ -27,6 +43,8 @@ L'application mobile sera développée sous Flutter dans un environnement dédi�
 ### 2.1 Capacités Fondamentales
 - **Prise en charge universelle** : Lecture identique au bureau (Vidéos, Audios Hi-Res, Images, PDF, Présentations PPTX/ODP, Documents Word DOCX/ODT, Textes & Code).
 - **Édition et enregistrement sur stockage mobile** : Modification directe des fichiers texte et code, et sauvegarde transparente.
+- **Retouche et redimensionnement d'images sur mobile** : Suite intégrée identique au bureau permettant de recadrer, redimensionner, ajuster les couleurs et exporter une copie sans toucher au fichier d'origine de la galerie.
+- **Barres contextuelles et menu 3 points mobile** : Adaptation dynamique des barres d'outils selon l'orientation portrait/paysage et la taille de l'écran avec menu overflow « ... ».
 - **Intégration au système d'exploitation** : Déclaration des intent-filters Android et types UTType iOS pour figurer dans la boîte de dialogue « Ouvrir avec » pour chaque extension prise en charge.
 
 ### 2.2 Ergonomie & Expérience Utilisateur Mobile

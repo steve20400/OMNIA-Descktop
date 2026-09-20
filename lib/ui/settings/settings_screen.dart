@@ -826,6 +826,8 @@ class _ScreenshotsSection extends ConsumerStatefulWidget {
 class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
   late final TextEditingController _pattern =
       TextEditingController(text: ref.read(preferencesProvider).screenshotNamePattern);
+  late final TextEditingController _suffix =
+      TextEditingController(text: ref.read(preferencesProvider).imageEditSuffix);
   final FocusNode _patternFocus = FocusNode(debugLabel: 'omnia.settings.pattern');
 
   @override
@@ -839,6 +841,7 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
   @override
   void dispose() {
     _pattern.dispose();
+    _suffix.dispose();
     _patternFocus.dispose();
     super.dispose();
   }
@@ -1008,6 +1011,41 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
         ),
         const SizedBox(height: OmniaMetrics.space3),
         Text(l10n.settingsScreenshotPreview(preview), style: type.caption),
+        const SizedBox(height: OmniaMetrics.space6),
+        _Row(
+          title: 'Suffixe des copies modifiées',
+          hint: 'Ajouté au nom de fichier lors de la retouche (ex. photo_modifié.png)',
+          child: SizedBox(
+            width: 140,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.curtain,
+                borderRadius: OmniaMetrics.controlRadius,
+                border: Border.all(color: colors.seam),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: TextField(
+                  controller: _suffix,
+                  style: type.body,
+                  cursorColor: colors.projector,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  onChanged: (value) {
+                    ref.change((p) => p.copyWith(
+                          imageEditSuffix: value.trim().isEmpty
+                              ? AppPreferences.defaultImageEditSuffix
+                              : value.trim(),
+                        ));
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

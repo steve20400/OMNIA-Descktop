@@ -21,6 +21,7 @@ import '../audio_tags_provider.dart';
 import '../chrome_controller.dart';
 import '../document_search.dart';
 import '../document_search_provider.dart';
+import '../document_ui_controller.dart';
 import '../panel_controller.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_handler.dart';
@@ -28,8 +29,10 @@ import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import '../wheel_steps.dart';
 import 'beam_progress_bar.dart';
+import 'image_edit_dialog.dart';
 import 'image_stage.dart';
 import 'omnia_icon_button.dart';
+import 'omnia_menu.dart';
 import 'pdf_stage.dart';
 import 'playlist_tile.dart';
 import 'stage.dart';
@@ -204,7 +207,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
 
   /// Glissement : la fenêtre suit. Clic : lecture/pause si média AV.
   /// Double-clic : retour à la fenêtre entière.
-  Widget _windowGestures({required Widget child, required bool hasMedia}) {
+  Widget _windowGestures({
+    required Widget child,
+    required bool hasMedia,
+    bool allowWindowDrag = true,
+  }) {
+    if (!allowWindowDrag) return child;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: hasMedia
@@ -395,15 +403,22 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
 
   Widget _document(PlaybackState state) {
     final textDocument = ref.watch(textDocumentProvider);
+    final isEditing = ref.watch(documentUiProvider.select((u) => u.isEditing));
     Widget docWidget;
     if (textDocument != null) {
-      docWidget = IgnorePointer(
-        child: TextView(
-          key: ValueKey('mini-text:${textDocument.path}'),
-          document: textDocument,
-          search: ref.watch(documentSearchProvider) as PlainTextSearch?,
-        ),
-      );
+      docWidget = isEditing
+          ? TextView(
+              key: ValueKey('mini-text:${textDocument.path}'),
+              document: textDocument,
+              search: ref.watch(documentSearchProvider) as PlainTextSearch?,
+            )
+          : IgnorePointer(
+              child: TextView(
+                key: ValueKey('mini-text:${textDocument.path}'),
+                document: textDocument,
+                search: ref.watch(documentSearchProvider) as PlainTextSearch?,
+              ),
+            );
     } else if (state.mediaType == MediaType.pdf) {
       docWidget = const IgnorePointer(
         child: PdfStage(key: ValueKey('mini-pdf')),
@@ -418,6 +433,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         StageContextMenu(
           child: _windowGestures(
             hasMedia: false,
+            allowWindowDrag: !isEditing,
             child: docWidget,
           ),
         ),
@@ -918,58 +934,132 @@ class _MiniImageOverlay extends ConsumerWidget {
               right: OmniaMetrics.space2,
               bottom: OmniaMetrics.space1,
               child: Center(
-                child: _plate(
-                  colors,
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (hasPlaylist)
-                        OmniaIconButton(
-                          icon: Icons.skip_previous_rounded,
-                          size: OmniaMetrics.iconButtonSize - 8,
-                          iconSize: OmniaMetrics.iconSize - 4,
-                          tooltip: l10n.previousFile,
-                          onPressed: () => ref.dispatch(const PreviousFile()),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isCompact = constraints.maxWidth < 360;
+                    if (isCompact) {
+                      return _plate(
+                        colors,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            OmniaIconButton(
+                              icon: Icons.remove_rounded,
+                              size: OmniaMetrics.iconButtonSize - 8,
+                              iconSize: OmniaMetrics.iconSize - 4,
+                              tooltip: l10n.docZoomOut,
+                              onPressed: () => ref.dispatch(const ZoomRelative(1 / 1.25)),
+                            ),
+                            OmniaIconButton(
+                              icon: Icons.add_rounded,
+                              size: OmniaMetrics.iconButtonSize - 8,
+                              iconSize: OmniaMetrics.iconSize - 4,
+                              tooltip: l10n.docZoomIn,
+                              onPressed: () => ref.dispatch(const ZoomRelative(1.25)),
+                            ),
+                            if (state.file != null)
+                              OmniaIconButton(
+                                icon: Icons.tune_rounded,
+                                size: OmniaMetrics.iconButtonSize - 8,
+                                iconSize: OmniaMetrics.iconSize - 4,
+                                tooltip: 'Retoucher l’image',
+                                onPressed: () => ImageEditDialog.show(context, state.file!),
+                              ),
+                            _MiniOverflowMenu(
+                              menuChildren: [
+                                OmniaMenuItem(
+                                  icon: Icons.rotate_right_rounded,
+                                  label: 'Pivoter de 90°',
+                                  active: state.rotation != 0,
+                                  onPressed: () => ref.dispatch(const RotateDocument()),
+                                ),
+                                OmniaMenuItem(
+                                  icon: Icons.fit_screen_outlined,
+                                  label: 'Ajuster à la fenêtre',
+                                  onPressed: () => ref.dispatch(const FitZoom(FitMode.width)),
+                                ),
+                                if (hasPlaylist) ...[
+                                  const OmniaMenuDivider(),
+                                  OmniaMenuItem(
+                                    icon: Icons.skip_previous_rounded,
+                                    label: l10n.previousFile,
+                                    onPressed: () => ref.dispatch(const PreviousFile()),
+                                  ),
+                                  OmniaMenuItem(
+                                    icon: Icons.skip_next_rounded,
+                                    label: l10n.nextFile,
+                                    onPressed: () => ref.dispatch(const NextFile()),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
                         ),
-                      OmniaIconButton(
-                        icon: Icons.remove_rounded,
-                        size: OmniaMetrics.iconButtonSize - 8,
-                        iconSize: OmniaMetrics.iconSize - 4,
-                        tooltip: l10n.docZoomOut,
-                        onPressed: () => ref.dispatch(const ZoomRelative(1 / 1.25)),
+                      );
+                    }
+
+                    return _plate(
+                      colors,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (hasPlaylist)
+                            OmniaIconButton(
+                              icon: Icons.skip_previous_rounded,
+                              size: OmniaMetrics.iconButtonSize - 8,
+                              iconSize: OmniaMetrics.iconSize - 4,
+                              tooltip: l10n.previousFile,
+                              onPressed: () => ref.dispatch(const PreviousFile()),
+                            ),
+                          OmniaIconButton(
+                            icon: Icons.remove_rounded,
+                            size: OmniaMetrics.iconButtonSize - 8,
+                            iconSize: OmniaMetrics.iconSize - 4,
+                            tooltip: l10n.docZoomOut,
+                            onPressed: () => ref.dispatch(const ZoomRelative(1 / 1.25)),
+                          ),
+                          OmniaIconButton(
+                            icon: Icons.add_rounded,
+                            size: OmniaMetrics.iconButtonSize - 8,
+                            iconSize: OmniaMetrics.iconSize - 4,
+                            tooltip: l10n.docZoomIn,
+                            onPressed: () => ref.dispatch(const ZoomRelative(1.25)),
+                          ),
+                          OmniaIconButton(
+                            icon: Icons.rotate_right_rounded,
+                            size: OmniaMetrics.iconButtonSize - 8,
+                            iconSize: OmniaMetrics.iconSize - 4,
+                            tooltip: 'Pivoter de 90°',
+                            active: state.rotation != 0,
+                            onPressed: () => ref.dispatch(const RotateDocument()),
+                          ),
+                          OmniaIconButton(
+                            icon: Icons.fit_screen_outlined,
+                            size: OmniaMetrics.iconButtonSize - 8,
+                            iconSize: OmniaMetrics.iconSize - 4,
+                            tooltip: 'Ajuster à la fenêtre',
+                            onPressed: () => ref.dispatch(const FitZoom(FitMode.width)),
+                          ),
+                          if (state.file != null)
+                            OmniaIconButton(
+                              icon: Icons.tune_rounded,
+                              size: OmniaMetrics.iconButtonSize - 8,
+                              iconSize: OmniaMetrics.iconSize - 4,
+                              tooltip: 'Retoucher et redimensionner',
+                              onPressed: () => ImageEditDialog.show(context, state.file!),
+                            ),
+                          if (hasPlaylist)
+                            OmniaIconButton(
+                              icon: Icons.skip_next_rounded,
+                              size: OmniaMetrics.iconButtonSize - 8,
+                              iconSize: OmniaMetrics.iconSize - 4,
+                              tooltip: l10n.nextFile,
+                              onPressed: () => ref.dispatch(const NextFile()),
+                            ),
+                        ],
                       ),
-                      OmniaIconButton(
-                        icon: Icons.add_rounded,
-                        size: OmniaMetrics.iconButtonSize - 8,
-                        iconSize: OmniaMetrics.iconSize - 4,
-                        tooltip: l10n.docZoomIn,
-                        onPressed: () => ref.dispatch(const ZoomRelative(1.25)),
-                      ),
-                      OmniaIconButton(
-                        icon: Icons.rotate_right_rounded,
-                        size: OmniaMetrics.iconButtonSize - 8,
-                        iconSize: OmniaMetrics.iconSize - 4,
-                        tooltip: 'Pivoter de 90°',
-                        active: state.rotation != 0,
-                        onPressed: () => ref.dispatch(const RotateDocument()),
-                      ),
-                      OmniaIconButton(
-                        icon: Icons.fit_screen_outlined,
-                        size: OmniaMetrics.iconButtonSize - 8,
-                        iconSize: OmniaMetrics.iconSize - 4,
-                        tooltip: 'Ajuster à la fenêtre',
-                        onPressed: () => ref.dispatch(const FitZoom(FitMode.width)),
-                      ),
-                      if (hasPlaylist)
-                        OmniaIconButton(
-                          icon: Icons.skip_next_rounded,
-                          size: OmniaMetrics.iconButtonSize - 8,
-                          iconSize: OmniaMetrics.iconSize - 4,
-                          tooltip: l10n.nextFile,
-                          onPressed: () => ref.dispatch(const NextFile()),
-                        ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -1111,50 +1201,167 @@ class _MiniDocumentOverlay extends ConsumerWidget {
               right: OmniaMetrics.space2,
               bottom: OmniaMetrics.space1,
               child: Center(
-                child: _plate(
-                  colors,
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isPdf) ...[
-                        OmniaIconButton(
-                          icon: Icons.keyboard_arrow_up_rounded,
-                          size: OmniaMetrics.iconButtonSize - 8,
-                          iconSize: OmniaMetrics.iconSize - 4,
-                          tooltip: l10n.docPreviousPage,
-                          onPressed: () => ref.dispatch(const PreviousPage()),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final ui = ref.watch(documentUiProvider);
+                    final canEdit = !isPdf && (state.mediaType == MediaType.text || state.mediaType == MediaType.doc);
+                    final isCompact = constraints.maxWidth < 360;
+
+                    if (isCompact) {
+                      return _plate(
+                        colors,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isPdf) ...[
+                              OmniaIconButton(
+                                icon: Icons.keyboard_arrow_up_rounded,
+                                size: OmniaMetrics.iconButtonSize - 8,
+                                iconSize: OmniaMetrics.iconSize - 4,
+                                tooltip: l10n.docPreviousPage,
+                                onPressed: () => ref.dispatch(const PreviousPage()),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space1),
+                                child: Text(
+                                  l10n.docPageOf(state.currentPage, state.totalPages),
+                                  style: type.caption.copyWith(color: colors.screen, fontSize: 11),
+                                ),
+                              ),
+                              OmniaIconButton(
+                                icon: Icons.keyboard_arrow_down_rounded,
+                                size: OmniaMetrics.iconButtonSize - 8,
+                                iconSize: OmniaMetrics.iconSize - 4,
+                                tooltip: l10n.docNextPage,
+                                onPressed: () => ref.dispatch(const NextPage()),
+                              ),
+                            ] else if (canEdit) ...[
+                              if (ui.isEditing) ...[
+                                OmniaIconButton(
+                                  icon: Icons.save_rounded,
+                                  size: OmniaMetrics.iconButtonSize - 8,
+                                  iconSize: OmniaMetrics.iconSize - 4,
+                                  tooltip: 'Enregistrer les modifications',
+                                  active: ui.hasUnsavedChanges,
+                                  onPressed: () => ref.read(documentUiProvider.notifier).requestSave(),
+                                ),
+                                OmniaIconButton(
+                                  icon: Icons.visibility_outlined,
+                                  size: OmniaMetrics.iconButtonSize - 8,
+                                  iconSize: OmniaMetrics.iconSize - 4,
+                                  tooltip: 'Terminer la modification (Lecture seule)',
+                                  active: true,
+                                  onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
+                                ),
+                              ] else ...[
+                                OmniaIconButton(
+                                  icon: Icons.edit_outlined,
+                                  size: OmniaMetrics.iconButtonSize - 8,
+                                  iconSize: OmniaMetrics.iconSize - 4,
+                                  tooltip: 'Modifier le document',
+                                  onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
+                                ),
+                              ],
+                            ],
+                            _MiniOverflowMenu(
+                              menuChildren: [
+                                OmniaMenuItem(
+                                  icon: Icons.remove_rounded,
+                                  label: l10n.docZoomOut,
+                                  onPressed: () => ref.dispatch(const ZoomRelative(1 / 1.25)),
+                                ),
+                                OmniaMenuItem(
+                                  icon: Icons.add_rounded,
+                                  label: l10n.docZoomIn,
+                                  onPressed: () => ref.dispatch(const ZoomRelative(1.25)),
+                                ),
+                                if (canEdit && !ui.isEditing)
+                                  OmniaMenuItem(
+                                    icon: Icons.edit_outlined,
+                                    label: 'Modifier le document',
+                                    onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space1),
-                          child: Text(
-                            l10n.docPageOf(state.currentPage, state.totalPages),
-                            style: type.caption.copyWith(color: colors.screen, fontSize: 11),
+                      );
+                    }
+
+                    return _plate(
+                      colors,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isPdf) ...[
+                            OmniaIconButton(
+                              icon: Icons.keyboard_arrow_up_rounded,
+                              size: OmniaMetrics.iconButtonSize - 8,
+                              iconSize: OmniaMetrics.iconSize - 4,
+                              tooltip: l10n.docPreviousPage,
+                              onPressed: () => ref.dispatch(const PreviousPage()),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space1),
+                              child: Text(
+                                l10n.docPageOf(state.currentPage, state.totalPages),
+                                style: type.caption.copyWith(color: colors.screen, fontSize: 11),
+                              ),
+                            ),
+                            OmniaIconButton(
+                              icon: Icons.keyboard_arrow_down_rounded,
+                              size: OmniaMetrics.iconButtonSize - 8,
+                              iconSize: OmniaMetrics.iconSize - 4,
+                              tooltip: l10n.docNextPage,
+                              onPressed: () => ref.dispatch(const NextPage()),
+                            ),
+                          ],
+                          OmniaIconButton(
+                            icon: Icons.remove_rounded,
+                            size: OmniaMetrics.iconButtonSize - 8,
+                            iconSize: OmniaMetrics.iconSize - 4,
+                            tooltip: l10n.docZoomOut,
+                            onPressed: () => ref.dispatch(const ZoomRelative(1 / 1.25)),
                           ),
-                        ),
-                        OmniaIconButton(
-                          icon: Icons.keyboard_arrow_down_rounded,
-                          size: OmniaMetrics.iconButtonSize - 8,
-                          iconSize: OmniaMetrics.iconSize - 4,
-                          tooltip: l10n.docNextPage,
-                          onPressed: () => ref.dispatch(const NextPage()),
-                        ),
-                      ],
-                      OmniaIconButton(
-                        icon: Icons.remove_rounded,
-                        size: OmniaMetrics.iconButtonSize - 8,
-                        iconSize: OmniaMetrics.iconSize - 4,
-                        tooltip: l10n.docZoomOut,
-                        onPressed: () => ref.dispatch(const ZoomRelative(1 / 1.25)),
+                          OmniaIconButton(
+                            icon: Icons.add_rounded,
+                            size: OmniaMetrics.iconButtonSize - 8,
+                            iconSize: OmniaMetrics.iconSize - 4,
+                            tooltip: l10n.docZoomIn,
+                            onPressed: () => ref.dispatch(const ZoomRelative(1.25)),
+                          ),
+                          if (canEdit) ...[
+                            if (ui.isEditing) ...[
+                              OmniaIconButton(
+                                icon: Icons.save_rounded,
+                                size: OmniaMetrics.iconButtonSize - 8,
+                                iconSize: OmniaMetrics.iconSize - 4,
+                                tooltip: 'Enregistrer les modifications',
+                                active: ui.hasUnsavedChanges,
+                                onPressed: () => ref.read(documentUiProvider.notifier).requestSave(),
+                              ),
+                              OmniaIconButton(
+                                icon: Icons.visibility_outlined,
+                                size: OmniaMetrics.iconButtonSize - 8,
+                                iconSize: OmniaMetrics.iconSize - 4,
+                                tooltip: 'Terminer la modification (Lecture seule)',
+                                active: true,
+                                onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
+                              ),
+                            ] else ...[
+                              OmniaIconButton(
+                                icon: Icons.edit_outlined,
+                                size: OmniaMetrics.iconButtonSize - 8,
+                                iconSize: OmniaMetrics.iconSize - 4,
+                                tooltip: 'Modifier le document',
+                                onPressed: () => ref.read(documentUiProvider.notifier).toggleEdit(),
+                              ),
+                            ],
+                          ],
+                        ],
                       ),
-                      OmniaIconButton(
-                        icon: Icons.add_rounded,
-                        size: OmniaMetrics.iconButtonSize - 8,
-                        iconSize: OmniaMetrics.iconSize - 4,
-                        tooltip: l10n.docZoomIn,
-                        onPressed: () => ref.dispatch(const ZoomRelative(1.25)),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -1602,6 +1809,27 @@ class _MiniPanelVerticalResizeHandleState
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Menu contextuel 3 points compact pour les barres du mini-lecteur.
+class _MiniOverflowMenu extends StatelessWidget {
+  const _MiniOverflowMenu({required this.menuChildren});
+
+  final List<Widget> menuChildren;
+
+  @override
+  Widget build(BuildContext context) {
+    return MenuAnchor(
+      builder: (context, controller, _) => OmniaIconButton(
+        icon: Icons.more_horiz_rounded,
+        size: OmniaMetrics.iconButtonSize - 8,
+        iconSize: OmniaMetrics.iconSize - 4,
+        tooltip: 'Plus d’actions',
+        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+      ),
+      menuChildren: menuChildren,
     );
   }
 }

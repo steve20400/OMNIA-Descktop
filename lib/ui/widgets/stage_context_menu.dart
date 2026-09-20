@@ -18,6 +18,7 @@ import '../settings/settings_controller.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
 import '../tool_panel_controller.dart';
+import 'image_edit_dialog.dart';
 import 'omnia_menu.dart';
 import 'track_menus.dart';
 
@@ -218,6 +219,19 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
             label: l10n.equalizer,
             active: state.equalizerEnabled,
             onPressed: () => ref.read(toolPanelProvider.notifier).toggle(ToolPanel.equalizer),
+          ),
+        ],
+        if (state.mediaType == MediaType.image && state.file != null) ...[
+          const OmniaMenuDivider(),
+          OmniaMenuItem(
+            icon: Icons.tune_rounded,
+            label: 'Retoucher et redimensionner...',
+            onPressed: () => ImageEditDialog.show(context, state.file!),
+          ),
+          OmniaMenuItem(
+            icon: Icons.rotate_right_rounded,
+            label: 'Pivoter de 90°',
+            onPressed: () => ref.dispatch(const RotateDocument()),
           ),
         ],
         const OmniaMenuDivider(),

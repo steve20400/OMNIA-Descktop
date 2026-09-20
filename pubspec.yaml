@@ -53,6 +53,7 @@ dependencies:
   flutter_markdown_plus: ^1.0.12
   charset: ^2.0.1
   archive: ^4.0.0
+  image: ^4.9.2
 
 
 dev_dependencies:
