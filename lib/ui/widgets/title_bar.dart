@@ -175,7 +175,7 @@ class TitleBar extends ConsumerWidget {
                         glyph: _WindowGlyph.close,
                         tooltip: l10n.closeWindow,
                         danger: true,
-                        onPressed: () => closeApplication(ref),
+                        onPressed: () => closeApplication(ref, context),
                       ),
                     ],
                   ),

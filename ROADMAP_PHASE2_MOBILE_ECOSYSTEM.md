@@ -26,6 +26,10 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
   - Enregistrement continu silencieux après un délai d'inactivité de frappe paramétrable (1s, 2s, 3s, 5s, 10s, activé par défaut à 2s dans les Paramètres).
   - Écriture synchrone d'urgence lors du passage en lecture seule, du changement de fichier ou de la fermeture de la fenêtre, éliminant tout risque de perte de données en cas de coupure de courant.
   - Indicateur visuel discret dans la barre d'outils (icône active quand des modifications sont en attente, état enregistré quand l'écriture est terminée).
+- **Protection à la fermeture avec modifications en cours (Normal & Mini-lecteur)** :
+  - Interception unifiée de la fermeture (bouton 'X' OS, raccourci Alt+F4/Ctrl+Q, ou bouton fermer dans le lecteur et mini-lecteur).
+  - Dialogue de confirmation complet : « Enregistrer », « Ne pas enregistrer », « Annuler ».
+  - Politique configurable dans les Paramètres (`UnsavedChangesPolicy`) : **Demander** (défaut), **Enregistrer automatiquement** ou **Ignorer**.
 
 ### 1.4 Suite de Retouche & Redimensionnement d'Images (Non-Destructif)
 - **Outil d'ajustement complet** : Accessible en mode normal et en mini-lecteur (`Icons.tune_rounded`).

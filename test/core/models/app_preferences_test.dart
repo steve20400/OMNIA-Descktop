@@ -22,6 +22,7 @@ void main() {
       expect(p.miniPlayerAlwaysOnTop, isTrue);
       expect(p.docAutoSave, isTrue);
       expect(p.docAutoSaveIntervalSeconds, 2);
+      expect(p.unsavedChangesPolicy, UnsavedChangesPolicy.ask);
     });
   });
 
@@ -46,6 +47,7 @@ void main() {
         textScale: 1.4,
         docAutoSave: false,
         docAutoSaveIntervalSeconds: 5,
+        unsavedChangesPolicy: UnsavedChangesPolicy.save,
         screenshotNamePattern: '{name} @ {position}',
         normalPlayerAlwaysOnTop: true,
         miniPlayerAlwaysOnTop: false,

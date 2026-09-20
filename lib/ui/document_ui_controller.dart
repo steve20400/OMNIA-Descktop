@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// État d'interface propre aux documents : barre de recherche, champ « aller
@@ -9,6 +11,8 @@ class DocumentUiState {
     this.isEditing = false,
     this.saveRequest = 0,
     this.hasUnsavedChanges = false,
+    this.draftPath,
+    this.draftText,
   });
 
   /// La barre de recherche (`Ctrl+F`) est affichée.
@@ -27,12 +31,20 @@ class DocumentUiState {
   /// Vrai si le texte a été modifié mais pas encore enregistré sur le disque.
   final bool hasUnsavedChanges;
 
+  /// Chemin absolu du document en cours de modification.
+  final String? draftPath;
+
+  /// Dernier texte saisi en cours d'édition.
+  final String? draftText;
+
   DocumentUiState copyWith({
     bool? findVisible,
     int? goToPageRequest,
     bool? isEditing,
     int? saveRequest,
     bool? hasUnsavedChanges,
+    String? draftPath,
+    String? draftText,
   }) =>
       DocumentUiState(
         findVisible: findVisible ?? this.findVisible,
@@ -40,6 +52,8 @@ class DocumentUiState {
         isEditing: isEditing ?? this.isEditing,
         saveRequest: saveRequest ?? this.saveRequest,
         hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
+        draftPath: draftPath ?? this.draftPath,
+        draftText: draftText ?? this.draftText,
       );
 }
 
@@ -61,4 +75,40 @@ class DocumentUiController extends Notifier<DocumentUiState> {
   void requestSave() => state = state.copyWith(saveRequest: state.saveRequest + 1);
   void setUnsavedChanges(bool value) =>
       state = state.copyWith(hasUnsavedChanges: value);
+
+  /// Enregistre les modifications textuelles en mémoire.
+  void setDraft({required String path, required String text}) {
+    state = state.copyWith(
+      hasUnsavedChanges: true,
+      draftPath: path,
+      draftText: text,
+    );
+  }
+
+  /// Efface le brouillon en cours après enregistrement ou rejet.
+  void clearDraft() {
+    state = DocumentUiState(
+      findVisible: state.findVisible,
+      goToPageRequest: state.goToPageRequest,
+      isEditing: state.isEditing,
+      saveRequest: state.saveRequest,
+      hasUnsavedChanges: false,
+      draftPath: null,
+      draftText: null,
+    );
+  }
+
+  /// Sauvegarde immédiate et synchrone du brouillon sur le disque.
+  bool saveDraftSync() {
+    final path = state.draftPath;
+    final text = state.draftText;
+    if (path == null || text == null) return false;
+    try {
+      File(path).writeAsStringSync(text, flush: true);
+      clearDraft();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 }

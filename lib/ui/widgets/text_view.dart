@@ -92,6 +92,7 @@ class _TextViewState extends ConsumerState<TextView> {
       file.writeAsStringSync(_editController.text, flush: true);
       _hasUnsavedChanges = false;
       if (mounted) {
+        ref.read(documentUiProvider.notifier).clearDraft();
         ref.read(textControllerProvider).updateText(_editController.text);
         ref.read(documentUiProvider.notifier).setUnsavedChanges(false);
         if (!silent) {
@@ -117,7 +118,10 @@ class _TextViewState extends ConsumerState<TextView> {
 
   void _onTextChanged(String text) {
     _hasUnsavedChanges = true;
-    ref.read(documentUiProvider.notifier).setUnsavedChanges(true);
+    ref.read(documentUiProvider.notifier).setDraft(
+          path: widget.document.path,
+          text: text,
+        );
     _scheduleAutoSave();
   }
 

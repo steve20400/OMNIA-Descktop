@@ -50,6 +50,21 @@ enum StartupVolume {
       values.firstWhere((e) => e.name == value, orElse: () => StartupVolume.last);
 }
 
+/// Comportement à la fermeture de l'application si un document contient des modifications non enregistrées.
+enum UnsavedChangesPolicy {
+  /// Demander à l'utilisateur s'il souhaite enregistrer, ignorer ou annuler la fermeture (défaut).
+  ask,
+
+  /// Enregistrer automatiquement et fermer sans avertissement.
+  save,
+
+  /// Ignorer les modifications et fermer immédiatement.
+  discard;
+
+  static UnsavedChangesPolicy fromJson(Object? value) =>
+      values.firstWhere((e) => e.name == value, orElse: () => UnsavedChangesPolicy.ask);
+}
+
 /// Préférences de l'utilisateur, telles que l'écran Paramètres les présente
 /// (§10 du cahier des charges).
 ///
@@ -81,6 +96,7 @@ class AppPreferences {
     this.imageEditQuality = 92,
     this.docAutoSave = true,
     this.docAutoSaveIntervalSeconds = 2,
+    this.unsavedChangesPolicy = UnsavedChangesPolicy.ask,
   });
 
   static const AppPreferences defaults = AppPreferences();
@@ -142,6 +158,9 @@ class AppPreferences {
   /// Délai d'inactivité avant la sauvegarde automatique (en secondes).
   final int docAutoSaveIntervalSeconds;
 
+  /// Règle appliquée à la fermeture si un document est en cours de modification.
+  final UnsavedChangesPolicy unsavedChangesPolicy;
+
   // Captures
   final String screenshotNamePattern;
 
@@ -172,6 +191,7 @@ class AppPreferences {
     double? textScale,
     bool? docAutoSave,
     int? docAutoSaveIntervalSeconds,
+    UnsavedChangesPolicy? unsavedChangesPolicy,
     String? screenshotNamePattern,
     bool? normalPlayerAlwaysOnTop,
     bool? miniPlayerAlwaysOnTop,
@@ -198,6 +218,7 @@ class AppPreferences {
       docAutoSave: docAutoSave ?? this.docAutoSave,
       docAutoSaveIntervalSeconds: _autoSaveInterval(
           docAutoSaveIntervalSeconds ?? this.docAutoSaveIntervalSeconds),
+      unsavedChangesPolicy: unsavedChangesPolicy ?? this.unsavedChangesPolicy,
       screenshotNamePattern: _pattern(screenshotNamePattern ?? this.screenshotNamePattern),
       normalPlayerAlwaysOnTop: normalPlayerAlwaysOnTop ?? this.normalPlayerAlwaysOnTop,
       miniPlayerAlwaysOnTop: miniPlayerAlwaysOnTop ?? this.miniPlayerAlwaysOnTop,
@@ -253,6 +274,7 @@ class AppPreferences {
         'textScale': textScale,
         'docAutoSave': docAutoSave,
         'docAutoSaveIntervalSeconds': docAutoSaveIntervalSeconds,
+        'unsavedChangesPolicy': unsavedChangesPolicy.name,
         'screenshotNamePattern': screenshotNamePattern,
         'normalPlayerAlwaysOnTop': normalPlayerAlwaysOnTop,
         'miniPlayerAlwaysOnTop': miniPlayerAlwaysOnTop,
@@ -295,6 +317,7 @@ class AppPreferences {
       docAutoSaveIntervalSeconds: (json['docAutoSaveIntervalSeconds'] is num)
           ? (json['docAutoSaveIntervalSeconds']! as num).round()
           : d.docAutoSaveIntervalSeconds,
+      unsavedChangesPolicy: UnsavedChangesPolicy.fromJson(json['unsavedChangesPolicy']),
       screenshotNamePattern: json['screenshotNamePattern'] is String
           ? json['screenshotNamePattern']! as String
           : d.screenshotNamePattern,

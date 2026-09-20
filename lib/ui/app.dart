@@ -3,13 +3,20 @@ import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/models/app_preferences.dart';
 import '../core/providers.dart';
 import '../core/utils/platform_session.dart';
 import '../l10n/app_localizations.dart';
+import 'document_ui_controller.dart';
 import 'screens/player_screen.dart';
 import 'theme/omnia_theme.dart';
+import 'widgets/unsaved_changes_dialog.dart';
+
+/// Clé globale pour accéder au navigateur racine depuis n'importe où
+/// (notamment lors des demandes de fermeture du système).
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Racine de l'application : thème, localisation, écran unique.
 ///
@@ -40,6 +47,34 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
     });
     _lifecycle = AppLifecycleListener(
       onExitRequested: () async {
+        final docUi = ref.read(documentUiProvider);
+        if (docUi.isEditing && docUi.hasUnsavedChanges) {
+          final policy = ref.read(preferencesProvider).unsavedChangesPolicy;
+          if (policy == UnsavedChangesPolicy.ask) {
+            final ctx = rootNavigatorKey.currentContext;
+            if (ctx != null) {
+              final fileName = docUi.draftPath != null
+                  ? p.basename(docUi.draftPath!)
+                  : 'document';
+              final choice = await UnsavedChangesDialog.show(ctx, fileName: fileName);
+              if (choice == null || choice == UnsavedChangesAction.cancel) {
+                return AppExitResponse.cancel; // Interrompt la fermeture système !
+              }
+              if (choice == UnsavedChangesAction.save) {
+                ref.read(documentUiProvider.notifier).saveDraftSync();
+              } else {
+                ref.read(documentUiProvider.notifier).clearDraft();
+              }
+            } else {
+              ref.read(documentUiProvider.notifier).saveDraftSync();
+            }
+          } else if (policy == UnsavedChangesPolicy.save) {
+            ref.read(documentUiProvider.notifier).saveDraftSync();
+          } else if (policy == UnsavedChangesPolicy.discard) {
+            ref.read(documentUiProvider.notifier).clearDraft();
+          }
+        }
+
         try {
           await ref.read(avControllerProvider).player.stop();
         } catch (_) {}
@@ -126,6 +161,7 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
     final language = ref.watch(preferencesProvider.select((p) => p.language));
 
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'OMNIA',
       debugShowCheckedModeBanner: false,
       theme: buildOmniaTheme(Brightness.light),

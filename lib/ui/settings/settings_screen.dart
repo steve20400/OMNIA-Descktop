@@ -818,6 +818,21 @@ class _DocumentsSection extends ConsumerWidget {
             ),
           ),
         ],
+        const SettingDivider(),
+        SettingRow(
+          title: 'Fermeture avec modifications en cours',
+          hint: 'Action à effectuer si l’application est fermée alors qu’un document est en cours d’édition',
+          control: OmniaSegmented<UnsavedChangesPolicy>(
+            values: UnsavedChangesPolicy.values,
+            selected: p.unsavedChangesPolicy,
+            labelOf: (v) => switch (v) {
+              UnsavedChangesPolicy.ask => 'Demander',
+              UnsavedChangesPolicy.save => 'Enregistrer',
+              UnsavedChangesPolicy.discard => 'Ignorer',
+            },
+            onChanged: (v) => ref.change((p) => p.copyWith(unsavedChangesPolicy: v)),
+          ),
+        ),
       ],
     );
   }
