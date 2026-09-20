@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/commands/player_command.dart';
@@ -228,7 +229,8 @@ void main() {
       );
 
       final pointer = TestPointer(1, PointerDeviceKind.mouse);
-      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 50), const Offset(100, 100)));
+      await tester.sendEventToBinding(pointer.hover(const Offset(100, 100)));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 50)));
       await tester.pumpAndSettle();
       expect(harness.commands.whereType<NextPage>(), hasLength(1));
     });
