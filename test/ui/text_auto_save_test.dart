@@ -34,9 +34,9 @@ void main() {
     testWidgets('enregistre automatiquement après le délai d\'inactivité (debounce)', (tester) async {
       final doc = TextDocument(
         path: filePath,
-        name: 'sample.txt',
         isMarkdown: false,
         text: 'Initial content',
+        encoding: 'utf-8',
       );
 
       final harness = LeafHarness(
@@ -91,9 +91,9 @@ void main() {
     testWidgets('enregistre immédiatement lors du passage en lecture seule', (tester) async {
       final doc = TextDocument(
         path: filePath,
-        name: 'sample.txt',
         isMarkdown: false,
         text: 'Initial content',
+        encoding: 'utf-8',
       );
 
       final harness = LeafHarness(
@@ -131,9 +131,9 @@ void main() {
     testWidgets('sauvegarde synchrone lors de la destruction (dispose) du composant', (tester) async {
       final doc = TextDocument(
         path: filePath,
-        name: 'sample.txt',
         isMarkdown: false,
         text: 'Initial content',
+        encoding: 'utf-8',
       );
 
       final harness = LeafHarness(

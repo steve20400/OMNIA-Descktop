@@ -39,6 +39,7 @@ class _TextViewState extends ConsumerState<TextView> {
   double? _pendingRestore;
   int _lastMatch = -1;
   int _seenSaveRequest = 0;
+  bool _hasUnsavedChanges = false;
 
   @override
   void initState() {
@@ -56,13 +57,14 @@ class _TextViewState extends ConsumerState<TextView> {
       widget.search?.addListener(_onSearchChanged);
     }
     if (old.document.path != widget.document.path) {
-      if (ref.read(documentUiProvider).hasUnsavedChanges) {
+      if (_hasUnsavedChanges) {
         _autoSaveTimer?.cancel();
         try {
           File(old.document.path).writeAsStringSync(_editController.text);
         } catch (_) {}
       }
       _lastMatch = -1;
+      _hasUnsavedChanges = false;
       _editController.text = widget.document.text;
       if (_scroll.hasClients) _scroll.jumpTo(0);
     }
@@ -72,7 +74,7 @@ class _TextViewState extends ConsumerState<TextView> {
   void dispose() {
     _reportDebounce?.cancel();
     _autoSaveTimer?.cancel();
-    if (ref.read(documentUiProvider).hasUnsavedChanges) {
+    if (_hasUnsavedChanges) {
       try {
         File(widget.document.path).writeAsStringSync(_editController.text);
       } catch (_) {}
@@ -88,6 +90,7 @@ class _TextViewState extends ConsumerState<TextView> {
     try {
       final file = File(widget.document.path);
       await file.writeAsString(_editController.text);
+      _hasUnsavedChanges = false;
       if (mounted) {
         ref.read(textControllerProvider).updateText(_editController.text);
         ref.read(documentUiProvider.notifier).setUnsavedChanges(false);
@@ -113,6 +116,7 @@ class _TextViewState extends ConsumerState<TextView> {
   }
 
   void _onTextChanged(String text) {
+    _hasUnsavedChanges = true;
     ref.read(documentUiProvider.notifier).setUnsavedChanges(true);
     _scheduleAutoSave();
   }

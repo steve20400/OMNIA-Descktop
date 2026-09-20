@@ -813,7 +813,7 @@ class _DocumentsSection extends ConsumerWidget {
             control: OmniaSegmented<int>(
               values: AppPreferences.docAutoSaveIntervals,
               selected: p.docAutoSaveIntervalSeconds,
-              labelOf: (v) => '${v} s',
+              labelOf: (v) => '$v s',
               onChanged: (v) => ref.change((p) => p.copyWith(docAutoSaveIntervalSeconds: v)),
             ),
           ),
