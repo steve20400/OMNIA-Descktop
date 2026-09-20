@@ -204,10 +204,13 @@ class _PagedViewState extends ConsumerState<_PagedView> {
       _transform.value = Matrix4.diagonal3Values(zoom, zoom, 1);
     }
 
+    final miniPlayer = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
+
     return Listener(
       onPointerSignal: _onPointerSignal,
       child: InteractiveViewer(
         transformationController: _transform,
+        panEnabled: !miniPlayer,
         minScale: PlaybackState.minZoom,
         maxScale: PlaybackState.maxZoom,
         onInteractionEnd: (_) {

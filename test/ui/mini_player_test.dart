@@ -217,5 +217,20 @@ void main() {
 
       expect(find.byType(IgnorePointer), findsWidgets);
     });
+
+    testWidgets('mode document PDF : la molette déclenche NextPage / PreviousPage', (tester) async {
+      final harness = await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/docs/document.pdf', type: MediaType.pdf),
+          miniPlayer: true,
+        ),
+      );
+
+      final pointer = TestPointer(1, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 50), const Offset(100, 100)));
+      await tester.pumpAndSettle();
+      expect(harness.commands.whereType<NextPage>(), hasLength(1));
+    });
   });
 }

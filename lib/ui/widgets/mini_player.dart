@@ -162,8 +162,26 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   void _onPointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
     final dy = event.scrollDelta.dy;
-    // Défilement horizontal (molette inclinable, pavé tactile) : pas de volume.
+    // Défilement horizontal (molette inclinable, pavé tactile) : ignoré.
     if (dy == 0) return;
+
+    final state = ref.read(playbackStateProvider);
+    if (state.isDocument) {
+      if (HardwareKeyboard.instance.isControlPressed) {
+        ref.dispatch(ZoomRelative(dy < 0 ? 1.15 : 1 / 1.15));
+      } else if (state.mediaType == MediaType.pdf) {
+        ref.dispatch(dy > 0 ? const NextPage() : const PreviousPage());
+      }
+      return;
+    }
+
+    if (state.mediaType == MediaType.image) {
+      ref.dispatch(ZoomRelative(dy < 0 ? 1.15 : 1 / 1.15));
+      return;
+    }
+
+    if (!state.mediaType.isAv) return;
+
     // Par le résolveur : le faisceau, sous le curseur, passe avant le volume.
     GestureBinding.instance.pointerSignalResolver.register(event, (_) {
       final step = _volumeWheel.add(dy);

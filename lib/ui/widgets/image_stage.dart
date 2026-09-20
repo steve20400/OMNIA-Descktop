@@ -74,6 +74,7 @@ class _ImageStageState extends ConsumerState<ImageStage> {
                 curve: OmniaMotion.stageCurve,
                 child: InteractiveViewer(
                   transformationController: _transform,
+                  panEnabled: !state.miniPlayer,
                   minScale: 0.1,
                   maxScale: 10.0,
                   boundaryMargin: const EdgeInsets.all(double.infinity),
