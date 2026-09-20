@@ -317,6 +317,56 @@ void main() {
       expect(harness.window.closed, isTrue);
       expect(File(filePath).readAsStringSync(), 'Mini player modifications');
     });
+
+    testWidgets('Demande de fermeture native OS (Alt+F4 / taskbar) : interceptée et gardée', (tester) async {
+      final harness = LeafHarness(
+        state: PlaybackState(
+          file: MediaFile(path: filePath, type: MediaType.text),
+        ),
+      );
+      harness.attach(tester);
+
+      harness.container.read(documentUiProvider.notifier).setEditing(true);
+      harness.container.read(documentUiProvider.notifier).setDraft(
+            path: filePath,
+            text: 'Intercepted OS close',
+          );
+
+      late BuildContext testContext;
+      await tester.pumpWidget(
+        omniaTestApp(
+          harness.container,
+          Builder(
+            builder: (ctx) {
+              testContext = ctx;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Écouter closeRequests et router vers closeApplication comme dans OmniaApp
+      harness.window.closeRequests.listen((_) {
+        closeApplication(harness.container, testContext);
+      });
+
+      // Émettre une demande de fermeture native OS
+      harness.window.emitCloseRequest();
+      await tester.pumpAndSettle();
+
+      // Le dialogue modal de confirmation doit surgir
+      expect(find.byType(UnsavedChangesDialog), findsOneWidget);
+      expect(find.text('Enregistrer les modifications ?'), findsOneWidget);
+
+      // Clic sur Annuler
+      await tester.tap(find.text('Annuler'));
+      await tester.pumpAndSettle();
+
+      // La fenêtre n'est pas fermée
+      expect(harness.window.closed, isFalse);
+      expect(File(filePath).readAsStringSync(), 'Original file text');
+    });
   });
 }
 

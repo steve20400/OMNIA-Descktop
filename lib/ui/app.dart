@@ -32,6 +32,7 @@ class OmniaApp extends ConsumerStatefulWidget {
 
 class _OmniaAppState extends ConsumerState<OmniaApp> {
   StreamSubscription<void>? _geometrySub;
+  StreamSubscription<void>? _closeSub;
   Timer? _saveDebounce;
   AppLifecycleListener? _lifecycle;
 
@@ -42,6 +43,9 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
     _geometrySub = window.geometryChanges.listen((_) {
       _saveDebounce?.cancel();
       _saveDebounce = Timer(const Duration(milliseconds: 400), _saveGeometry);
+    });
+    _closeSub = window.closeRequests.listen((_) {
+      closeApplication(ref);
     });
     _lifecycle = AppLifecycleListener(
       onExitRequested: () async {
@@ -119,6 +123,7 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
   @override
   void dispose() {
     _lifecycle?.dispose();
+    _closeSub?.cancel();
     _saveDebounce?.cancel();
     _geometrySub?.cancel();
     super.dispose();

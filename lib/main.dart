@@ -136,6 +136,7 @@ Future<void> _showWindow({
     }
     if (maximized) await windowManager.maximize();
     if (alwaysOnTop) await windowManager.setAlwaysOnTop(true);
+    await windowManager.setPreventClose(true);
     await windowManager.show();
     await windowManager.focus();
   });
