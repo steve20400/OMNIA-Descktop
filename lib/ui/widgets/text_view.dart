@@ -89,7 +89,7 @@ class _TextViewState extends ConsumerState<TextView> {
     _autoSaveTimer?.cancel();
     try {
       final file = File(widget.document.path);
-      await file.writeAsString(_editController.text);
+      file.writeAsStringSync(_editController.text, flush: true);
       _hasUnsavedChanges = false;
       if (mounted) {
         ref.read(textControllerProvider).updateText(_editController.text);
