@@ -125,7 +125,7 @@ void main() {
       // Le tiroir inférieur est visible avec les filtres
       expect(find.byIcon(Icons.close_rounded), findsOneWidget);
       expect(find.text('Images'), findsOneWidget);
-      expect(find.text('Tout'), findsOneWidget);
+      expect(find.text('Tous'), findsOneWidget);
 
       // Clic sur le filtre Images
       await tester.tap(find.text('Images'));
