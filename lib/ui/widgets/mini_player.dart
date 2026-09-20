@@ -137,7 +137,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
               children: [
                 content,
                 // Tiroir inférieur de liste de lecture (style YouTube)
-                _MiniPlaylistBottomDrawer(visible: panelVisible),
+                if (panelVisible) const _MiniPlaylistBottomDrawer(),
               ],
             ),
           ),
@@ -921,9 +921,7 @@ class _MiniDocumentOverlay extends ConsumerWidget {
 
 /// Tiroir inférieur de liste de lecture pour le mini-lecteur (style YouTube).
 class _MiniPlaylistBottomDrawer extends ConsumerWidget {
-  const _MiniPlaylistBottomDrawer({required this.visible});
-
-  final bool visible;
+  const _MiniPlaylistBottomDrawer();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -934,19 +932,13 @@ class _MiniPlaylistBottomDrawer extends ConsumerWidget {
     final currentFilter = playlist.filter;
     final visibleEntries = playlist.visible;
 
-    return AnimatedSlide(
-      offset: visible ? Offset.zero : const Offset(0, 1.05),
-      duration: OmniaMotion.panel,
-      curve: OmniaMotion.panelCurve,
-      child: IgnorePointer(
-        ignoring: !visible,
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final drawerHeight = math.min(constraints.maxHeight * 0.85, 300.0);
-              return Container(
-                height: drawerHeight,
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final drawerHeight = math.min(constraints.maxHeight * 0.85, 300.0);
+          return Container(
+            height: drawerHeight,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: colors.curtain.withValues(alpha: 0.96),
@@ -1050,9 +1042,7 @@ class _MiniPlaylistBottomDrawer extends ConsumerWidget {
               );
             },
           ),
-        ),
-      ),
-    );
+        );
   }
 
   static String _labelForFilter(PlaylistFilter f, AppLocalizations l10n) => switch (f) {
