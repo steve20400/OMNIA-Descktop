@@ -17,6 +17,7 @@ import '../audio_tags_provider.dart';
 import '../chrome_controller.dart';
 import '../document_search.dart';
 import '../document_search_provider.dart';
+import '../panel_controller.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_handler.dart';
 import '../shortcuts/shortcut_labels.dart';
@@ -849,13 +850,13 @@ class _MiniDocumentOverlay extends ConsumerWidget {
                           icon: Icons.keyboard_arrow_up_rounded,
                           size: OmniaMetrics.iconButtonSize - 8,
                           iconSize: OmniaMetrics.iconSize - 4,
-                          tooltip: l10n.docPageUp,
-                          onPressed: () => ref.dispatch(const PagePrevious()),
+                          tooltip: l10n.docPreviousPage,
+                          onPressed: () => ref.dispatch(const PreviousPage()),
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space1),
                           child: Text(
-                            '${state.page} / ${state.pageTotal}',
+                            l10n.docPageOf(state.currentPage, state.totalPages),
                             style: type.caption.copyWith(color: colors.screen, fontSize: 11),
                           ),
                         ),
@@ -863,8 +864,8 @@ class _MiniDocumentOverlay extends ConsumerWidget {
                           icon: Icons.keyboard_arrow_down_rounded,
                           size: OmniaMetrics.iconButtonSize - 8,
                           iconSize: OmniaMetrics.iconSize - 4,
-                          tooltip: l10n.docPageDown,
-                          onPressed: () => ref.dispatch(const PageNext()),
+                          tooltip: l10n.docNextPage,
+                          onPressed: () => ref.dispatch(const NextPage()),
                         ),
                       ],
                       OmniaIconButton(
@@ -935,8 +936,8 @@ class _MiniPlaylistBottomDrawer extends ConsumerWidget {
 
     return AnimatedSlide(
       offset: visible ? Offset.zero : const Offset(0, 1.05),
-      duration: OmniaMotion.drawer,
-      curve: visible ? OmniaMotion.drawerCurve : OmniaMotion.drawerCloseCurve,
+      duration: OmniaMotion.panel,
+      curve: OmniaMotion.panelCurve,
       child: IgnorePointer(
         ignoring: !visible,
         child: Align(
