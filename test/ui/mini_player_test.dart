@@ -125,10 +125,10 @@ void main() {
       // Le tiroir inférieur est visible avec les filtres
       expect(find.byIcon(Icons.close_rounded), findsOneWidget);
       expect(find.text('Tous'), findsOneWidget);
-      expect(find.text('Vidéos'), findsOneWidget);
+      expect(find.text('Vidéo'), findsOneWidget);
 
-      // Clic sur le filtre Vidéos
-      await tester.tap(find.text('Vidéos'));
+      // Clic sur le filtre Vidéo
+      await tester.tap(find.text('Vidéo'));
       await tester.pumpAndSettle();
       expect(
         harness.commands.whereType<SetPlaylistFilter>().last.filter,

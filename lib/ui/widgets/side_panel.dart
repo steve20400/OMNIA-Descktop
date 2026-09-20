@@ -497,7 +497,7 @@ class _FilterRow extends ConsumerWidget {
           PlaylistFilter.video => l10n.filterVideo,
           PlaylistFilter.audio => l10n.filterAudio,
           PlaylistFilter.documents => l10n.filterDocuments,
-          PlaylistFilter.images => 'Images',
+          PlaylistFilter.images => l10n.filterImages,
         };
 
 
