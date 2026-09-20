@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
+import '../../core/models/document_layout.dart';
 import '../../core/models/media_type.dart';
 import '../../core/providers.dart';
 import '../document_ui_controller.dart';
