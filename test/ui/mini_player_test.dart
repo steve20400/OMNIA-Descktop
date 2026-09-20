@@ -311,6 +311,7 @@ void main() {
         size: const Size(600, 300),
         state: const PlaybackState(
           file: MediaFile(path: '/media/video.mp4', type: MediaType.video),
+          hasVideo: true,
           miniPlayer: true,
         ),
       );
@@ -334,6 +335,7 @@ void main() {
         size: const Size(360, 240),
         state: const PlaybackState(
           file: MediaFile(path: '/media/video.mp4', type: MediaType.video),
+          hasVideo: true,
           miniPlayer: true,
         ),
       );

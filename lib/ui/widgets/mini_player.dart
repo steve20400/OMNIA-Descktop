@@ -515,88 +515,95 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                         ),
                         SizedBox(
                           height: rowHeight,
-                          child: Row(
-                            children: [
-                              if (columnWidth >= 170)
-                                OmniaIconButton(
-                                  icon: Icons.skip_previous_rounded,
-                                  size: buttonSize,
-                                  iconSize: buttonIcon,
-                                  tooltip: l10n.previousFile,
-                                  onPressed:
-                                      hasPlaylist ? () => ref.dispatch(const PreviousFile()) : null,
-                                ),
-                              OmniaIconButton(
-                                icon:
-                                    state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                size: buttonSize + 4,
-                                iconSize: buttonIcon + 4,
-                                tooltip: state.isPlaying ? l10n.pause : l10n.play,
-                                onPressed: hasMedia ? () => ref.dispatch(const TogglePlay()) : null,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              width: math.max(columnWidth, 180.0),
+                              child: Row(
+                                children: [
+                                  if (columnWidth >= 170)
+                                    OmniaIconButton(
+                                      icon: Icons.skip_previous_rounded,
+                                      size: buttonSize,
+                                      iconSize: buttonIcon,
+                                      tooltip: l10n.previousFile,
+                                      onPressed:
+                                          hasPlaylist ? () => ref.dispatch(const PreviousFile()) : null,
+                                    ),
+                                  OmniaIconButton(
+                                    icon:
+                                        state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                    size: buttonSize + 4,
+                                    iconSize: buttonIcon + 4,
+                                    tooltip: state.isPlaying ? l10n.pause : l10n.play,
+                                    onPressed: hasMedia ? () => ref.dispatch(const TogglePlay()) : null,
+                                  ),
+                                  if (columnWidth >= 170)
+                                    OmniaIconButton(
+                                      icon: Icons.skip_next_rounded,
+                                      size: buttonSize,
+                                      iconSize: buttonIcon,
+                                      tooltip: l10n.nextFile,
+                                      onPressed:
+                                          hasPlaylist ? () => ref.dispatch(const NextFile()) : null,
+                                    ),
+                                  const Spacer(),
+                                  OmniaIconButton(
+                                    icon: Icons.playlist_play_rounded,
+                                    size: buttonSize,
+                                    iconSize: buttonIcon,
+                                    tooltip: ref.tooltipWith(
+                                      l10n.panelShow,
+                                      ShortcutAction.toggleSidePanel,
+                                      l10n,
+                                    ),
+                                    onPressed: () => ref.dispatch(const ToggleSidePanel()),
+                                  ),
+                                  if (columnWidth >= 120)
+                                    OmniaIconButton(
+                                      icon: state.muted
+                                          ? Icons.volume_off_rounded
+                                          : Icons.volume_up_rounded,
+                                      size: buttonSize,
+                                      iconSize: buttonIcon,
+                                      tooltip: state.muted ? l10n.unmute : l10n.mute,
+                                      onPressed: () => ref.dispatch(const ToggleMute()),
+                                    ),
+                                  OmniaIconButton(
+                                    icon: state.alwaysOnTop
+                                        ? Icons.push_pin_rounded
+                                        : Icons.push_pin_outlined,
+                                    size: buttonSize,
+                                    iconSize: buttonIcon - 2,
+                                    active: state.alwaysOnTop,
+                                    tooltip: l10n.alwaysOnTop,
+                                    onPressed: () => ref.dispatch(
+                                      const ToggleAlwaysOnTop(forMiniPlayer: true),
+                                    ),
+                                  ),
+                                  OmniaIconButton(
+                                    icon: Icons.open_in_full_rounded,
+                                    size: buttonSize,
+                                    iconSize: buttonIcon - 2,
+                                    tooltip: ref.tooltipWith(
+                                      l10n.miniPlayerExit,
+                                      ShortcutAction.miniPlayer,
+                                      l10n,
+                                    ),
+                                    onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
+                                  ),
+                                  OmniaIconButton(
+                                    icon: Icons.close_rounded,
+                                    size: buttonSize,
+                                    iconSize: buttonIcon - 2,
+                                    tooltip: l10n.closeWindow,
+                                    danger: true,
+                                    onPressed: () => ref.read(windowServiceProvider).close(),
+                                  ),
+                                ],
                               ),
-                              if (columnWidth >= 170)
-                                OmniaIconButton(
-                                  icon: Icons.skip_next_rounded,
-                                  size: buttonSize,
-                                  iconSize: buttonIcon,
-                                  tooltip: l10n.nextFile,
-                                  onPressed:
-                                      hasPlaylist ? () => ref.dispatch(const NextFile()) : null,
-                                ),
-                              const Spacer(),
-                              OmniaIconButton(
-                                icon: Icons.playlist_play_rounded,
-                                size: buttonSize,
-                                iconSize: buttonIcon,
-                                tooltip: ref.tooltipWith(
-                                  l10n.panelShow,
-                                  ShortcutAction.toggleSidePanel,
-                                  l10n,
-                                ),
-                                onPressed: () => ref.dispatch(const ToggleSidePanel()),
-                              ),
-                              if (columnWidth >= 120)
-                                OmniaIconButton(
-                                  icon: state.muted
-                                      ? Icons.volume_off_rounded
-                                      : Icons.volume_up_rounded,
-                                  size: buttonSize,
-                                  iconSize: buttonIcon,
-                                  tooltip: state.muted ? l10n.unmute : l10n.mute,
-                                  onPressed: () => ref.dispatch(const ToggleMute()),
-                                ),
-                              OmniaIconButton(
-                                icon: state.alwaysOnTop
-                                    ? Icons.push_pin_rounded
-                                    : Icons.push_pin_outlined,
-                                size: buttonSize,
-                                iconSize: buttonIcon - 2,
-                                active: state.alwaysOnTop,
-                                tooltip: l10n.alwaysOnTop,
-                                onPressed: () => ref.dispatch(
-                                  const ToggleAlwaysOnTop(forMiniPlayer: true),
-                                ),
-                              ),
-                              OmniaIconButton(
-                                icon: Icons.open_in_full_rounded,
-                                size: buttonSize,
-                                iconSize: buttonIcon - 2,
-                                tooltip: ref.tooltipWith(
-                                  l10n.miniPlayerExit,
-                                  ShortcutAction.miniPlayer,
-                                  l10n,
-                                ),
-                                onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
-                              ),
-                              OmniaIconButton(
-                                icon: Icons.close_rounded,
-                                size: buttonSize,
-                                iconSize: buttonIcon - 2,
-                                tooltip: l10n.closeWindow,
-                                danger: true,
-                                onPressed: () => ref.read(windowServiceProvider).close(),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ],
