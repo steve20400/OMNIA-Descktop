@@ -309,6 +309,7 @@ void main() {
       expect(find.byType(UnsavedChangesDialog), findsOneWidget);
       expect(find.text('Enregistrer les modifications ?'), findsOneWidget);
 
+      await tester.ensureVisible(find.text('Enregistrer'));
       await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
 

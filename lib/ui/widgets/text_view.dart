@@ -74,8 +74,7 @@ class _TextViewState extends ConsumerState<TextView> {
   void dispose() {
     _reportDebounce?.cancel();
     _autoSaveTimer?.cancel();
-    final docUi = ref.read(documentUiProvider);
-    if (_hasUnsavedChanges && docUi.hasUnsavedChanges) {
+    if (_hasUnsavedChanges) {
       try {
         File(widget.document.path).writeAsStringSync(_editController.text, flush: true);
       } catch (_) {}
