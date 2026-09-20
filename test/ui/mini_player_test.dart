@@ -288,5 +288,66 @@ void main() {
       await tester.pumpAndSettle();
       expect(harness.commands.whereType<ZoomRelative>(), hasLength(1));
     });
+
+    testWidgets('mode document texte : la vue est non-bloquante et la molette fait défiler', (tester) async {
+      final harness = await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/docs/notes.txt', type: MediaType.text),
+          miniPlayer: true,
+        ),
+      );
+
+      final pointer = TestPointer(1, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(pointer.hover(const Offset(100, 100)));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 50)));
+      await tester.pumpAndSettle();
+      expect(harness.commands.whereType<ScrollTo>(), hasLength(1));
+    });
+
+    testWidgets('redimensionnement du volet latéral en mode mini-lecteur large', (tester) async {
+      await pumpMini(
+        tester,
+        size: const Size(600, 300),
+        state: const PlaybackState(
+          file: MediaFile(path: '/media/video.mp4', type: MediaType.video),
+          miniPlayer: true,
+        ),
+      );
+
+      // Ouvrir le volet
+      await tester.tap(find.byIcon(Icons.playlist_play_rounded));
+      await tester.pumpAndSettle();
+
+      // La poignée de redimensionnement horizontal est présente
+      final handleFinder = find.byTooltip('Redimensionner le panneau');
+      expect(handleFinder, findsOneWidget);
+
+      // Glisser la poignée vers la droite (+50px)
+      await tester.drag(handleFinder, const Offset(50, 0));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('redimensionnement vertical de la liste en mode mini-lecteur compact', (tester) async {
+      await pumpMini(
+        tester,
+        size: const Size(360, 240),
+        state: const PlaybackState(
+          file: MediaFile(path: '/media/video.mp4', type: MediaType.video),
+          miniPlayer: true,
+        ),
+      );
+
+      // Ouvrir le déroulé inférieur
+      await tester.tap(find.byIcon(Icons.playlist_play_rounded));
+      await tester.pumpAndSettle();
+
+      final handleFinder = find.byTooltip('Redimensionner le panneau');
+      expect(handleFinder, findsOneWidget);
+
+      // Glisser la poignée verticalement
+      await tester.drag(handleFinder, const Offset(0, -30));
+      await tester.pumpAndSettle();
+    });
   });
 }

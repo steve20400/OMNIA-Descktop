@@ -73,6 +73,8 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   StreamSubscription<PlayerCommand>? _commandSub;
   bool _drawerOpen = false;
   double _windowExpandedHeight = 0;
+  double? _customPanelWidth;
+  double _bottomPlaylistFraction = 0.5;
 
   @override
   void initState() {
@@ -171,6 +173,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         ref.dispatch(ZoomRelative(dy < 0 ? 1.15 : 1 / 1.15));
       } else if (state.mediaType == MediaType.pdf) {
         ref.dispatch(dy > 0 ? const NextPage() : const PreviousPage());
+      } else {
+        // Document texte / code : défilement du document
+        final currentFraction = state.scrollFraction;
+        final step = dy > 0 ? 0.05 : -0.05;
+        ref.dispatch(ScrollTo((currentFraction + step).clamp(0.0, 1.0)));
       }
       return;
     }
@@ -258,15 +265,37 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                 final isWide = constraints.maxWidth >= MiniPlayer.sidePanelBreakpoint;
                 if (isWide) {
                   // Mode grande fenêtre : la barre latérale s'affiche à GAUCHE comme pour le lecteur normal
-                  final panelWidth = math.min(260.0, constraints.maxWidth * 0.42);
+                  final storedWidth = ref.watch(panelStateProvider.select((p) => p.width));
+                  const minPanelWidth = 160.0;
+                  final maxPanelWidth = math.max(minPanelWidth, constraints.maxWidth - 200.0);
+                  final initialWidth = math.min(storedWidth, constraints.maxWidth * 0.42);
+                  final panelWidth =
+                      (_customPanelWidth ?? initialWidth).clamp(minPanelWidth, maxPanelWidth);
+
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (_drawerOpen)
+                      if (_drawerOpen) ...[
                         SizedBox(
                           width: panelWidth,
                           child: _MiniSidePanel(onClose: _closeDrawer),
                         ),
+                        _MiniPanelHorizontalResizeHandle(
+                          onResize: (dx) {
+                            setState(() {
+                              final newWidth =
+                                  (panelWidth + dx).clamp(minPanelWidth, maxPanelWidth);
+                              _customPanelWidth = newWidth;
+                            });
+                            ref.read(panelStateProvider.notifier).setWidth(
+                                  (panelWidth + dx).clamp(
+                                    OmniaMetrics.panelMinWidth,
+                                    OmniaMetrics.panelMaxWidth,
+                                  ),
+                                );
+                          },
+                        ),
+                      ],
                       Expanded(child: mediaContent),
                     ],
                   );
@@ -276,15 +305,31 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                   if (!_drawerOpen) {
                     return mediaContent;
                   }
+                  final flexMedia =
+                      (math.max(0.2, 1.0 - _bottomPlaylistFraction) * 1000).round();
+                  final flexPlaylist =
+                      (math.max(0.2, _bottomPlaylistFraction) * 1000).round();
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
-                        flex: 5,
+                        flex: flexMedia,
                         child: mediaContent,
                       ),
+                      _MiniPanelVerticalResizeHandle(
+                        onResize: (dy) {
+                          setState(() {
+                            final totalHeight = constraints.maxHeight;
+                            if (totalHeight > 100) {
+                              final newFraction =
+                                  (_bottomPlaylistFraction - dy / totalHeight).clamp(0.2, 0.8);
+                              _bottomPlaylistFraction = newFraction;
+                            }
+                          });
+                        },
+                      ),
                       Expanded(
-                        flex: 5,
+                        flex: flexPlaylist,
                         child: _MiniBottomPlaylist(onClose: _closeDrawer),
                       ),
                     ],
@@ -346,10 +391,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     final textDocument = ref.watch(textDocumentProvider);
     Widget docWidget;
     if (textDocument != null) {
-      docWidget = TextView(
-        key: ValueKey('mini-text:${textDocument.path}'),
-        document: textDocument,
-        search: ref.watch(documentSearchProvider) as PlainTextSearch?,
+      docWidget = IgnorePointer(
+        child: TextView(
+          key: ValueKey('mini-text:${textDocument.path}'),
+          document: textDocument,
+          search: ref.watch(documentSearchProvider) as PlainTextSearch?,
+        ),
       );
     } else if (state.mediaType == MediaType.pdf) {
       docWidget = const IgnorePointer(
@@ -1259,27 +1306,10 @@ class _MiniBottomPlaylist extends ConsumerWidget {
           width: double.infinity,
           decoration: BoxDecoration(
             color: colors.curtain,
-            border: Border(
-              top: BorderSide(color: colors.seam, width: 1),
-            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Poignée discrète intégrée sur la subdivision de la fenêtre
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 4, bottom: 2),
-                  child: Container(
-                    width: 32,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: colors.screen.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-              ),
               // En-tête : Titre, info file d'attente (YouTube) et boutons de repli
               InkWell(
                 onTap: onClose,
@@ -1438,6 +1468,108 @@ class _MiniFilterChipState extends State<_MiniFilterChip> {
               color: widget.selected ? colors.projector : colors.dust,
               fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400,
               fontSize: 11,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Poignée de redimensionnement horizontal pour le volet latéral en mode mini-lecteur large.
+class _MiniPanelHorizontalResizeHandle extends StatefulWidget {
+  const _MiniPanelHorizontalResizeHandle({required this.onResize});
+
+  final ValueChanged<double> onResize;
+  static const double width = 6;
+
+  @override
+  State<_MiniPanelHorizontalResizeHandle> createState() =>
+      _MiniPanelHorizontalResizeHandleState();
+}
+
+class _MiniPanelHorizontalResizeHandleState
+    extends State<_MiniPanelHorizontalResizeHandle> {
+  bool _active = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeLeftRight,
+      onEnter: (_) => setState(() => _active = true),
+      onExit: (_) => setState(() => _active = false),
+      child: Tooltip(
+        message: l10n.resizePanel,
+        waitDuration: const Duration(seconds: 1),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragUpdate: (details) => widget.onResize(details.delta.dx),
+          child: SizedBox(
+            width: _MiniPanelHorizontalResizeHandle.width,
+            child: Center(
+              child: AnimatedContainer(
+                duration: OmniaMotion.hover,
+                curve: OmniaMotion.hoverCurve,
+                width: _active ? 2 : 1,
+                color: _active ? colors.projector : colors.seam,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Poignée de redimensionnement vertical pour la liste de lecture inférieure en mode compact.
+class _MiniPanelVerticalResizeHandle extends StatefulWidget {
+  const _MiniPanelVerticalResizeHandle({required this.onResize});
+
+  final ValueChanged<double> onResize;
+  static const double height = 8;
+
+  @override
+  State<_MiniPanelVerticalResizeHandle> createState() =>
+      _MiniPanelVerticalResizeHandleState();
+}
+
+class _MiniPanelVerticalResizeHandleState
+    extends State<_MiniPanelVerticalResizeHandle> {
+  bool _active = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final l10n = AppLocalizations.of(context);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeUpDown,
+      onEnter: (_) => setState(() => _active = true),
+      onExit: (_) => setState(() => _active = false),
+      child: Tooltip(
+        message: l10n.resizePanel,
+        waitDuration: const Duration(seconds: 1),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragUpdate: (details) => widget.onResize(details.delta.dy),
+          child: Container(
+            height: _MiniPanelVerticalResizeHandle.height,
+            color: colors.curtain,
+            alignment: Alignment.center,
+            child: AnimatedContainer(
+              duration: OmniaMotion.hover,
+              curve: OmniaMotion.hoverCurve,
+              width: 36,
+              height: _active ? 4 : 3,
+              decoration: BoxDecoration(
+                color: _active
+                    ? colors.projector
+                    : colors.screen.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
         ),
