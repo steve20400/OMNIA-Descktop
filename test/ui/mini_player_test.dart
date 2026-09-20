@@ -326,6 +326,7 @@ void main() {
 
       // Glisser la poignée vers la droite (+50px)
       await tester.drag(handleFinder, const Offset(50, 0));
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
     });
 
@@ -349,6 +350,7 @@ void main() {
 
       // Glisser la poignée verticalement
       await tester.drag(handleFinder, const Offset(0, -30));
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
     });
   });
