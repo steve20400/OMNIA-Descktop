@@ -1324,15 +1324,15 @@ class _MiniBottomPlaylist extends ConsumerWidget {
       ),
     );
   }
-
-  static String _labelForFilter(PlaylistFilter f, AppLocalizations l10n) => switch (f) {
-        PlaylistFilter.all => l10n.filterAll,
-        PlaylistFilter.video => l10n.filterVideo,
-        PlaylistFilter.audio => l10n.filterAudio,
-        PlaylistFilter.documents => l10n.filterDocuments,
-        PlaylistFilter.images => l10n.filterImages,
-      };
 }
+
+String _labelForFilter(PlaylistFilter f, AppLocalizations l10n) => switch (f) {
+      PlaylistFilter.all => l10n.filterAll,
+      PlaylistFilter.video => l10n.filterVideo,
+      PlaylistFilter.audio => l10n.filterAudio,
+      PlaylistFilter.documents => l10n.filterDocuments,
+      PlaylistFilter.images => l10n.filterImages,
+    };
 
 class _MiniFilterChip extends StatefulWidget {
   const _MiniFilterChip({
