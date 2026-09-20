@@ -9,6 +9,7 @@ import 'package:omnia/core/models/playlist_sort.dart';
 import 'package:omnia/core/models/playlist_state.dart';
 import 'package:omnia/core/providers.dart';
 import 'package:omnia/ui/widgets/mini_player.dart';
+import 'package:omnia/ui/widgets/stage.dart';
 
 import 'narrow_harness.dart';
 
@@ -44,6 +45,9 @@ void main() {
         state: state,
         overrides: [
           playlistStateProvider.overrideWith(() => _FixedPlaylistNotifier(initialPlaylist)),
+          videoSurfaceProvider.overrideWithValue(
+            (context, {required fit, aspectRatio}) => const ColoredBox(color: Colors.black),
+          ),
         ],
       );
       harness.attach(tester);
