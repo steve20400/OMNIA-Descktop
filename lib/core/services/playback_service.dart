@@ -564,9 +564,9 @@ class PlaybackService implements PlaybackStateSink {
       case ToggleMiniPlayer():
         await _setMiniPlayer(!_state.miniPlayer);
       case SetVolume() || VolumeRelative() || ToggleMute() when _active == null:
-        // Le curseur de volume reste utilisable sans fichier ouvert : le
-        // réglage est mémorisé et appliqué au prochain fichier.
-        _applyVolumeWithoutController(command);
+        if (!_state.hasFile || _state.mediaType.isAv) {
+          _applyVolumeWithoutController(command);
+        }
       default:
         // Toute autre commande concerne le média courant.
         await _active?.handle(command);

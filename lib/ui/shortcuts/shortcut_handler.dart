@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
+import '../../core/models/media_type.dart';
 import '../../core/providers.dart';
 import '../document_ui_controller.dart';
 import '../file_dialogs.dart';
@@ -85,6 +86,43 @@ KeyEventResult handleShortcut(
     // d'atteindre la recherche du panneau. Le piège classique — se retrouver
     // dans un champ, tous les raccourcis muets — est levé par `Échap`.
     return KeyEventResult.ignored;
+  }
+
+  final state = ref.read(playbackStateProvider);
+
+  // Spécialisation contextuelle selon le type de média :
+  // Sur un document ou une photo, monter / descendre et gauche / droite
+  // doivent piloter la navigation du document et JAMAIS le volume !
+  PlayerCommand? contextualCommand;
+  if (state.mediaType == MediaType.pdf) {
+    contextualCommand = switch (action) {
+      ShortcutAction.volumeUp || ShortcutAction.seekBackward => const PreviousPage(),
+      ShortcutAction.volumeDown || ShortcutAction.seekForward => const NextPage(),
+      ShortcutAction.previousPage => const PreviousPage(),
+      ShortcutAction.nextPage => const NextPage(),
+      _ => null,
+    };
+  } else if (state.isDocument) {
+    contextualCommand = switch (action) {
+      ShortcutAction.volumeUp => ScrollTo((state.scrollFraction - 0.05).clamp(0.0, 1.0)),
+      ShortcutAction.volumeDown => ScrollTo((state.scrollFraction + 0.05).clamp(0.0, 1.0)),
+      ShortcutAction.previousPage => ScrollTo((state.scrollFraction - 0.2).clamp(0.0, 1.0)),
+      ShortcutAction.nextPage => ScrollTo((state.scrollFraction + 0.2).clamp(0.0, 1.0)),
+      _ => null,
+    };
+  } else if (state.mediaType == MediaType.image) {
+    contextualCommand = switch (action) {
+      ShortcutAction.volumeUp => const ZoomRelative(1.15),
+      ShortcutAction.volumeDown => const ZoomRelative(1 / 1.15),
+      ShortcutAction.seekBackward || ShortcutAction.previousPage => const PreviousFile(),
+      ShortcutAction.seekForward || ShortcutAction.nextPage => const NextFile(),
+      _ => null,
+    };
+  }
+
+  if (contextualCommand != null) {
+    ref.dispatch(contextualCommand, source: CommandSource.keyboard);
+    return KeyEventResult.handled;
   }
 
   switch (resolveShortcut(action, ref.read(preferencesProvider))) {

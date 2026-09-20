@@ -215,7 +215,7 @@ OsdMessage? osdFor(PlayerCommand command, PlaybackState after) {
         position: after.position,
         duration: after.duration,
       ),
-    SetVolume() || VolumeRelative() || ToggleMute() => OsdVolume(
+    SetVolume() || VolumeRelative() || ToggleMute() when after.mediaType.isAv || !after.hasFile => OsdVolume(
         volume: after.volume,
         muted: after.muted,
       ),

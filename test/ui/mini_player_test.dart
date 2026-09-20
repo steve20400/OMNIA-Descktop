@@ -353,5 +353,27 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
     });
+
+    testWidgets('sur un PDF, les touches fléchées haut et bas déclenchent PreviousPage / NextPage et jamais Volume', (tester) async {
+      final harness = await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/docs/document.pdf', type: MediaType.pdf),
+          miniPlayer: true,
+        ),
+      );
+
+      // Appui sur flèche bas (descendre)
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(harness.commands.whereType<NextPage>(), hasLength(1));
+      expect(harness.commands.whereType<VolumeRelative>(), isEmpty);
+
+      // Appui sur flèche haut (monter)
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(harness.commands.whereType<PreviousPage>(), hasLength(1));
+      expect(harness.commands.whereType<VolumeRelative>(), isEmpty);
+    });
   });
 }
