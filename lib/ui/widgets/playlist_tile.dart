@@ -40,9 +40,12 @@ class _PlaylistTileState extends State<PlaylistTile> {
         MediaType.video => Icons.movie_outlined,
         MediaType.audio => Icons.music_note_outlined,
         MediaType.pdf => Icons.picture_as_pdf_outlined,
+        MediaType.doc => Icons.description_outlined,
         MediaType.text => Icons.article_outlined,
+        MediaType.image => Icons.image_outlined,
         MediaType.unknown => Icons.insert_drive_file_outlined,
       };
+
 
   /// Ligne secondaire : durée si connue, sinon nombre de pages, sinon taille.
   String? _subtitle() {

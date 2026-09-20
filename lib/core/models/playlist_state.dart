@@ -69,7 +69,9 @@ class PlaylistState {
         PlaylistFilter.video => type == MediaType.video,
         PlaylistFilter.audio => type == MediaType.audio,
         PlaylistFilter.documents => type.isDocument,
+        PlaylistFilter.images => type.isImage,
       };
+
 
   int _comparator(PlaylistEntry a, PlaylistEntry b) {
     final sign = descending ? -1 : 1;
