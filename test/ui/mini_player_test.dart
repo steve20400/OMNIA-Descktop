@@ -101,8 +101,8 @@ void main() {
       await tester.tap(find.byIcon(Icons.playlist_play_rounded));
       await tester.pumpAndSettle();
 
-      // Le tiroir s'affiche avec son bouton de fermeture
-      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+      // Le tiroir s'affiche avec son chevron de repli vers le bas
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
     });
 
     testWidgets('tiroir inférieur de liste de lecture coulissant', (tester) async {
@@ -116,14 +116,14 @@ void main() {
       );
 
       // Au départ le tiroir n'est pas affiché
-      expect(find.byIcon(Icons.close_rounded), findsNothing);
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
 
       // Déclenchement de l'ouverture du tiroir via le bouton playlist
       await tester.tap(find.byIcon(Icons.playlist_play_rounded));
       await tester.pumpAndSettle();
 
       // Le tiroir inférieur est visible avec les filtres
-      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
       expect(find.text('Tous'), findsOneWidget);
       expect(find.text('Vidéo'), findsOneWidget);
 
@@ -136,9 +136,25 @@ void main() {
       );
 
       // Fermeture du tiroir
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
+    });
+
+    testWidgets('bouton de fermeture directe de l\'application en mode mini-lecteur', (tester) async {
+      final harness = await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/media/video.mp4', type: MediaType.video),
+          hasVideo: true,
+          miniPlayer: true,
+        ),
+      );
+
+      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
       await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.close_rounded), findsNothing);
+      expect(harness.window.closed, isTrue);
     });
 
     testWidgets('mode compact (< 520px) : la playlist se déroule en dessous avec chevron bas et vidéo préservée', (tester) async {
@@ -161,7 +177,7 @@ void main() {
       expect(find.byType(ColoredBox), findsWidgets);
     });
 
-    testWidgets('mode large (>= 520px) : la barre latérale s\'affiche à gauche comme le lecteur normal', (tester) async {
+    testWidgets('mode large (>= 520px) : la barre latérale s\'affiche à gauche et le filtre Images est visible', (tester) async {
       await pumpMini(
         tester,
         state: const PlaybackState(
@@ -179,14 +195,27 @@ void main() {
       await tester.tap(find.byIcon(Icons.playlist_play_rounded));
       await tester.pumpAndSettle();
 
-      // Panneau gauche affiché avec son bouton de repli à gauche
+      // Panneau gauche affiché avec son bouton de repli à gauche et tous les filtres dont Images
       expect(find.byIcon(Icons.keyboard_double_arrow_left_rounded), findsOneWidget);
       expect(find.text('Tous'), findsOneWidget);
+      expect(find.text('Images'), findsOneWidget);
 
       // Fermeture
       await tester.tap(find.byIcon(Icons.keyboard_double_arrow_left_rounded));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.keyboard_double_arrow_left_rounded), findsNothing);
+    });
+
+    testWidgets('mode document PDF : la vue est non-bloquante pour permettre le déplacement de la fenêtre', (tester) async {
+      await pumpMini(
+        tester,
+        state: const PlaybackState(
+          file: MediaFile(path: '/docs/document.pdf', type: MediaType.pdf),
+          miniPlayer: true,
+        ),
+      );
+
+      expect(find.byType(IgnorePointer), findsWidgets);
     });
   });
 }

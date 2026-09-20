@@ -327,7 +327,9 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         search: ref.watch(documentSearchProvider) as PlainTextSearch?,
       );
     } else if (state.mediaType == MediaType.pdf) {
-      docWidget = const PdfStage(key: ValueKey('mini-pdf'));
+      docWidget = const IgnorePointer(
+        child: PdfStage(key: ValueKey('mini-pdf')),
+      );
     } else {
       docWidget = const SizedBox.shrink();
     }
@@ -513,6 +515,14 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                                 ),
                                 onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
                               ),
+                              OmniaIconButton(
+                                icon: Icons.close_rounded,
+                                size: buttonSize,
+                                iconSize: buttonIcon - 2,
+                                tooltip: l10n.closeWindow,
+                                danger: true,
+                                onPressed: () => ref.read(windowServiceProvider).close(),
+                              ),
                             ],
                           ),
                         ),
@@ -606,6 +616,14 @@ class _MiniOverlay extends ConsumerWidget {
                             l10n,
                           ),
                           onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
+                        ),
+                        OmniaIconButton(
+                          icon: Icons.close_rounded,
+                          size: OmniaMetrics.iconButtonSize - 6,
+                          iconSize: OmniaMetrics.iconSize - 6,
+                          tooltip: l10n.closeWindow,
+                          danger: true,
+                          onPressed: () => ref.read(windowServiceProvider).close(),
                         ),
                       ],
                     ),
@@ -786,6 +804,14 @@ class _MiniImageOverlay extends ConsumerWidget {
                           ),
                           onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
                         ),
+                        OmniaIconButton(
+                          icon: Icons.close_rounded,
+                          size: OmniaMetrics.iconButtonSize - 6,
+                          iconSize: OmniaMetrics.iconSize - 6,
+                          tooltip: l10n.closeWindow,
+                          danger: true,
+                          onPressed: () => ref.read(windowServiceProvider).close(),
+                        ),
                       ],
                     ),
                   ),
@@ -964,6 +990,14 @@ class _MiniDocumentOverlay extends ConsumerWidget {
                           ),
                           onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
                         ),
+                        OmniaIconButton(
+                          icon: Icons.close_rounded,
+                          size: OmniaMetrics.iconButtonSize - 6,
+                          iconSize: OmniaMetrics.iconSize - 6,
+                          tooltip: l10n.closeWindow,
+                          danger: true,
+                          onPressed: () => ref.read(windowServiceProvider).close(),
+                        ),
                       ],
                     ),
                   ),
@@ -1111,37 +1145,28 @@ class _MiniSidePanel extends ConsumerWidget {
                   tooltip: l10n.closePanel,
                   onPressed: onClose,
                 ),
-                OmniaIconButton(
-                  icon: Icons.close_rounded,
-                  size: 26,
-                  iconSize: 16,
-                  tooltip: l10n.closePanel,
-                  onPressed: onClose,
-                ),
               ],
             ),
           ),
-          // Filtres par type de média
+          // Filtres par type de média (Wrap pour que tous les filtres dont Images restent toujours visibles)
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: OmniaMetrics.space3,
-              vertical: OmniaMetrics.space1,
+            padding: const EdgeInsets.fromLTRB(
+              OmniaMetrics.space3,
+              OmniaMetrics.space1,
+              OmniaMetrics.space3,
+              OmniaMetrics.space1,
             ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final filter in PlaylistFilter.values)
-                    Padding(
-                      padding: const EdgeInsets.only(right: OmniaMetrics.space1),
-                      child: _MiniFilterChip(
-                        label: _labelForFilter(filter, l10n),
-                        selected: filter == currentFilter,
-                        onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
-                      ),
-                    ),
-                ],
-              ),
+            child: Wrap(
+              spacing: OmniaMetrics.space1,
+              runSpacing: OmniaMetrics.space1,
+              children: [
+                for (final filter in PlaylistFilter.values)
+                  _MiniFilterChip(
+                    label: _labelForFilter(filter, l10n),
+                    selected: filter == currentFilter,
+                    onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
+                  ),
+              ],
             ),
           ),
           const Divider(height: 1, thickness: 0.5),
@@ -1200,28 +1225,32 @@ class _MiniBottomPlaylist extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final showFilters = constraints.maxHeight >= 100;
+        final showFilters = constraints.maxHeight >= 110;
         return Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: colors.curtain.withValues(alpha: 0.98),
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(OmniaMetrics.radiusLarge),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 14,
-                offset: const Offset(0, -3),
-              ),
-            ],
+            color: colors.curtain,
             border: Border(
-              top: BorderSide(color: colors.screen.withValues(alpha: 0.12), width: 1),
+              top: BorderSide(color: colors.seam, width: 1),
             ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Poignée discrète intégrée sur la subdivision de la fenêtre
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 2),
+                  child: Container(
+                    width: 32,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: colors.screen.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
               // En-tête : Titre, info file d'attente (YouTube) et boutons de repli
               InkWell(
                 onTap: onClose,
@@ -1261,13 +1290,6 @@ class _MiniBottomPlaylist extends ConsumerWidget {
                         tooltip: l10n.closePanel,
                         onPressed: onClose,
                       ),
-                      OmniaIconButton(
-                        icon: Icons.close_rounded,
-                        size: 26,
-                        iconSize: 16,
-                        tooltip: l10n.closePanel,
-                        onPressed: onClose,
-                      ),
                     ],
                   ),
                 ),
@@ -1279,21 +1301,17 @@ class _MiniBottomPlaylist extends ConsumerWidget {
                     horizontal: OmniaMetrics.space3,
                     vertical: OmniaMetrics.space1,
                   ),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final filter in PlaylistFilter.values)
-                          Padding(
-                            padding: const EdgeInsets.only(right: OmniaMetrics.space1),
-                            child: _MiniFilterChip(
-                              label: _labelForFilter(filter, l10n),
-                              selected: filter == currentFilter,
-                              onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
-                            ),
-                          ),
-                      ],
-                    ),
+                  child: Wrap(
+                    spacing: OmniaMetrics.space1,
+                    runSpacing: OmniaMetrics.space1,
+                    children: [
+                      for (final filter in PlaylistFilter.values)
+                        _MiniFilterChip(
+                          label: _labelForFilter(filter, l10n),
+                          selected: filter == currentFilter,
+                          onTap: () => ref.dispatch(SetPlaylistFilter(filter)),
+                        ),
+                    ],
                   ),
                 ),
                 const Divider(height: 1, thickness: 0.5),
