@@ -936,7 +936,7 @@ class _MiniImageOverlay extends ConsumerWidget {
               child: Center(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final isCompact = constraints.maxWidth < 360;
+                    final isCompact = constraints.maxWidth < 340;
                     if (isCompact) {
                       return _plate(
                         colors,
@@ -1205,7 +1205,7 @@ class _MiniDocumentOverlay extends ConsumerWidget {
                   builder: (context, constraints) {
                     final ui = ref.watch(documentUiProvider);
                     final canEdit = !isPdf && (state.mediaType == MediaType.text || state.mediaType == MediaType.doc);
-                    final isCompact = constraints.maxWidth < 360;
+                    final isCompact = constraints.maxWidth < 340;
 
                     if (isCompact) {
                       return _plate(
