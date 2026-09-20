@@ -42,7 +42,7 @@ class UnsavedChangesDialog extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: 440,
+          constraints: const BoxConstraints(maxWidth: 480),
           margin: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space4),
           decoration: BoxDecoration(
             color: colors.curtain,
@@ -56,7 +56,7 @@ class UnsavedChangesDialog extends StatelessWidget {
               ),
             ],
           ),
-          padding: const EdgeInsets.all(OmniaMetrics.space6),
+          padding: const EdgeInsets.all(OmniaMetrics.space5),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,7 +85,7 @@ class UnsavedChangesDialog extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: OmniaMetrics.space4),
+              const SizedBox(height: OmniaMetrics.space3),
               Text(
                 'Le document « $fileName » contient des modifications non enregistrées. '
                 'Voulez-vous les enregistrer avant de quitter l’application ?',
@@ -94,44 +94,48 @@ class UnsavedChangesDialog extends StatelessWidget {
                   height: 1.45,
                 ),
               ),
-              const SizedBox(height: OmniaMetrics.space6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(UnsavedChangesAction.cancel),
-                    style: TextButton.styleFrom(
-                      foregroundColor: colors.screen.withValues(alpha: 0.7),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              const SizedBox(height: OmniaMetrics.space5),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: OmniaMetrics.space2,
+                  runSpacing: OmniaMetrics.space2,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(UnsavedChangesAction.cancel),
+                      style: TextButton.styleFrom(
+                        foregroundColor: colors.screen.withValues(alpha: 0.7),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      child: const Text('Annuler'),
                     ),
-                    child: const Text('Annuler'),
-                  ),
-                  const SizedBox(width: OmniaMetrics.space2),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(UnsavedChangesAction.discard),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red.shade300,
-                      side: BorderSide(color: Colors.red.shade900.withValues(alpha: 0.6)),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: OmniaMetrics.controlRadius),
+                    OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(UnsavedChangesAction.discard),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade300,
+                        side: BorderSide(color: Colors.red.shade900.withValues(alpha: 0.6)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: OmniaMetrics.controlRadius),
+                      ),
+                      child: const Text('Ne pas enregistrer'),
                     ),
-                    child: const Text('Ne pas enregistrer'),
-                  ),
-                  const SizedBox(width: OmniaMetrics.space2),
-                  FilledButton(
-                    onPressed: () => Navigator.of(context).pop(UnsavedChangesAction.save),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: colors.projector,
-                      foregroundColor: colors.velvet,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: OmniaMetrics.controlRadius),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(UnsavedChangesAction.save),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colors.projector,
+                        foregroundColor: colors.velvet,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: OmniaMetrics.controlRadius),
+                      ),
+                      child: const Text(
+                        'Enregistrer',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    child: const Text(
-                      'Enregistrer',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
