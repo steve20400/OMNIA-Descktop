@@ -46,7 +46,7 @@ class UnsavedChangesDialog extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space4),
           decoration: BoxDecoration(
             color: colors.curtain,
-            borderRadius: BorderRadius.circular(OmniaMetrics.panelRadius),
+            borderRadius: BorderRadius.circular(OmniaMetrics.radiusLarge),
             border: Border.all(color: colors.seam),
             boxShadow: [
               BoxShadow(
@@ -80,7 +80,7 @@ class UnsavedChangesDialog extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'Enregistrer les modifications ?',
-                      style: type.title.copyWith(fontSize: 16),
+                      style: type.sectionTitle,
                     ),
                   ),
                 ],

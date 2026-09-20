@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/models/app_preferences.dart';
 import '../core/providers.dart';
+import '../core/services/window_service.dart';
 import 'app.dart';
 import 'document_ui_controller.dart';
 import 'widgets/unsaved_changes_dialog.dart';
