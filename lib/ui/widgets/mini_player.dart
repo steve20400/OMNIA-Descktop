@@ -20,6 +20,7 @@ import '../audio_tags_provider.dart';
 import '../chrome_controller.dart';
 import '../document_search.dart';
 import '../document_search_provider.dart';
+import '../panel_controller.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_handler.dart';
 import '../shortcuts/shortcut_labels.dart';
