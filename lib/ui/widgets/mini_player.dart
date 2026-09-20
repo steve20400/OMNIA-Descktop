@@ -64,6 +64,15 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   final WheelSteps _volumeWheel = WheelSteps();
 
   late final ChromeController _chrome = ref.read(chromeProvider.notifier);
+  bool _drawerOpen = false;
+
+  void _toggleDrawer() {
+    setState(() => _drawerOpen = !_drawerOpen);
+  }
+
+  void _closeDrawer() {
+    if (_drawerOpen) setState(() => _drawerOpen = false);
+  }
 
   @override
   void dispose() {
@@ -105,7 +114,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final state = ref.watch(playbackStateProvider);
-    final panelVisible = ref.watch(panelStateProvider.select((p) => p.visible));
 
     Widget content;
     if (state.hasVideo) {
@@ -115,14 +123,25 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     } else if (state.isDocument && state.hasFile) {
       content = _document(state);
     } else {
-      content = _audioStrip(context, state);
+      content = _audioStrip(context, state, onTogglePlaylist: _toggleDrawer);
     }
 
     return Focus(
       focusNode: _focus,
       autofocus: true,
-      onKeyEvent: (_, event) =>
-          handleShortcut(event, ref, panelDrawerOpen: panelVisible),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.tab) {
+            _toggleDrawer();
+            return KeyEventResult.handled;
+          }
+          if (_drawerOpen && event.logicalKey == LogicalKeyboardKey.escape) {
+            _closeDrawer();
+            return KeyEventResult.handled;
+          }
+        }
+        return handleShortcut(event, ref, panelDrawerOpen: _drawerOpen);
+      },
       child: MouseRegion(
         onHover: (_) => _chrome.activity(),
         onExit: (_) => _chrome.pointerLeft(),
@@ -137,7 +156,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
               children: [
                 content,
                 // Tiroir inférieur de liste de lecture (style YouTube)
-                if (panelVisible) const _MiniPlaylistBottomDrawer(),
+                if (_drawerOpen) _MiniPlaylistBottomDrawer(onClose: _closeDrawer),
               ],
             ),
           ),
@@ -161,7 +180,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             child: surface(context, fit: BoxFit.contain, aspectRatio: null),
           ),
         ),
-        _MiniOverlay(state: state),
+        _MiniOverlay(state: state, onTogglePlaylist: _toggleDrawer),
       ],
     );
   }
@@ -181,7 +200,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             ),
           ),
         ),
-        _MiniImageOverlay(state: state),
+        _MiniImageOverlay(state: state, onTogglePlaylist: _toggleDrawer),
       ],
     );
   }
@@ -212,14 +231,18 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             child: docWidget,
           ),
         ),
-        _MiniDocumentOverlay(state: state),
+        _MiniDocumentOverlay(state: state, onTogglePlaylist: _toggleDrawer),
       ],
     );
   }
 
   // --- Sans image : le bandeau audio --------------------------------------
 
-  Widget _audioStrip(BuildContext context, PlaybackState state) {
+  Widget _audioStrip(
+    BuildContext context,
+    PlaybackState state, {
+    required VoidCallback onTogglePlaylist,
+  }) {
     final colors = context.colors;
     final type = context.type;
     final l10n = AppLocalizations.of(context);
@@ -344,7 +367,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                                 ShortcutAction.toggleSidePanel,
                                 l10n,
                               ),
-                              onPressed: () => ref.dispatch(const ToggleSidePanel()),
+                              onPressed: onTogglePlaylist,
                             ),
                             if (columnWidth >= 120)
                               OmniaIconButton(
@@ -396,9 +419,10 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
 
 /// Les commandes posées sur l'image vidéo du mini-lecteur.
 class _MiniOverlay extends ConsumerWidget {
-  const _MiniOverlay({required this.state});
+  const _MiniOverlay({required this.state, required this.onTogglePlaylist});
 
   final PlaybackState state;
+  final VoidCallback onTogglePlaylist;
 
   static const double _shadeHeight = 64;
 
@@ -447,7 +471,7 @@ class _MiniOverlay extends ConsumerWidget {
                             ShortcutAction.toggleSidePanel,
                             l10n,
                           ),
-                          onPressed: () => ref.dispatch(const ToggleSidePanel()),
+                          onPressed: onTogglePlaylist,
                         ),
                         OmniaIconButton(
                           icon: state.alwaysOnTop
@@ -573,9 +597,10 @@ class _MiniOverlay extends ConsumerWidget {
 
 /// Commandes superposées pour le mode image en mini-lecteur.
 class _MiniImageOverlay extends ConsumerWidget {
-  const _MiniImageOverlay({required this.state});
+  const _MiniImageOverlay({required this.state, required this.onTogglePlaylist});
 
   final PlaybackState state;
+  final VoidCallback onTogglePlaylist;
   static const double _shadeHeight = 64;
 
   @override
@@ -626,7 +651,7 @@ class _MiniImageOverlay extends ConsumerWidget {
                             ShortcutAction.toggleSidePanel,
                             l10n,
                           ),
-                          onPressed: () => ref.dispatch(const ToggleSidePanel()),
+                          onPressed: onTogglePlaylist,
                         ),
                         OmniaIconButton(
                           icon: state.alwaysOnTop
@@ -751,9 +776,10 @@ class _MiniImageOverlay extends ConsumerWidget {
 
 /// Commandes superposées pour le mode document (PDF/texte/code) en mini-lecteur.
 class _MiniDocumentOverlay extends ConsumerWidget {
-  const _MiniDocumentOverlay({required this.state});
+  const _MiniDocumentOverlay({required this.state, required this.onTogglePlaylist});
 
   final PlaybackState state;
+  final VoidCallback onTogglePlaylist;
   static const double _shadeHeight = 64;
 
   @override
@@ -804,7 +830,7 @@ class _MiniDocumentOverlay extends ConsumerWidget {
                             ShortcutAction.toggleSidePanel,
                             l10n,
                           ),
-                          onPressed: () => ref.dispatch(const ToggleSidePanel()),
+                          onPressed: onTogglePlaylist,
                         ),
                         OmniaIconButton(
                           icon: state.alwaysOnTop
@@ -921,7 +947,9 @@ class _MiniDocumentOverlay extends ConsumerWidget {
 
 /// Tiroir inférieur de liste de lecture pour le mini-lecteur (style YouTube).
 class _MiniPlaylistBottomDrawer extends ConsumerWidget {
-  const _MiniPlaylistBottomDrawer();
+  const _MiniPlaylistBottomDrawer({required this.onClose});
+
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -982,7 +1010,7 @@ class _MiniPlaylistBottomDrawer extends ConsumerWidget {
                             size: 26,
                             iconSize: 16,
                             tooltip: l10n.closePanel,
-                            onPressed: () => ref.dispatch(const SetSidePanelVisible(false)),
+                            onPressed: onClose,
                           ),
                         ],
                       ),

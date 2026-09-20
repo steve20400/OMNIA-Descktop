@@ -81,7 +81,7 @@ void main() {
     });
 
     testWidgets('mode audio : affiche le bandeau et le bouton de liste de lecture', (tester) async {
-      final harness = await pumpMini(
+      await pumpMini(
         tester,
         state: const PlaybackState(
           file: MediaFile(path: '/music/track.mp3', type: MediaType.audio),
@@ -93,9 +93,12 @@ void main() {
       expect(find.byIcon(Icons.music_note_rounded), findsOneWidget);
       expect(find.byIcon(Icons.playlist_play_rounded), findsOneWidget);
 
+      // Clic sur le bouton de liste de lecture pour ouvrir le tiroir
       await tester.tap(find.byIcon(Icons.playlist_play_rounded));
       await tester.pumpAndSettle();
-      expect(harness.commands.whereType<ToggleSidePanel>(), hasLength(1));
+
+      // Le tiroir s'affiche avec son bouton de fermeture
+      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
     });
 
     testWidgets('tiroir inférieur de liste de lecture coulissant', (tester) async {
@@ -110,8 +113,8 @@ void main() {
       // Au départ le tiroir n'est pas affiché
       expect(find.byIcon(Icons.close_rounded), findsNothing);
 
-      // Déclenchement de l'ouverture du tiroir via ToggleSidePanel
-      harness.bus.dispatch(const ToggleSidePanel());
+      // Déclenchement de l'ouverture du tiroir via le bouton playlist
+      await tester.tap(find.byIcon(Icons.playlist_play_rounded));
       await tester.pumpAndSettle();
 
       // Le tiroir inférieur est visible avec les filtres
@@ -130,10 +133,7 @@ void main() {
       // Fermeture du tiroir
       await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
-      expect(
-        harness.commands.whereType<SetSidePanelVisible>().last.visible,
-        isFalse,
-      );
+      expect(find.byIcon(Icons.close_rounded), findsNothing);
     });
   });
 }
