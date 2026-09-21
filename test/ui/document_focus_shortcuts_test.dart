@@ -62,6 +62,7 @@ void main() {
           commandBusProvider.overrideWithValue(bus),
           settingsStoreProvider.overrideWithValue(store),
           playlistServiceProvider.overrideWithValue(playlist),
+          preferencesProvider.overrideWith(FixedPreferences.new),
           playbackStateProvider.overrideWith(() => FixedPlaybackState(state)),
         ],
       );
@@ -110,6 +111,7 @@ void main() {
           commandBusProvider.overrideWithValue(bus),
           settingsStoreProvider.overrideWithValue(store),
           playlistServiceProvider.overrideWithValue(playlist),
+          preferencesProvider.overrideWith(FixedPreferences.new),
           playbackStateProvider.overrideWith(() => FixedPlaybackState(state)),
         ],
       );
@@ -163,6 +165,7 @@ void main() {
           commandBusProvider.overrideWithValue(bus),
           settingsStoreProvider.overrideWithValue(store),
           playlistServiceProvider.overrideWithValue(playlist),
+          preferencesProvider.overrideWith(FixedPreferences.new),
           playbackStateProvider.overrideWith(() => FixedPlaybackState(state)),
         ],
       );
