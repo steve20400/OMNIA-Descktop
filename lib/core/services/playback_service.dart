@@ -819,24 +819,25 @@ class PlaybackService implements PlaybackStateSink {
     );
     final policy = preferences.resumePolicy;
     _clearPendingResume();
+    final resumePage = (offer != null && policy == ResumePolicy.auto) ? offer.page : null;
+    final resumeScroll = (offer != null && policy == ResumePolicy.auto) ? offer.scroll : null;
     if (offer != null && policy == ResumePolicy.auto) {
       _pendingResume = offer.position;
       _pendingResumePage = offer.page;
       _pendingResumeScroll = offer.scroll;
       _pendingResumePath = path;
-      update((st) => st.copyWith(
-        currentPage: offer.page ?? 1,
-        scrollFraction: offer.scroll ?? 0.0,
-      ));
-    } else {
-      update((st) => st.copyWith(
-        currentPage: 1,
-        scrollFraction: 0.0,
-      ));
     }
-    if (_state.resumeOffer != null) {
-      update((st) => st.copyWith(clearResumeOffer: true));
-    }
+    update((st) => st.copyWith(
+      file: file,
+      status: PlaybackStatus.loading,
+      position: Duration.zero,
+      duration: Duration.zero,
+      currentPage: resumePage ?? (type == MediaType.pdf ? 1 : 0),
+      totalPages: 0,
+      scrollFraction: resumeScroll ?? 0.0,
+      clearResumeOffer: true,
+      clearError: true,
+    ));
 
     // Inscrit le fichier dans les récents dès maintenant, avant même que la
     // lecture ait commencé.
