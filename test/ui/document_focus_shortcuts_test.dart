@@ -11,11 +11,11 @@ import 'package:omnia/core/providers.dart';
 import 'package:omnia/core/services/folder_scanner.dart';
 import 'package:omnia/core/services/history_store.dart';
 import 'package:omnia/core/services/playlist_service.dart';
+import 'package:omnia/core/services/settings_store.dart';
 import 'package:omnia/ui/document_ui_controller.dart';
-import 'package:omnia/ui/shortcuts/default_keymap.dart';
-import 'package:omnia/ui/shortcuts/keymap.dart';
-import 'package:omnia/ui/shortcuts/keymap_provider.dart';
 import 'package:omnia/ui/shortcuts/shortcut_handler.dart';
+
+import 'narrow_harness.dart';
 
 void main() {
   group('Raccourcis PageUp/PageDown et navigation de documents', () {
@@ -45,25 +45,24 @@ void main() {
     });
 
     testWidgets('sans clic sur le document, PageDown navigue vers le fichier suivant', (tester) async {
-      final keymap = Keymap.fromOverrides(
-        overrides: {
-          'nextFile': ['PageDown'],
-          'previousFile': ['PageUp'],
-        },
+      final store = MemorySettingsStore();
+      await store.setKeymapOverrides({
+        'nextFile': ['PageDown'],
+        'previousFile': ['PageUp'],
+      });
+
+      const state = PlaybackState(
+        file: MediaFile(path: '/folder/doc1.pdf', type: MediaType.pdf),
+        currentPage: 2,
+        totalPages: 10,
       );
 
       final container = ProviderContainer(
         overrides: [
           commandBusProvider.overrideWithValue(bus),
+          settingsStoreProvider.overrideWithValue(store),
           playlistServiceProvider.overrideWithValue(playlist),
-          keymapProvider.overrideWithValue(keymap),
-          playbackStateProvider.overrideWith((ref) => PlaybackStateNotifier.withInitial(
-                const PlaybackState(
-                  file: MediaFile(path: '/folder/doc1.pdf', type: MediaType.pdf),
-                  currentPage: 2,
-                  totalPages: 10,
-                ),
-              )),
+          playbackStateProvider.overrideWith(() => FixedPlaybackState(state)),
         ],
       );
 
@@ -94,25 +93,24 @@ void main() {
     });
 
     testWidgets('avec clic sur le document, PageDown scrolle le document (NextPage)', (tester) async {
-      final keymap = Keymap.fromOverrides(
-        overrides: {
-          'nextFile': ['PageDown'],
-          'previousFile': ['PageUp'],
-        },
+      final store = MemorySettingsStore();
+      await store.setKeymapOverrides({
+        'nextFile': ['PageDown'],
+        'previousFile': ['PageUp'],
+      });
+
+      const state = PlaybackState(
+        file: MediaFile(path: '/folder/doc1.pdf', type: MediaType.pdf),
+        currentPage: 2,
+        totalPages: 10,
       );
 
       final container = ProviderContainer(
         overrides: [
           commandBusProvider.overrideWithValue(bus),
+          settingsStoreProvider.overrideWithValue(store),
           playlistServiceProvider.overrideWithValue(playlist),
-          keymapProvider.overrideWithValue(keymap),
-          playbackStateProvider.overrideWith((ref) => PlaybackStateNotifier.withInitial(
-                const PlaybackState(
-                  file: MediaFile(path: '/folder/doc1.pdf', type: MediaType.pdf),
-                  currentPage: 2,
-                  totalPages: 10,
-                ),
-              )),
+          playbackStateProvider.overrideWith(() => FixedPlaybackState(state)),
         ],
       );
 
@@ -145,28 +143,27 @@ void main() {
     });
 
     testWidgets('sans clic et sans autre fichier dans la playlist, PageDown se replie sur le document', (tester) async {
-      final keymap = Keymap.fromOverrides(
-        overrides: {
-          'nextFile': ['PageDown'],
-          'previousFile': ['PageUp'],
-        },
-      );
+      final store = MemorySettingsStore();
+      await store.setKeymapOverrides({
+        'nextFile': ['PageDown'],
+        'previousFile': ['PageUp'],
+      });
 
       // Se positionner sur le dernier fichier de la playlist
       playlist.setCurrent('/folder/doc2.pdf');
 
+      const state = PlaybackState(
+        file: MediaFile(path: '/folder/doc2.pdf', type: MediaType.pdf),
+        currentPage: 5,
+        totalPages: 10,
+      );
+
       final container = ProviderContainer(
         overrides: [
           commandBusProvider.overrideWithValue(bus),
+          settingsStoreProvider.overrideWithValue(store),
           playlistServiceProvider.overrideWithValue(playlist),
-          keymapProvider.overrideWithValue(keymap),
-          playbackStateProvider.overrideWith((ref) => PlaybackStateNotifier.withInitial(
-                const PlaybackState(
-                  file: MediaFile(path: '/folder/doc2.pdf', type: MediaType.pdf),
-                  currentPage: 5,
-                  totalPages: 10,
-                ),
-              )),
+          playbackStateProvider.overrideWith(() => FixedPlaybackState(state)),
         ],
       );
 

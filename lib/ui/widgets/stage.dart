@@ -10,6 +10,7 @@ import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../document_search.dart';
 import '../document_search_provider.dart';
+import '../document_ui_controller.dart';
 import '../file_dialogs.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
@@ -36,7 +37,7 @@ class Stage extends ConsumerWidget {
 
     final textDocument = ref.watch(textDocumentProvider);
 
-    final Widget content;
+    Widget content;
     if (state.status == PlaybackStatus.error) {
       content = _ErrorStage(
         key: const ValueKey('error'),
