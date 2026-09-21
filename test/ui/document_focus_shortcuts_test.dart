@@ -47,8 +47,12 @@ void main() {
     testWidgets('sans clic sur le document, PageDown navigue vers le fichier suivant', (tester) async {
       final store = MemorySettingsStore();
       await store.setKeymapOverrides({
-        'nextFile': ['PageDown'],
-        'previousFile': ['PageUp'],
+        'nextFile': [
+          {'key': LogicalKeyboardKey.pageDown.keyId}
+        ],
+        'previousFile': [
+          {'key': LogicalKeyboardKey.pageUp.keyId}
+        ],
       });
 
       const state = PlaybackState(
@@ -96,8 +100,12 @@ void main() {
     testWidgets('avec clic sur le document, PageDown scrolle le document (NextPage)', (tester) async {
       final store = MemorySettingsStore();
       await store.setKeymapOverrides({
-        'nextFile': ['PageDown'],
-        'previousFile': ['PageUp'],
+        'nextFile': [
+          {'key': LogicalKeyboardKey.pageDown.keyId}
+        ],
+        'previousFile': [
+          {'key': LogicalKeyboardKey.pageUp.keyId}
+        ],
       });
 
       const state = PlaybackState(
@@ -147,8 +155,12 @@ void main() {
     testWidgets('sans clic et sans autre fichier dans la playlist, PageDown se replie sur le document', (tester) async {
       final store = MemorySettingsStore();
       await store.setKeymapOverrides({
-        'nextFile': ['PageDown'],
-        'previousFile': ['PageUp'],
+        'nextFile': [
+          {'key': LogicalKeyboardKey.pageDown.keyId}
+        ],
+        'previousFile': [
+          {'key': LogicalKeyboardKey.pageUp.keyId}
+        ],
       });
 
       // Se positionner sur le dernier fichier de la playlist
