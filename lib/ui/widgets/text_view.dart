@@ -175,7 +175,7 @@ class _TextViewState extends ConsumerState<TextView> {
   }
 
   void _restoreIfNeeded(double fraction) {
-    if (fraction <= 0) return;
+    if (fraction <= 0 || _pendingRestore == fraction) return;
     _pendingRestore = fraction;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;

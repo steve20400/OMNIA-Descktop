@@ -532,16 +532,6 @@ class _GeneralSection extends ConsumerWidget {
         ),
         const SettingDivider(),
         SettingRow(
-          title: 'Reprendre la session au démarrage',
-          hint: 'Rouvre automatiquement le dernier média ou document lors de l’ouverture d’OMNIA',
-          control: OmniaSwitch(
-            label: 'Reprendre la session',
-            value: p.restoreLastSession,
-            onChanged: (v) => ref.change((p) => p.copyWith(restoreLastSession: v)),
-          ),
-        ),
-        const SettingDivider(),
-        SettingRow(
           title: l10n.settingsSingleInstance,
           hint: l10n.settingsSingleInstanceHint,
           control: OmniaSwitch(
@@ -566,6 +556,16 @@ class _GeneralSection extends ConsumerWidget {
             label: l10n.alwaysOnTopMini,
             value: p.miniPlayerAlwaysOnTop,
             onChanged: (v) => ref.change((p) => p.copyWith(miniPlayerAlwaysOnTop: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Reprendre la session au démarrage',
+          hint: 'Rouvre automatiquement le dernier média ou document lors de l’ouverture d’OMNIA',
+          control: OmniaSwitch(
+            label: 'Reprendre la session',
+            value: p.restoreLastSession,
+            onChanged: (v) => ref.change((p) => p.copyWith(restoreLastSession: v)),
           ),
         ),
       ],
