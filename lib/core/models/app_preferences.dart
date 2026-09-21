@@ -50,6 +50,18 @@ enum StartupVolume {
       values.firstWhere((e) => e.name == value, orElse: () => StartupVolume.last);
 }
 
+/// Cible d'ouverture des fichiers, dossiers et récents depuis l'application.
+enum InAppOpenTarget {
+  /// Ouvrir dans la fenêtre courante (remplace le média actif).
+  currentWindow,
+
+  /// Ouvrir dans une nouvelle fenêtre indépendante.
+  newWindow;
+
+  static InAppOpenTarget fromJson(Object? value) =>
+      values.firstWhere((e) => e.name == value, orElse: () => InAppOpenTarget.currentWindow);
+}
+
 /// Comportement à la fermeture de l'application si un document contient des modifications non enregistrées.
 enum UnsavedChangesPolicy {
   /// Demander à l'utilisateur s'il souhaite enregistrer, ignorer ou annuler la fermeture (défaut).
@@ -98,10 +110,15 @@ class AppPreferences {
     this.docAutoSave = true,
     this.docAutoSaveIntervalSeconds = 2,
     this.unsavedChangesPolicy = UnsavedChangesPolicy.ask,
+    this.inAppOpenTarget = InAppOpenTarget.currentWindow,
+    this.rememberPlaybackState = true,
+    this.historyRetentionDays = 30,
   });
 
   static const AppPreferences defaults = AppPreferences();
 
+  /// Options de rétention de l'historique proposées (en jours, 0 = illimité).
+  static const List<int> retentionDaysOptions = [7, 30, 90, 0];
 
   /// Pas d'avance / recul proposés pour `←` / `→`.
   static const List<int> seekSteps = [5, 10, 30, 60];
@@ -176,6 +193,18 @@ class AppPreferences {
   final String imageEditSuffix;
   final int imageEditQuality;
 
+  /// Cible d'ouverture pour les actions déclenchées au sein de l'application.
+  final InAppOpenTarget inAppOpenTarget;
+
+  /// Mémoriser automatiquement la dernière page ou position de lecture.
+  final bool rememberPlaybackState;
+
+  /// Durée de conservation de l'historique de lecture en jours (0 = sans limite / indéfini).
+  final int historyRetentionDays;
+
+  /// Vrai si les ouvertures depuis l'application doivent créer une nouvelle fenêtre.
+  bool get inAppOpenNewWindow => inAppOpenTarget == InAppOpenTarget.newWindow;
+
   AppPreferences copyWith({
     AppLanguage? language,
     AppThemeMode? themeMode,
@@ -202,6 +231,9 @@ class AppPreferences {
     bool? miniPlayerAlwaysOnTop,
     String? imageEditSuffix,
     int? imageEditQuality,
+    InAppOpenTarget? inAppOpenTarget,
+    bool? rememberPlaybackState,
+    int? historyRetentionDays,
   }) {
     return AppPreferences(
       language: language ?? this.language,
@@ -230,7 +262,19 @@ class AppPreferences {
       miniPlayerAlwaysOnTop: miniPlayerAlwaysOnTop ?? this.miniPlayerAlwaysOnTop,
       imageEditSuffix: imageEditSuffix ?? this.imageEditSuffix,
       imageEditQuality: (imageEditQuality ?? this.imageEditQuality).clamp(50, 100),
+      inAppOpenTarget: inAppOpenTarget ?? this.inAppOpenTarget,
+      rememberPlaybackState: rememberPlaybackState ?? this.rememberPlaybackState,
+      historyRetentionDays: _retention(historyRetentionDays ?? this.historyRetentionDays),
     );
+  }
+
+  static int _retention(int value) {
+    if (retentionDaysOptions.contains(value)) return value;
+    var best = retentionDaysOptions.first;
+    for (final r in retentionDaysOptions) {
+      if ((r - value).abs() < (best - value).abs()) best = r;
+    }
+    return best;
   }
 
 
@@ -287,6 +331,9 @@ class AppPreferences {
         'miniPlayerAlwaysOnTop': miniPlayerAlwaysOnTop,
         'imageEditSuffix': imageEditSuffix,
         'imageEditQuality': imageEditQuality,
+        'inAppOpenTarget': inAppOpenTarget.name,
+        'rememberPlaybackState': rememberPlaybackState,
+        'historyRetentionDays': historyRetentionDays,
       };
 
   /// Relecture tolérante : une valeur absente, d'un mauvais type ou hors bornes
@@ -337,6 +384,11 @@ class AppPreferences {
       imageEditQuality: (json['imageEditQuality'] is num)
           ? (json['imageEditQuality']! as num).round()
           : d.imageEditQuality,
+      inAppOpenTarget: InAppOpenTarget.fromJson(json['inAppOpenTarget']),
+      rememberPlaybackState: bool0('rememberPlaybackState', d.rememberPlaybackState),
+      historyRetentionDays: (json['historyRetentionDays'] is num)
+          ? (json['historyRetentionDays']! as num).round()
+          : d.historyRetentionDays,
     );
   }
 

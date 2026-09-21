@@ -542,6 +542,20 @@ class _GeneralSection extends ConsumerWidget {
         ),
         const SettingDivider(),
         SettingRow(
+          title: l10n.settingsInAppOpenTarget,
+          hint: l10n.settingsInAppOpenTargetHint,
+          control: OmniaSegmented<InAppOpenTarget>(
+            values: InAppOpenTarget.values,
+            selected: p.inAppOpenTarget,
+            labelOf: (v) => switch (v) {
+              InAppOpenTarget.currentWindow => l10n.inAppOpenCurrent,
+              InAppOpenTarget.newWindow => l10n.inAppOpenNew,
+            },
+            onChanged: (v) => ref.change((p) => p.copyWith(inAppOpenTarget: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
           title: '${l10n.alwaysOnTop} · ${l10n.alwaysOnTopNormal}',
           control: OmniaSwitch(
             label: l10n.alwaysOnTopNormal,
@@ -1111,10 +1125,37 @@ class _HistorySection extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final type = context.type;
     final recents = ref.watch(recentFilesProvider);
+    final p = ref.watch(preferencesProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        SettingRow(
+          title: l10n.settingsRememberPlaybackState,
+          hint: l10n.settingsRememberPlaybackStateHint,
+          control: OmniaSwitch(
+            label: l10n.settingsRememberPlaybackState,
+            value: p.rememberPlaybackState,
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(rememberPlaybackState: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: l10n.settingsHistoryRetention,
+          hint: l10n.settingsHistoryRetentionHint,
+          control: OmniaSegmented<int>(
+            values: AppPreferences.retentionDaysOptions,
+            selected: p.historyRetentionDays,
+            labelOf: (v) => switch (v) {
+              7 => l10n.historyRetention7Days,
+              30 => l10n.historyRetention30Days,
+              90 => l10n.historyRetention90Days,
+              _ => l10n.historyRetentionUnlimited,
+            },
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(historyRetentionDays: v)),
+          ),
+        ),
+        const SettingDivider(),
         SettingRow(
           title: l10n.recentFiles,
           hint: l10n.settingsRecentHint,

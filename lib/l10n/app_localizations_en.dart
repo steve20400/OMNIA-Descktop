@@ -756,6 +756,51 @@ class AppLocalizationsEn extends AppLocalizations {
       'Opening a file from the system reuses the open window. Applies at next launch.';
 
   @override
+  String get settingsInAppOpenTarget => 'In-app opening';
+
+  @override
+  String get settingsInAppOpenTargetHint =>
+      'Open files, folders and recents in current window or a new window.';
+
+  @override
+  String get inAppOpenCurrent => 'Current window';
+
+  @override
+  String get inAppOpenNew => 'New window';
+
+  @override
+  String get settingsRememberPlaybackState => 'Remember playback state';
+
+  @override
+  String get settingsRememberPlaybackStateHint =>
+      'Save last read document page and media position to resume automatically.';
+
+  @override
+  String get settingsHistoryRetention => 'History retention';
+
+  @override
+  String get settingsHistoryRetentionHint =>
+      'Duration before resetting reading progress on older files.';
+
+  @override
+  String get historyRetention7Days => '7 days';
+
+  @override
+  String get historyRetention30Days => '30 days';
+
+  @override
+  String get historyRetention90Days => '90 days';
+
+  @override
+  String get historyRetentionUnlimited => 'Always';
+
+  @override
+  String get openInNewWindow => 'Open in new window';
+
+  @override
+  String get openInCurrentWindow => 'Open in current window';
+
+  @override
   String get settingsSeekStep => 'Seek step';
 
   @override

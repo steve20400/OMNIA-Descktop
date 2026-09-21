@@ -144,9 +144,12 @@ void main() {
     await _drain(tester);
     await _tap(tester, find.text('Demander'));
     await _drain(tester);
+    await _tap(tester, find.text('Nouvelle fenêtre'));
+    await _drain(tester);
 
     expect(harness.store.preferences.themeMode, AppThemeMode.light);
     expect(harness.store.preferences.resumePolicy, ResumePolicy.ask);
+    expect(harness.store.preferences.inAppOpenTarget, InAppOpenTarget.newWindow);
   });
 
   testWidgets('Échap ferme l’écran', (tester) async {

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:hive_ce_flutter/hive_flutter.dart';
 
 import '../models/history_entry.dart';
@@ -51,19 +54,25 @@ abstract interface class HistoryStore {
 
   /// Efface tout l'historique.
   Future<void> clear();
+
+  /// Élimine les entrées de progression plus anciennes que [retentionDays] jours.
+  /// Si [retentionDays] <= 0 (sans limite), aucune entrée n'est purgée.
+  Future<void> pruneExpired(int retentionDays, {DateTime? now});
 }
 
 /// Implémentation Hive, sur une boîte dédiée.
 class HiveHistoryStore implements HistoryStore {
-  HiveHistoryStore(this._box);
+  HiveHistoryStore(this._box, [this._dataDir]);
 
   final Box<dynamic> _box;
+  final Directory? _dataDir;
 
   static const boxName = 'history';
 
-  static Future<HiveHistoryStore> open() async {
+  static Future<HiveHistoryStore> open({Directory? dataDirectory}) async {
     await initialiseLocalStorage();
-    return HiveHistoryStore(await Hive.openBox<dynamic>(boxName));
+    final dir = dataDirectory ?? await localStorageDirectory();
+    return HiveHistoryStore(await Hive.openBox<dynamic>(boxName), dir);
   }
 
   @override
@@ -135,7 +144,14 @@ class HiveHistoryStore implements HistoryStore {
     );
   }
 
-  Future<void> _put(HistoryEntry entry) => _box.put(entry.path, entry.toJson());
+  Future<void> _put(HistoryEntry entry) async {
+    await _box.put(entry.path, entry.toJson());
+    await _box.flush();
+    final dir = _dataDir;
+    if (dir != null) {
+      unawaited(writeHistorySnapshot(dir, {for (final e in _all()) e.path: e.toJson()}));
+    }
+  }
 
   @override
   Future<void> touch(String path, {DateTime? now}) async {
@@ -215,6 +231,17 @@ class HiveHistoryStore implements HistoryStore {
 
   @override
   Future<void> clear() => _box.clear();
+
+  @override
+  Future<void> pruneExpired(int retentionDays, {DateTime? now}) async {
+    if (retentionDays <= 0) return;
+    final stamp = now ?? DateTime.now();
+    for (final entry in _all()) {
+      if (stamp.difference(entry.lastOpened).inDays >= retentionDays) {
+        await forget(entry.path);
+      }
+    }
+  }
 }
 
 /// Implémentation en mémoire, pour les tests.
@@ -331,4 +358,167 @@ class MemoryHistoryStore implements HistoryStore {
 
   @override
   Future<void> clear() async => entries.clear();
+
+  @override
+  Future<void> pruneExpired(int retentionDays, {DateTime? now}) async {
+    if (retentionDays <= 0) return;
+    final stamp = now ?? DateTime.now();
+    entries.removeWhere((_, e) => stamp.difference(e.lastOpened).inDays >= retentionDays);
+  }
+}
+
+/// Implémentation basée sur un fichier JSON partagé, utilisée pour les fenêtres
+/// secondaires quand Hive est verrouillé par la première instance.
+class FileHistoryStore implements HistoryStore {
+  FileHistoryStore(this.directory) {
+    final raw = readHistorySnapshot(directory);
+    for (final entry in raw.entries) {
+      if (entry.value is Map) {
+        try {
+          entries[entry.key] = HistoryEntry.fromJson(
+            Map<String, Object?>.from(entry.value as Map),
+          );
+        } catch (_) {}
+      }
+    }
+  }
+
+  final Directory directory;
+  final Map<String, HistoryEntry> entries = {};
+
+  Future<void> _flush() async {
+    await writeHistorySnapshot(directory, {for (final e in entries.values) e.path: e.toJson()});
+  }
+
+  @override
+  HistoryEntry? entryFor(String path) => entries[path];
+
+  @override
+  Future<void> savePosition(
+    String path, {
+    required Duration position,
+    required Duration duration,
+    DateTime? now,
+  }) async {
+    final stamp = now ?? DateTime.now();
+    final reached = duration > Duration.zero &&
+        position.inMilliseconds / duration.inMilliseconds >=
+            HistoryEntry.completionThreshold;
+    if (reached) {
+      await markCompleted(path, now: stamp);
+      return;
+    }
+    if (!HistoryEntry.isWorthSaving(position, duration)) {
+      entries[path] = HistoryEntry(
+        path: path,
+        position: Duration.zero,
+        duration: duration,
+        lastOpened: stamp,
+        completed: entries[path]?.completed ?? false,
+      );
+      await _flush();
+      return;
+    }
+    entries[path] = HistoryEntry(
+      path: path,
+      position: position,
+      duration: duration,
+      lastOpened: stamp,
+    );
+    await _flush();
+  }
+
+  @override
+  Future<void> markCompleted(String path, {DateTime? now}) async {
+    final existing = entries[path];
+    entries[path] = HistoryEntry(
+      path: path,
+      position: Duration.zero,
+      duration: existing?.duration ?? Duration.zero,
+      lastOpened: now ?? DateTime.now(),
+      completed: true,
+      pageCount: existing?.pageCount ?? 0,
+    );
+    await _flush();
+  }
+
+  @override
+  Future<void> touch(String path, {DateTime? now}) async {
+    final stamp = now ?? DateTime.now();
+    entries[path] = entries[path]?.copyWith(lastOpened: stamp, listed: true) ??
+        HistoryEntry(
+          path: path,
+          position: Duration.zero,
+          duration: Duration.zero,
+          lastOpened: stamp,
+        );
+    await _flush();
+  }
+
+  @override
+  Future<void> clearRecent() async {
+    entries.updateAll((_, e) => e.copyWith(listed: false));
+    await _flush();
+  }
+
+  @override
+  Future<void> clearPositions() async {
+    entries.updateAll((_, e) => e.withoutProgress());
+    await _flush();
+  }
+
+  @override
+  Future<void> saveDocumentPosition(
+    String path, {
+    int? page,
+    int? pageCount,
+    double? scrollFraction,
+    DateTime? now,
+  }) async {
+    final stamp = now ?? DateTime.now();
+    final existing = entries[path] ??
+        HistoryEntry(
+          path: path,
+          position: Duration.zero,
+          duration: Duration.zero,
+          lastOpened: stamp,
+        );
+    entries[path] = existing.copyWith(
+      page: page,
+      pageCount: pageCount,
+      scrollFraction: scrollFraction?.clamp(0.0, 1.0),
+      lastOpened: stamp,
+      completed: page != null && pageCount != null && pageCount > 0 && page >= pageCount
+          ? true
+          : existing.completed,
+    );
+    await _flush();
+  }
+
+  @override
+  List<HistoryEntry> recent({int limit = 20}) {
+    final list = entries.values.where((e) => e.listed).toList()
+      ..sort((a, b) => b.lastOpened.compareTo(a.lastOpened));
+    return list.take(limit).toList();
+  }
+
+  @override
+  Future<void> forget(String path) async {
+    entries.remove(path);
+    await _flush();
+  }
+
+  @override
+  Future<void> clear() async {
+    entries.clear();
+    await _flush();
+  }
+
+  @override
+  Future<void> pruneExpired(int retentionDays, {DateTime? now}) async {
+    if (retentionDays <= 0) return;
+    final stamp = now ?? DateTime.now();
+    entries.removeWhere((_, e) => stamp.difference(e.lastOpened).inDays >= retentionDays);
+    await _flush();
+  }
 }

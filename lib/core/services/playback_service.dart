@@ -72,6 +72,7 @@ class PlaybackService implements PlaybackStateSink {
 
     _subscription = bus.stream.listen(_onCommand);
     _playlistSubscription = playlist.stream.listen(_onPlaylistChanged);
+    unawaited(history?.pruneExpired(preferences.historyRetentionDays));
   }
 
   /// Préférences courantes (valeurs par défaut sans stockage).
@@ -218,7 +219,8 @@ class PlaybackService implements PlaybackStateSink {
     // Documents : mémoriser page et défilement à chaque changement. Ce sont
     // des événements rares (un tour de page, une fin de défilement), pas un
     // battement continu.
-    if (after.isDocument &&
+    if (preferences.rememberPlaybackState &&
+        after.isDocument &&
         after.file != null &&
         before.file?.path == after.file!.path &&
         after.status == PlaybackStatus.playing &&
@@ -236,7 +238,8 @@ class PlaybackService implements PlaybackStateSink {
 
     // Sauvegarder la progression au fil de la lecture toutes les 5 secondes
     // au lieu d'une fois par minute, pour ne rien perdre en cas d'interruption.
-    if (!after.isDocument &&
+    if (preferences.rememberPlaybackState &&
+        !after.isDocument &&
         before.file?.path == after.file?.path &&
         after.file != null &&
         after.duration > Duration.zero &&
@@ -417,8 +420,18 @@ class PlaybackService implements PlaybackStateSink {
   // --- Reprise de lecture --------------------------------------------------------
 
   /// Ce qu'il y aurait à reprendre pour ce fichier, selon son type.
-  static ResumeOffer? _offerFrom(MediaType type, HistoryEntry? entry) {
-    if (entry == null) return null;
+  static ResumeOffer? _offerFrom(
+    MediaType type,
+    HistoryEntry? entry, {
+    bool remember = true,
+    int retentionDays = 0,
+    DateTime? now,
+  }) {
+    if (entry == null || !remember) return null;
+    if (retentionDays > 0) {
+      final days = (now ?? DateTime.now()).difference(entry.lastOpened).inDays;
+      if (days >= retentionDays) return null;
+    }
     if (type.isDocument) {
       final page = entry.resumePage;
       if (page != null) return ResumeOffer(page: page);
@@ -796,7 +809,12 @@ class PlaybackService implements PlaybackStateSink {
     _active = controller;
 
     // Reprise : automatique, proposée, ou jamais, selon les préférences.
-    final offer = _offerFrom(type, history?.entryFor(path));
+    final offer = _offerFrom(
+      type,
+      history?.entryFor(path),
+      remember: preferences.rememberPlaybackState,
+      retentionDays: preferences.historyRetentionDays,
+    );
     final policy = preferences.resumePolicy;
     _clearPendingResume();
     if (offer != null && policy == ResumePolicy.auto) {
@@ -884,7 +902,7 @@ class PlaybackService implements PlaybackStateSink {
   Future<void> _savePositionOfCurrentFile() async {
     final file = _state.file;
     final store = history;
-    if (file == null || store == null) return;
+    if (file == null || store == null || !preferences.rememberPlaybackState) return;
     if (_state.isDocument) {
       await store.saveDocumentPosition(
         file.path,

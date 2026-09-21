@@ -1474,6 +1474,48 @@ abstract class AppLocalizations {
   /// **'Ouvrir un fichier depuis le système réutilise la fenêtre déjà ouverte. Pris en compte au prochain démarrage.'**
   String get settingsSingleInstanceHint;
 
+  /// No description provided for @settingsInAppOpenTarget.
+  String get settingsInAppOpenTarget;
+
+  /// No description provided for @settingsInAppOpenTargetHint.
+  String get settingsInAppOpenTargetHint;
+
+  /// No description provided for @inAppOpenCurrent.
+  String get inAppOpenCurrent;
+
+  /// No description provided for @inAppOpenNew.
+  String get inAppOpenNew;
+
+  /// No description provided for @settingsRememberPlaybackState.
+  String get settingsRememberPlaybackState;
+
+  /// No description provided for @settingsRememberPlaybackStateHint.
+  String get settingsRememberPlaybackStateHint;
+
+  /// No description provided for @settingsHistoryRetention.
+  String get settingsHistoryRetention;
+
+  /// No description provided for @settingsHistoryRetentionHint.
+  String get settingsHistoryRetentionHint;
+
+  /// No description provided for @historyRetention7Days.
+  String get historyRetention7Days;
+
+  /// No description provided for @historyRetention30Days.
+  String get historyRetention30Days;
+
+  /// No description provided for @historyRetention90Days.
+  String get historyRetention90Days;
+
+  /// No description provided for @historyRetentionUnlimited.
+  String get historyRetentionUnlimited;
+
+  /// No description provided for @openInNewWindow.
+  String get openInNewWindow;
+
+  /// No description provided for @openInCurrentWindow.
+  String get openInCurrentWindow;
+
   /// No description provided for @settingsSeekStep.
   ///
   /// In fr, this message translates to:

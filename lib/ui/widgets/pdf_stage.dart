@@ -225,14 +225,14 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
               textSelectionParams: const PdfTextSelectionParams(enabled: true),
               onViewerReady: (_, controller) {
                 widget.onReady(controller);
-                if (initialPage > 1) {
-                  unawaited(controller.goToPage(pageNumber: initialPage, anchor: PdfPageAnchor.top));
-                }
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted && controller.isReady) {
                     final cover = controller.coverScale;
                     if (cover > 0) {
                       controller.setZoom(controller.visibleRect.center, cover);
+                    }
+                    if (initialPage > 1) {
+                      unawaited(controller.goToPage(pageNumber: initialPage, anchor: PdfPageAnchor.top));
                     }
                   }
                 });

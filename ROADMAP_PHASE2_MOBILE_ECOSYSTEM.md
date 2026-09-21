@@ -66,6 +66,19 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
 - **Identité de marque & protection de la propriété intellectuelle** :
   - Attribution stricte de l'identifiant "OMNIA" aux boîtes de dialogue système d'ouverture de fichiers/dossiers et aux classes de fenêtres natives OS (Windows `OMNIA_WIN32_WINDOW`, Linux GLib `OMNIA`), éliminant toute mention des frameworks internes.
 
+### 1.7 Gestion Multi-Fenêtres & Rétention Avancée de l'Historique de Lecture
+- **Cible d'ouverture dans l'application (Fenêtre actuelle vs Nouvelle fenêtre)** :
+  - Option unifiée dans les Paramètres Généraux (`inAppOpenTarget` : `currentWindow` ou `newWindow`).
+  - S'applique automatiquement à toutes les actions d'ouverture depuis l'application : « Ouvrir un fichier », « Ouvrir un dossier » et clics sur les « Fichiers récents ».
+  - Menu contextuel au clic droit sur chaque ligne de fichier récent proposant explicitement « Ouvrir dans la fenêtre actuelle » et « Ouvrir dans une nouvelle fenêtre ».
+  - Support de l'argument de ligne de commande `--new-window` permettant de détacher un processus indépendant sans redirection vers l'instance existante même lorsque le mode instance unique du système est actif.
+- **Persistance multi-instances & Résilience aux redémarrages de la machine** :
+  - Synchronisation via fichier de stockage partagé (`history.json`) assurant la persistance des positions et pages même lorsque plusieurs fenêtres tournent simultanément sans verrou Hive exclusif.
+  - Résolution de la condition de concurrence lors du chargement des documents PDF (coordination entre `coverScale` et `initialPageNumber` sans réinitialisation à la page 1).
+- **Politique de rétention et contrôle utilisateur** :
+  - Interrupteur dédié : « Mémoriser l'état de lecture » (`rememberPlaybackState`) permettant d'activer ou désactiver la reprise automatique.
+  - Durée de conservation de l'historique configurable (`historyRetentionDays` : 7 jours, 30 jours, 90 jours ou Toujours) purgeant automatiquement la progression des fichiers anciens.
+
 ---
 
 ## 2. Phase 2 : Application OMNIA Mobile Autonome (Android / iOS)

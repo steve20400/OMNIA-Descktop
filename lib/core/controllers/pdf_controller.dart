@@ -146,8 +146,11 @@ class PdfController implements MediaController {
       if (page == _targetPage) {
         _targetPage = null;
       } else {
-        // En transition vers la page cible : ne pas écraser avec une notification
-        // intermédiaire comme l'initialisation de la vue.
+        // En transition vers la page cible : s'assurer que le visualiseur est bien
+        // en train d'y naviguer.
+        if (viewer.isReady && page != _targetPage) {
+          unawaited(viewer.goToPage(pageNumber: _targetPage!, anchor: PdfPageAnchor.top));
+        }
         return;
       }
     } else if (page == 1 && sink.state.currentPage > 1) {

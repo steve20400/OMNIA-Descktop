@@ -23,6 +23,9 @@ void main() {
       expect(p.docAutoSave, isTrue);
       expect(p.docAutoSaveIntervalSeconds, 2);
       expect(p.unsavedChangesPolicy, UnsavedChangesPolicy.ask);
+      expect(p.inAppOpenTarget, InAppOpenTarget.currentWindow);
+      expect(p.rememberPlaybackState, isTrue);
+      expect(p.historyRetentionDays, 30);
     });
   });
 
@@ -51,6 +54,9 @@ void main() {
         screenshotNamePattern: '{name} @ {position}',
         normalPlayerAlwaysOnTop: true,
         miniPlayerAlwaysOnTop: false,
+        inAppOpenTarget: InAppOpenTarget.newWindow,
+        rememberPlaybackState: false,
+        historyRetentionDays: 90,
       );
 
       final restored = AppPreferences.fromJson(p.toJson());
@@ -154,5 +160,6 @@ void main() {
     expect(AppThemeMode.fromJson(null), AppThemeMode.dark);
     expect(ResumePolicy.fromJson('peut-être'), ResumePolicy.auto);
     expect(StartupVolume.fromJson(3), StartupVolume.last);
+    expect(InAppOpenTarget.fromJson('inconnu'), InAppOpenTarget.currentWindow);
   });
 }

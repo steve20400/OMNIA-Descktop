@@ -760,6 +760,51 @@ class AppLocalizationsFr extends AppLocalizations {
       'Ouvrir un fichier depuis le système réutilise la fenêtre déjà ouverte. Pris en compte au prochain démarrage.';
 
   @override
+  String get settingsInAppOpenTarget => 'Ouverture dans l\'application';
+
+  @override
+  String get settingsInAppOpenTargetHint =>
+      'Ouvrir les fichiers, dossiers et récents dans la même fenêtre ou dans une nouvelle fenêtre.';
+
+  @override
+  String get inAppOpenCurrent => 'Fenêtre actuelle';
+
+  @override
+  String get inAppOpenNew => 'Nouvelle fenêtre';
+
+  @override
+  String get settingsRememberPlaybackState => 'Mémoriser l\'état de lecture';
+
+  @override
+  String get settingsRememberPlaybackStateHint =>
+      'Conserver la dernière page lue et la position de lecture pour reprendre automatiquement.';
+
+  @override
+  String get settingsHistoryRetention => 'Conservation de l\'historique';
+
+  @override
+  String get settingsHistoryRetentionHint =>
+      'Délai avant réinitialisation automatique de la progression des fichiers anciens.';
+
+  @override
+  String get historyRetention7Days => '7 jours';
+
+  @override
+  String get historyRetention30Days => '30 jours';
+
+  @override
+  String get historyRetention90Days => '90 jours';
+
+  @override
+  String get historyRetentionUnlimited => 'Toujours';
+
+  @override
+  String get openInNewWindow => 'Ouvrir dans une nouvelle fenêtre';
+
+  @override
+  String get openInCurrentWindow => 'Ouvrir dans la fenêtre actuelle';
+
+  @override
   String get settingsSeekStep => 'Pas d\'avance et de recul';
 
   @override
