@@ -138,30 +138,21 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
   double? _lastWidth;
   double _accumulatedScroll = 0;
   Timer? _scrollDebounce;
+  Timer? _resizeDebounce;
 
   @override
   void dispose() {
     _scrollDebounce?.cancel();
+    _resizeDebounce?.cancel();
     super.dispose();
   }
 
-  void _fitToWidth(double availableWidth) {
+  void _fitToWidth() {
     final viewer = widget.session.viewer;
     if (!viewer.isReady) return;
-    final pages = widget.session.document.pages;
-    if (pages.isEmpty) return;
-    final currentPage = ref.read(playbackStateProvider).currentPage;
-    final pageIndex = (currentPage > 0 ? currentPage - 1 : 0).clamp(0, pages.length - 1);
-    final page = pages[pageIndex];
-    final isMini = ref.read(playbackStateProvider).miniPlayer;
-    final margin = isMini ? 4.0 : (OmniaMetrics.space3 * 2);
-    final effectiveWidth = availableWidth - margin;
-    if (page.width > 0 && effectiveWidth > 0) {
-      final targetScale = effectiveWidth / page.width;
-      viewer.setZoom(viewer.visibleRect.center, targetScale);
-    } else {
-      final cover = viewer.coverScale;
-      if (cover > 0) viewer.setZoom(viewer.visibleRect.center, cover);
+    final cover = viewer.coverScale;
+    if (cover > 0) {
+      viewer.setZoom(viewer.visibleRect.center, cover);
     }
   }
 
@@ -202,15 +193,13 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
       onPointerSignal: _onPointerSignal,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          if (_lastWidth != null && (constraints.maxWidth - _lastWidth!).abs() > 4) {
-            final targetPage = ref.read(playbackStateProvider).currentPage;
+          if (_lastWidth != null && (constraints.maxWidth - _lastWidth!).abs() > 2) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _fitToWidth(constraints.maxWidth);
-                if (targetPage > 1 && widget.session.viewer.isReady) {
-                  widget.session.viewer.goToPage(pageNumber: targetPage, anchor: PdfPageAnchor.top);
-                }
-              }
+              if (mounted) _fitToWidth();
+            });
+            _resizeDebounce?.cancel();
+            _resizeDebounce = Timer(const Duration(milliseconds: 50), () {
+              if (mounted) _fitToWidth();
             });
           }
           _lastWidth = constraints.maxWidth;
@@ -224,6 +213,7 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
             params: PdfViewerParams(
               backgroundColor: widget.paper,
               margin: isMini ? 2.0 : OmniaMetrics.space3,
+              calculateInitialZoom: (controller, viewSize) => controller.coverScale,
               // Les raccourcis sont ceux d'OMNIA, pas ceux de pdfrx.
               enableKeyboardNavigation: false,
               pageDropShadow: BoxShadow(
@@ -240,7 +230,12 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
                   unawaited(controller.goToPage(pageNumber: initialPage, anchor: PdfPageAnchor.top));
                 }
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _fitToWidth(constraints.maxWidth);
+                  if (mounted && controller.isReady) {
+                    final cover = controller.coverScale;
+                    if (cover > 0) {
+                      controller.setZoom(controller.visibleRect.center, cover);
+                    }
+                  }
                 });
               },
               onDocumentChanged: (document) {
@@ -313,11 +308,16 @@ class _PagedViewState extends ConsumerState<_PagedView> {
           final scale = _transform.value.getMaxScaleOnAxis();
           if ((scale - zoom).abs() > 0.001) ref.dispatch(SetZoom(scale));
         },
-        child: Center(
+        child: Align(
+          alignment: Alignment.topCenter,
           child: Padding(
-            padding: EdgeInsets.all(miniPlayer ? 2.0 : OmniaMetrics.space4),
+            padding: EdgeInsets.symmetric(
+              horizontal: miniPlayer ? 2.0 : OmniaMetrics.space4,
+              vertical: miniPlayer ? 2.0 : OmniaMetrics.space2,
+            ),
             child: FittedBox(
-              fit: BoxFit.contain,
+              fit: BoxFit.fitWidth,
+              alignment: Alignment.topCenter,
               child: PdfPageView(
                 document: widget.session.document,
                 pageNumber: page.clamp(1, widget.session.pageCount),

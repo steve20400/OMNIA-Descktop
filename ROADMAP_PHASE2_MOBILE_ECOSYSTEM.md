@@ -48,7 +48,10 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
   - Initialisation directe de `PdfViewer` via `initialPageNumber` et garde anti-artefact bloquant les réinitialisations intempestives du moteur de rendu.
   - Défilement fluide de `TextView` synchronisé par métriques de défilement (`ScrollMetricsNotification`).
 - **Adaptation bidirectionnelle continue de la largeur du document (Réduction ET Agrandissement)** :
-  - Ajustement automatique dynamique de la largeur du document par rapport à la taille de la fenêtre, aussi bien lorsque la fenêtre est rétrécie que lorsqu'elle est agrandie (`_fitToWidth` adaptatif pour PDF et contraintes fluides sans plafond rigide pour les fichiers texte/code).
+  - Ajustement automatique dynamique de la largeur du document par rapport à la taille de la fenêtre en toute circonstance, aussi bien lorsque la fenêtre est rétrécie que lorsqu'elle est agrandie (en mode normal comme en mode mini-lecteur).
+  - Utilisation de `coverScale` en temps réel et initialisation native `calculateInitialZoom` dans `PdfViewerParams` pour les documents PDF (sans nécessiter de clic manuel sur « Ajuster à la largeur »).
+  - En mode page par page (`_PagedView`), utilisation de `BoxFit.fitWidth` avec alignement haut pour que la page couvre 100 % de la largeur disponible sans bandes vides latérales ni centrage forcé.
+  - Pour les fichiers texte et code (`TextView`), conteneurs `SizedBox(width: double.infinity)` sans contrainte rigide ni centrage superflu.
 - **Routage intelligent des raccourcis PageUp / PageDown** :
   - Si l'utilisateur clique sur la page du document : `PageUp` et `PageDown` font défiler le document ou tournent les pages.
   - Si l'utilisateur n'a pas encore cliqué sur le document (ouverture directe) ou clique sur la barre latérale/tiroir de playlist : `PageUp` et `PageDown` sélectionnent le fichier précédent/suivant de la liste de lecture.

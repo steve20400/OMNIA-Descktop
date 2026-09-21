@@ -265,22 +265,19 @@ class _TextViewState extends ConsumerState<TextView> {
           child: SingleChildScrollView(
             controller: _scroll,
             padding: docPadding,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: double.infinity),
-                child: TextField(
-                  controller: _editController,
-                  maxLines: null,
-                  style: doc.isMarkdown ? body : mono,
-                  cursorColor: reading.accent,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: _onTextChanged,
+            child: SizedBox(
+              width: double.infinity,
+              child: TextField(
+                controller: _editController,
+                maxLines: null,
+                style: doc.isMarkdown ? body : mono,
+                cursorColor: reading.accent,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
                 ),
+                onChanged: _onTextChanged,
               ),
             ),
           ),
@@ -300,13 +297,10 @@ class _TextViewState extends ConsumerState<TextView> {
         child: SingleChildScrollView(
           controller: _scroll,
           padding: docPadding,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: double.infinity),
-              child: SelectableText.rich(
-                _highlighted(doc.text, widget.search?.state, mono, reading),
-              ),
+          child: SizedBox(
+            width: double.infinity,
+            child: SelectableText.rich(
+              _highlighted(doc.text, widget.search?.state, mono, reading),
             ),
           ),
         ),
