@@ -855,6 +855,32 @@ void main() {
       expect(docService.state.file?.name, 'manuel.pdf');
       expect(history.entryFor('/docs/manuel.pdf')!.completed, isTrue);
     });
+
+    test('la position du document est sauvegardée lors de stopImmediately', () async {
+      await docService.openPath('/docs/manuel.pdf');
+      await doc.handle(const GoToPage(15));
+      await settle();
+      await docService.stopImmediately();
+      final entry = history.entryFor('/docs/manuel.pdf')!;
+      expect(entry.page, 15);
+    });
+
+    test('lastOpenPath est mis à jour à chaque ouverture de fichier', () async {
+      final store = MemorySettingsStore();
+      final s = PlaybackService(
+        bus: bus,
+        router: MediaRouter([av, doc]),
+        window: window,
+        playlist: playlist,
+        history: history,
+        settings: store,
+      );
+      await s.openPath('/media/piste1.mp3');
+      expect(store.lastOpenPath, '/media/piste1.mp3');
+      await s.openPath('/docs/manuel.pdf');
+      expect(store.lastOpenPath, '/docs/manuel.pdf');
+      await s.dispose();
+    });
   });
 
   group('Capture d’écran', () {

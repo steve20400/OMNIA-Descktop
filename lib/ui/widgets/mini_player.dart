@@ -408,20 +408,20 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     if (textDocument != null) {
       docWidget = isEditing
           ? TextView(
-              key: ValueKey('mini-text:${textDocument.path}'),
+              key: ValueKey('text:${textDocument.path}'),
               document: textDocument,
               search: ref.watch(documentSearchProvider) as PlainTextSearch?,
             )
           : IgnorePointer(
               child: TextView(
-                key: ValueKey('mini-text:${textDocument.path}'),
+                key: ValueKey('text:${textDocument.path}'),
                 document: textDocument,
                 search: ref.watch(documentSearchProvider) as PlainTextSearch?,
               ),
             );
     } else if (state.mediaType == MediaType.pdf) {
       docWidget = const IgnorePointer(
-        child: PdfStage(key: ValueKey('mini-pdf')),
+        child: PdfStage(key: ValueKey('pdf')),
       );
     } else {
       docWidget = const SizedBox.shrink();

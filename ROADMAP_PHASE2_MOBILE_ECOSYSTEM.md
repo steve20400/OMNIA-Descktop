@@ -42,6 +42,17 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
 - **Menu overflow compact** : Sur toutes les barres d'outils, lorsque la fenêtre est rétrécie ou en mini-lecteur compact, les commandes secondaires se regroupent automatiquement dans le menu 3 points (`Icons.more_horiz_rounded`).
 - **Restauration automatique** : Dès que la fenêtre est agrandie, toutes les icônes reprennent naturellement leur place en ligne sans surcharge.
 
+### 1.6 Préservation de Position & Continuité de Lecture Multi-Médias
+- **Maintien strict de la page et du défilement lors des bascules (Normal ⬌ Mini-lecteur)** :
+  - Lors de la transition entre la fenêtre normale et le mini-lecteur compact (ou lors du redimensionnement dynamique de la fenêtre), maintien absolu de la page active et de la position de lecture (`scrollFraction`, `currentPage`). Le document ne réinitialise jamais à la page 1 ou au début du texte.
+  - Clés d'état partagées et recalcul fluide de la largeur utile (`_fitWidth`) avec recentrage automatique de la vue sur la page en cours.
+- **Persistance haute-fréquence et reprise de session (Anti-coupure / Crash / Redémarrage)** :
+  - Fréquence de sauvegarde de la progression audio/vidéo toutes les 5 secondes (au lieu d'un intervalle d'une minute) éliminant tout décalage en cas de coupure de courant ou de fermeture brutale.
+  - Sauvegarde synchrone et systématique de l'état de lecture des documents texte, code et PDF lors de la fermeture de la fenêtre ou du changement de fichier.
+  - Option configurable dans les Paramètres : **« Reprendre la session au démarrage »** (`restoreLastSession`), restaurant automatiquement le dernier média (vidéo, audio, PDF ou document) ouvert à sa position ou page exacte.
+- **Identité de marque & protection de la propriété intellectuelle** :
+  - Attribution stricte de l'identifiant "OMNIA" aux boîtes de dialogue système d'ouverture de fichiers/dossiers et aux classes de fenêtres natives OS (Windows `OMNIA_WIN32_WINDOW`, Linux GLib `OMNIA`), éliminant toute mention des frameworks internes.
+
 ---
 
 ## 2. Phase 2 : Application OMNIA Mobile Autonome (Android / iOS)
@@ -68,6 +79,13 @@ L'application mobile sera développée sous Flutter dans un environnement dédi�
   - Glissement horizontal : Recherche temporelle précise (*scrubbing*).
   - Double-tap gauche/droit : Saut rapide de ±10 secondes.
   - Pincement pour zoomer (*pinch-to-zoom*) sur les vidéos et les images.
+
+### 2.3 Préservation de Session & Cycle de Vie Mobile
+- **Persistance en cas d'interruption OS (*Background Kill*)** :
+  - Sauvegarde immédiate et synchrone de la position temporelle, de la page active et de la progression de défilement dès le passage en état `AppLifecycleState.paused` ou `AppLifecycleState.detached`.
+  - Restauration automatique sans friction lors de la réouverture de l'application mobile, permettant à l'utilisateur de retrouver sa vidéo, son audio ou son document exactement là où il s'était arrêté même si le système a libéré la mémoire entre-temps.
+- **Continuité de lecture en mode PiP (Picture-in-Picture)** :
+  - Alignement instantané de la position de lecture lors des transitions vers et depuis le mode Picture-in-Picture natif sans saccade ni saut temporel.
 
 ---
 

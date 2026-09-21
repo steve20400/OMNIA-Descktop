@@ -169,8 +169,14 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (_lastWidth != null && (constraints.maxWidth - _lastWidth!).abs() > 4) {
+            final targetPage = ref.read(playbackStateProvider).currentPage;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _fitWidth();
+              if (mounted) {
+                _fitWidth();
+                if (targetPage > 1 && widget.session.viewer.isReady) {
+                  widget.session.viewer.goToPage(pageNumber: targetPage, anchor: PdfPageAnchor.top);
+                }
+              }
             });
           }
           _lastWidth = constraints.maxWidth;
@@ -195,6 +201,10 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
               textSelectionParams: const PdfTextSelectionParams(enabled: true),
               onViewerReady: (_, controller) {
                 widget.onReady(controller);
+                final targetPage = ref.read(playbackStateProvider).currentPage;
+                if (targetPage > 1) {
+                  unawaited(controller.goToPage(pageNumber: targetPage, anchor: PdfPageAnchor.top));
+                }
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) _fitWidth();
                 });

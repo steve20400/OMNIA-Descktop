@@ -234,13 +234,13 @@ class PlaybackService implements PlaybackStateSink {
       );
     }
 
-    // Sauvegarder la progression au fil de la lecture, une fois par minute
-    // entamée, pour ne pas écrire à chaque battement de position.
+    // Sauvegarder la progression au fil de la lecture toutes les 5 secondes
+    // au lieu d'une fois par minute, pour ne rien perdre en cas d'interruption.
     if (!after.isDocument &&
         before.file?.path == after.file?.path &&
         after.file != null &&
         after.duration > Duration.zero &&
-        before.position.inMinutes != after.position.inMinutes) {
+        (after.position.inSeconds - before.position.inSeconds).abs() >= 5) {
       unawaited(
         history?.savePosition(
           after.file!.path,
@@ -764,6 +764,9 @@ class PlaybackService implements PlaybackStateSink {
     await _stopRecording();
     await _savePositionOfCurrentFile();
 
+    // Mémorise le chemin pour la restauration de la session au démarrage
+    unawaited(settings?.setLastOpenPath(path));
+
     final type = MediaRouter.typeForPath(path);
     final file = MediaFile(path: path, type: type);
     final controller = router.controllerFor(type);
@@ -882,8 +885,16 @@ class PlaybackService implements PlaybackStateSink {
     final file = _state.file;
     final store = history;
     if (file == null || store == null) return;
-    // Les documents sont mémorisés au fil des changements de page.
-    if (_state.isDocument) return;
+    if (_state.isDocument) {
+      await store.saveDocumentPosition(
+        file.path,
+        page: _state.currentPage > 0 ? _state.currentPage : null,
+        pageCount: _state.totalPages > 0 ? _state.totalPages : null,
+        scrollFraction: _state.scrollFraction,
+      );
+      playlist.refreshEntry(file.path);
+      return;
+    }
     if (_state.status == PlaybackStatus.ended) return;
     if (_state.duration <= Duration.zero) return;
     await store.savePosition(
@@ -1047,6 +1058,7 @@ class PlaybackService implements PlaybackStateSink {
 
   /// Interrompt immédiatement et sans délai la lecture en cours.
   Future<void> stopImmediately() async {
+    await _savePositionOfCurrentFile();
     final active = _active;
     if (active != null) {
       await active.close();

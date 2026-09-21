@@ -63,10 +63,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void initState() {
     super.initState();
     _playerFocus.attach(_focusNode);
-    // Argument en ligne de commande : `omnia /chemin/fichier.mkv`.
+    // Argument en ligne de commande : `omnia /chemin/fichier.mkv` ou reprise de session.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final command = commandForLaunchArguments(ref.read(launchArgumentsProvider));
-      if (command != null) ref.dispatch(command, source: CommandSource.cli);
+      if (command != null) {
+        ref.dispatch(command, source: CommandSource.cli);
+      } else {
+        final prefs = ref.read(preferencesProvider);
+        if (prefs.restoreLastSession) {
+          final lastPath = ref.read(settingsStoreProvider).lastOpenPath;
+          if (lastPath != null && File(lastPath).existsSync()) {
+            ref.dispatch(OpenFile(lastPath), source: CommandSource.system);
+          }
+        }
+      }
       _chrome.setAutoHide(_autoHideFor(ref.read(playbackStateProvider)));
     });
   }

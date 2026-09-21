@@ -76,6 +76,7 @@ class AppPreferences {
     this.language = AppLanguage.system,
     this.themeMode = AppThemeMode.dark,
     this.resumePolicy = ResumePolicy.auto,
+    this.restoreLastSession = true,
     this.singleInstance = true,
     this.seekStepSeconds = 5,
     this.defaultSpeed = 1.0,
@@ -121,6 +122,9 @@ class AppPreferences {
   final AppLanguage language;
   final AppThemeMode themeMode;
   final ResumePolicy resumePolicy;
+
+  /// Rouvrir automatiquement le dernier fichier ouvert au démarrage.
+  final bool restoreLastSession;
 
   /// Réutiliser la fenêtre ouverte quand on ouvre un fichier depuis le système.
   /// Pris en compte au démarrage suivant.
@@ -176,6 +180,7 @@ class AppPreferences {
     AppLanguage? language,
     AppThemeMode? themeMode,
     ResumePolicy? resumePolicy,
+    bool? restoreLastSession,
     bool? singleInstance,
     int? seekStepSeconds,
     double? defaultSpeed,
@@ -202,6 +207,7 @@ class AppPreferences {
       language: language ?? this.language,
       themeMode: themeMode ?? this.themeMode,
       resumePolicy: resumePolicy ?? this.resumePolicy,
+      restoreLastSession: restoreLastSession ?? this.restoreLastSession,
       singleInstance: singleInstance ?? this.singleInstance,
       seekStepSeconds: _step(seekStepSeconds ?? this.seekStepSeconds),
       defaultSpeed: _speed(defaultSpeed ?? this.defaultSpeed),
@@ -259,6 +265,7 @@ class AppPreferences {
         'language': language.name,
         'themeMode': themeMode.name,
         'resumePolicy': resumePolicy.name,
+        'restoreLastSession': restoreLastSession,
         'singleInstance': singleInstance,
         'seekStepSeconds': seekStepSeconds,
         'defaultSpeed': defaultSpeed,
@@ -296,6 +303,7 @@ class AppPreferences {
       language: AppLanguage.fromJson(json['language']),
       themeMode: AppThemeMode.fromJson(json['themeMode']),
       resumePolicy: ResumePolicy.fromJson(json['resumePolicy']),
+      restoreLastSession: bool0('restoreLastSession', d.restoreLastSession),
       singleInstance: bool0('singleInstance', d.singleInstance),
       seekStepSeconds: (json['seekStepSeconds'] is num)
           ? (json['seekStepSeconds']! as num).round()

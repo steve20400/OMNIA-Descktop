@@ -67,6 +67,11 @@ class _TextViewState extends ConsumerState<TextView> {
       _hasUnsavedChanges = false;
       _editController.text = widget.document.text;
       if (_scroll.hasClients) _scroll.jumpTo(0);
+    } else {
+      final currentFraction = ref.read(playbackStateProvider).scrollFraction;
+      if (currentFraction > 0.01) {
+        _restoreIfNeeded(currentFraction);
+      }
     }
   }
 
@@ -141,6 +146,9 @@ class _TextViewState extends ConsumerState<TextView> {
     final max = _scroll.position.maxScrollExtent;
     if (max <= 0) return;
     final fraction = (_scroll.offset / max).clamp(0.0, 1.0);
+    // Éviter qu'une réinitialisation temporaire du viewport à 0 n'écrase
+    // la position de lecture sauvegardée.
+    if (fraction == 0.0 && ref.read(playbackStateProvider).scrollFraction > 0.01) return;
     _reportDebounce?.cancel();
     _reportDebounce = Timer(const Duration(milliseconds: 300), () {
       if (mounted) ref.dispatch(ScrollTo(fraction));
@@ -167,12 +175,20 @@ class _TextViewState extends ConsumerState<TextView> {
   }
 
   void _restoreIfNeeded(double fraction) {
-    if (fraction <= 0 || _pendingRestore == fraction) return;
+    if (fraction <= 0) return;
     _pendingRestore = fraction;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
       final max = _scroll.position.maxScrollExtent;
-      if (max > 0) _scroll.jumpTo(max * fraction);
+      if (max > 0) {
+        _scroll.jumpTo(max * fraction);
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_scroll.hasClients) return;
+          final retryMax = _scroll.position.maxScrollExtent;
+          if (retryMax > 0) _scroll.jumpTo(retryMax * fraction);
+        });
+      }
     });
   }
 

@@ -22,6 +22,7 @@ abstract final class SettingsKeys {
   static const preferences = 'preferences';
 
   static const lastVolume = 'playback.lastVolume';
+  static const lastOpenPath = 'playback.lastOpenPath';
   static const keymapOverrides = 'keymap.overrides';
   static const miniLongSide = 'mini.longSide';
   static const miniX = 'mini.x';
@@ -87,6 +88,10 @@ abstract interface class SettingsStore {
   /// Dossier des enregistrements audio ; `null` = dossier par défaut du système.
   String? get recordingFolder;
   Future<void> setRecordingFolder(String? path);
+
+  /// Chemin du dernier média ou document ouvert, pour la reprise de session.
+  String? get lastOpenPath;
+  Future<void> setLastOpenPath(String? path);
 }
 
 
@@ -252,6 +257,14 @@ class HiveSettingsStore implements SettingsStore {
   Future<void> setRecordingFolder(String? path) => path == null
       ? _box.delete(SettingsKeys.recordingFolder)
       : _box.put(SettingsKeys.recordingFolder, path);
+
+  @override
+  String? get lastOpenPath => _box.get(SettingsKeys.lastOpenPath) as String?;
+
+  @override
+  Future<void> setLastOpenPath(String? path) => path == null
+      ? _box.delete(SettingsKeys.lastOpenPath)
+      : _box.put(SettingsKeys.lastOpenPath, path);
 }
 
 
@@ -373,5 +386,13 @@ class MemorySettingsStore implements SettingsStore {
 
   @override
   Future<void> setRecordingFolder(String? path) async => _recordingFolder = path;
+
+  String? _lastOpenPath;
+
+  @override
+  String? get lastOpenPath => _lastOpenPath;
+
+  @override
+  Future<void> setLastOpenPath(String? path) async => _lastOpenPath = path;
 }
 

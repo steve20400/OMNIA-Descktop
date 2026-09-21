@@ -50,6 +50,7 @@ class PdfController implements MediaController {
 
   PdfSession? _session;
   PlaybackStateSink? _sink;
+  int? _targetPage;
 
   PdfSession? get session => _session;
   Stream<PdfSession?> get sessions => _sessions.stream;
@@ -65,6 +66,7 @@ class PdfController implements MediaController {
   @override
   Future<void> open(MediaFile file, PlaybackStateSink sink) async {
     _sink = sink;
+    _targetPage = null;
     sink.update(
       (st) => st.copyWith(
         file: file,
@@ -140,6 +142,15 @@ class PdfController implements MediaController {
     final sink = _sink;
     if (sink == null || _session == null || !viewer.isReady) return;
     final page = viewer.pageNumber;
+    if (_targetPage != null) {
+      if (page == _targetPage) {
+        _targetPage = null;
+      } else {
+        // En transition vers la page cible : ne pas écraser avec une notification
+        // intermédiaire comme l'initialisation de la vue.
+        return;
+      }
+    }
     final cover = viewer.coverScale;
     final zoom = cover > 0 ? viewer.currentZoom / cover : sink.state.zoom;
     final changedPage = page != null && page != sink.state.currentPage;
@@ -197,6 +208,7 @@ class PdfController implements MediaController {
     final total = sink.state.totalPages;
     if (total <= 0) return;
     final target = page.clamp(1, total);
+    _targetPage = target;
     if (viewer.isReady) {
       await viewer.goToPage(pageNumber: target, anchor: PdfPageAnchor.top);
     }
@@ -233,6 +245,7 @@ class PdfController implements MediaController {
   }
 
   Future<void> _closeSession() async {
+    _targetPage = null;
     final current = _session;
     if (current == null) return;
     _publish(null);
