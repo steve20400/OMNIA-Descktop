@@ -213,7 +213,6 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
             params: PdfViewerParams(
               backgroundColor: widget.paper,
               margin: isMini ? 2.0 : OmniaMetrics.space3,
-              calculateInitialZoom: (controller, viewSize) => controller.coverScale,
               // Les raccourcis sont ceux d'OMNIA, pas ceux de pdfrx.
               enableKeyboardNavigation: false,
               pageDropShadow: BoxShadow(
