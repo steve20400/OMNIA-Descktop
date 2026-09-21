@@ -223,10 +223,10 @@ class PlaybackService implements PlaybackStateSink {
         after.isDocument &&
         after.file != null &&
         before.file?.path == after.file!.path &&
-        before.status == PlaybackStatus.playing &&
         after.status == PlaybackStatus.playing &&
         _pendingResumePath == null &&
-        (before.currentPage != after.currentPage ||
+        (before.status != PlaybackStatus.playing ||
+            before.currentPage != after.currentPage ||
             before.scrollFraction != after.scrollFraction)) {
       unawaited(
         history?.saveDocumentPosition(
