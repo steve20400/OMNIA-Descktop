@@ -915,17 +915,9 @@ class PlaybackService implements PlaybackStateSink {
     final store = history;
     if (file == null || store == null || !preferences.rememberPlaybackState) return;
     if (_state.isDocument) {
-      int? pageToSave = _state.currentPage > 0 ? _state.currentPage : null;
-      final active = _active;
-      if (active is PdfController) {
-        final viewerPage = active.viewer.isReady ? active.viewer.pageNumber : null;
-        if (viewerPage != null && viewerPage > 0) {
-          pageToSave = viewerPage;
-        }
-      }
       await store.saveDocumentPosition(
         file.path,
-        page: pageToSave,
+        page: _state.currentPage > 0 ? _state.currentPage : null,
         pageCount: _state.totalPages > 0 ? _state.totalPages : null,
         scrollFraction: _state.scrollFraction,
       );
