@@ -103,9 +103,6 @@ KeyEventResult handleShortcut(
   final isPageNavAction = action == ShortcutAction.nextPage ||
       action == ShortcutAction.previousPage;
 
-  // ignore: avoid_print
-  print('DEBUG: isDoc=${state.isDocument}, isPageKey=$isPageKey, isFileNav=$isFileNavAction, isPageNav=$isPageNavAction, docFocused=${ref.read(documentUiProvider).documentFocused}, action=$action');
-
   if (state.isDocument && (isPageKey || isFileNavAction || isPageNavAction)) {
     final isForward = event.logicalKey == LogicalKeyboardKey.pageDown ||
         action == ShortcutAction.nextFile ||
@@ -140,44 +137,46 @@ KeyEventResult handleShortcut(
     }
   }
 
-  if (contextualCommand == null && state.mediaType == MediaType.pdf) {
-    if (state.documentLayout == DocumentLayout.continuous) {
+  if (contextualCommand == null) {
+    if (state.mediaType == MediaType.pdf) {
+      if (state.documentLayout == DocumentLayout.continuous) {
+        contextualCommand = switch (action) {
+          ShortcutAction.volumeUp => const ScrollDocument(-175.0),
+          ShortcutAction.volumeDown => const ScrollDocument(175.0),
+          ShortcutAction.previousPage || ShortcutAction.seekBackward => const PreviousPage(),
+          ShortcutAction.nextPage || ShortcutAction.seekForward => const NextPage(),
+          _ => null,
+        };
+      } else {
+        contextualCommand = switch (action) {
+          ShortcutAction.volumeUp ||
+          ShortcutAction.previousPage ||
+          ShortcutAction.seekBackward =>
+            const PreviousPage(),
+          ShortcutAction.volumeDown ||
+          ShortcutAction.nextPage ||
+          ShortcutAction.seekForward =>
+            const NextPage(),
+          _ => null,
+        };
+      }
+    } else if (state.isDocument) {
       contextualCommand = switch (action) {
-        ShortcutAction.volumeUp => const ScrollDocument(-175.0),
-        ShortcutAction.volumeDown => const ScrollDocument(175.0),
-        ShortcutAction.previousPage || ShortcutAction.seekBackward => const PreviousPage(),
-        ShortcutAction.nextPage || ShortcutAction.seekForward => const NextPage(),
+        ShortcutAction.volumeUp => ScrollTo((state.scrollFraction - 0.05).clamp(0.0, 1.0)),
+        ShortcutAction.volumeDown => ScrollTo((state.scrollFraction + 0.05).clamp(0.0, 1.0)),
+        ShortcutAction.previousPage => ScrollTo((state.scrollFraction - 0.2).clamp(0.0, 1.0)),
+        ShortcutAction.nextPage => ScrollTo((state.scrollFraction + 0.2).clamp(0.0, 1.0)),
         _ => null,
       };
-    } else {
+    } else if (state.mediaType == MediaType.image) {
       contextualCommand = switch (action) {
-        ShortcutAction.volumeUp ||
-        ShortcutAction.previousPage ||
-        ShortcutAction.seekBackward =>
-          const PreviousPage(),
-        ShortcutAction.volumeDown ||
-        ShortcutAction.nextPage ||
-        ShortcutAction.seekForward =>
-          const NextPage(),
+        ShortcutAction.volumeUp => const ZoomRelative(1.15),
+        ShortcutAction.volumeDown => const ZoomRelative(1 / 1.15),
+        ShortcutAction.seekBackward || ShortcutAction.previousPage => const PreviousFile(),
+        ShortcutAction.seekForward || ShortcutAction.nextPage => const NextFile(),
         _ => null,
       };
     }
-  } else if (state.isDocument) {
-    contextualCommand = switch (action) {
-      ShortcutAction.volumeUp => ScrollTo((state.scrollFraction - 0.05).clamp(0.0, 1.0)),
-      ShortcutAction.volumeDown => ScrollTo((state.scrollFraction + 0.05).clamp(0.0, 1.0)),
-      ShortcutAction.previousPage => ScrollTo((state.scrollFraction - 0.2).clamp(0.0, 1.0)),
-      ShortcutAction.nextPage => ScrollTo((state.scrollFraction + 0.2).clamp(0.0, 1.0)),
-      _ => null,
-    };
-  } else if (state.mediaType == MediaType.image) {
-    contextualCommand = switch (action) {
-      ShortcutAction.volumeUp => const ZoomRelative(1.15),
-      ShortcutAction.volumeDown => const ZoomRelative(1 / 1.15),
-      ShortcutAction.seekBackward || ShortcutAction.previousPage => const PreviousFile(),
-      ShortcutAction.seekForward || ShortcutAction.nextPage => const NextFile(),
-      _ => null,
-    };
   }
 
   if (contextualCommand != null) {
