@@ -897,6 +897,7 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
 
   Future<void> _chooseScreenshotFolder() async {
     final dir = await FilePicker.getDirectoryPath(
+      dialogTitle: 'OMNIA',
       windowsOptions: const WindowsOptions(lockParentWindow: true),
       linuxOptions: const LinuxOptions(lockParentWindow: true),
     );
@@ -915,6 +916,7 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
 
   Future<void> _chooseRecordingFolder() async {
     final dir = await FilePicker.getDirectoryPath(
+      dialogTitle: 'OMNIA',
       windowsOptions: const WindowsOptions(lockParentWindow: true),
       linuxOptions: const LinuxOptions(lockParentWindow: true),
     );

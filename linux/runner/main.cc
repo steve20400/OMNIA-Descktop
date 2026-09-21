@@ -9,6 +9,11 @@ int main(int argc, char** argv) {
     g_setenv("GDK_BACKEND", "x11", FALSE);
   }
 
+  // Définit le nom d'application pour GLib, GTK et les portails XDG (dialogues
+  // de sélection de fichiers, notifications) afin d'afficher « OMNIA ».
+  g_set_prgname("omnia");
+  g_set_application_name("OMNIA");
+
   g_autoptr(MyApplication) app = my_application_new();
   return g_application_run(G_APPLICATION(app), argc, argv);
 }

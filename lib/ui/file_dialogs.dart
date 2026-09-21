@@ -29,6 +29,7 @@ List<String> mediaPickerExtensions() {
 Future<void> pickAndOpenFile(WidgetRef ref) async {
   final bus = ref.read(commandBusProvider);
   final file = await FilePicker.pickFile(
+    dialogTitle: 'OMNIA',
     type: FileType.custom,
     allowedExtensions: mediaPickerExtensions(),
     windowsOptions: const WindowsOptions(lockParentWindow: true),
@@ -41,6 +42,7 @@ Future<void> pickAndOpenFile(WidgetRef ref) async {
 Future<void> pickAndOpenFolder(WidgetRef ref) async {
   final bus = ref.read(commandBusProvider);
   final dir = await FilePicker.getDirectoryPath(
+    dialogTitle: 'OMNIA',
     windowsOptions: const WindowsOptions(lockParentWindow: true),
     linuxOptions: const LinuxOptions(lockParentWindow: true),
   );

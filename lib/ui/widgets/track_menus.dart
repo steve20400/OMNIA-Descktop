@@ -151,6 +151,7 @@ List<Widget> speedMenuItems(BuildContext context, WidgetRef ref, double current)
 Future<void> pickSubtitleFile(WidgetRef ref) async {
   final bus = ref.read(commandBusProvider);
   final file = await FilePicker.pickFile(
+    dialogTitle: 'OMNIA',
     type: FileType.custom,
     allowedExtensions: const ['srt', 'ass', 'ssa', 'vtt', 'sub', 'SRT', 'ASS', 'SSA', 'VTT', 'SUB'],
     windowsOptions: const WindowsOptions(lockParentWindow: true),
