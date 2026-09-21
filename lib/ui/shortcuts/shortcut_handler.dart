@@ -120,11 +120,13 @@ KeyEventResult handleShortcut(
     } else {
       // Document non cliqué ou clic sur la barre latérale : fichier suivant/précédent
       final playlist = ref.read(playlistServiceProvider);
-      final target = isForward ? playlist.nextPath() : playlist.previousPath();
+      final target = isForward
+          ? playlist.nextNonLoopingPath()
+          : playlist.previousNonLoopingPath();
       if (target != null) {
         contextualCommand = isForward ? const NextFile() : const PreviousFile();
       } else {
-        // Repli : si aucun autre fichier n'est disponible, faire défiler le document
+        // Repli : si aucun autre fichier n'est disponible dans cette direction, faire défiler le document
         if (state.mediaType == MediaType.pdf) {
           contextualCommand = isForward ? const NextPage() : const PreviousPage();
         } else {

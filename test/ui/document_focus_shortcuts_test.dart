@@ -78,6 +78,7 @@ void main() {
           child: Consumer(
             builder: (context, ref, _) {
               capturedRef = ref;
+              ref.watch(documentUiProvider);
               return const SizedBox();
             },
           ),
@@ -132,6 +133,7 @@ void main() {
           child: Consumer(
             builder: (context, ref, _) {
               capturedRef = ref;
+              ref.watch(documentUiProvider);
               return const SizedBox();
             },
           ),
@@ -140,6 +142,7 @@ void main() {
 
       // L'utilisateur clique sur le document
       container.read(documentUiProvider.notifier).setDocumentFocused(true);
+      await tester.pump();
       expect(container.read(documentUiProvider).documentFocused, isTrue);
 
       final event = const KeyDownEvent(
@@ -165,7 +168,7 @@ void main() {
         ],
       });
 
-      // Se positionner sur le dernier fichier de la playlist
+      // Se positionner sur le dernier fichier de la playlist (doc2.pdf)
       playlist.setCurrent('/folder/doc2.pdf');
 
       const state = PlaybackState(
@@ -191,6 +194,7 @@ void main() {
           child: Consumer(
             builder: (context, ref, _) {
               capturedRef = ref;
+              ref.watch(documentUiProvider);
               return const SizedBox();
             },
           ),
@@ -208,7 +212,7 @@ void main() {
       final result = handleShortcut(event, capturedRef);
       await tester.pumpAndSettle();
       expect(result, KeyEventResult.handled);
-      // Comme nextPath() est null, repli sur le défilement du document
+      // Comme nextNonLoopingPath() est null sur le dernier fichier, repli sur le document
       expect(dispatched, contains(const NextPage()));
     });
   });
