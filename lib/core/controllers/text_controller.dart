@@ -96,6 +96,7 @@ class TextController implements MediaController {
   @override
   Future<void> open(MediaFile file, PlaybackStateSink sink) async {
     _sink = sink;
+    final resumeScroll = sink.state.scrollFraction > 0 ? sink.state.scrollFraction : 0.0;
     sink.update(
       (st) => st.copyWith(
         file: file,
@@ -105,7 +106,7 @@ class TextController implements MediaController {
         hasVideo: false,
         currentPage: 0,
         totalPages: 0,
-        scrollFraction: 0,
+        scrollFraction: resumeScroll,
         zoom: _clampScale(_preferences().textScale),
         clearError: true,
       ),
@@ -143,7 +144,7 @@ class TextController implements MediaController {
           ),
         );
       }
-      sink.update((st) => st.copyWith(status: PlaybackStatus.playing));
+      sink.update((st) => st.copyWith(status: PlaybackStatus.playing, scrollFraction: resumeScroll));
     } on FileSystemException catch (e) {
 
       _publish(null);

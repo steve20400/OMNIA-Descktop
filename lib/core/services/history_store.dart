@@ -212,8 +212,8 @@ class HiveHistoryStore implements HistoryStore {
         scrollFraction: scrollFraction?.clamp(0.0, 1.0),
         lastOpened: now ?? DateTime.now(),
         // Lu jusqu'à la dernière page : on le note, comme pour un média.
-        completed: page != null && pageCount != null && pageCount > 0 && page >= pageCount
-            ? true
+        completed: (page != null && pageCount != null && pageCount > 0)
+            ? (page >= pageCount)
             : existing.completed,
       ),
     );
@@ -340,8 +340,8 @@ class MemoryHistoryStore implements HistoryStore {
       pageCount: pageCount,
       scrollFraction: scrollFraction?.clamp(0.0, 1.0),
       lastOpened: stamp,
-      completed: page != null && pageCount != null && pageCount > 0 && page >= pageCount
-          ? true
+      completed: (page != null && pageCount != null && pageCount > 0)
+          ? (page >= pageCount)
           : existing.completed,
     );
   }
@@ -488,8 +488,8 @@ class FileHistoryStore implements HistoryStore {
       pageCount: pageCount,
       scrollFraction: scrollFraction?.clamp(0.0, 1.0),
       lastOpened: stamp,
-      completed: page != null && pageCount != null && pageCount > 0 && page >= pageCount
-          ? true
+      completed: (page != null && pageCount != null && pageCount > 0)
+          ? (page >= pageCount)
           : existing.completed,
     );
     await _flush();

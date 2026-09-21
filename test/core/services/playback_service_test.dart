@@ -174,6 +174,7 @@ class FakeDocController implements MediaController {
   @override
   Future<void> open(MediaFile file, PlaybackStateSink sink) async {
     this.sink = sink;
+    final initialPage = sink.state.currentPage > 0 ? sink.state.currentPage : 1;
     sink.update(
       (s) => s.copyWith(
         file: file,
@@ -181,7 +182,7 @@ class FakeDocController implements MediaController {
         position: Duration.zero,
         duration: Duration.zero,
         hasVideo: false,
-        currentPage: file.type == MediaType.pdf ? 1 : 0,
+        currentPage: file.type == MediaType.pdf ? initialPage : 0,
         totalPages: file.type == MediaType.pdf ? 40 : 0,
         scrollFraction: 0,
         clearError: true,
@@ -863,6 +864,26 @@ void main() {
       await docService.stopImmediately();
       final entry = history.entryFor('/docs/manuel.pdf')!;
       expect(entry.page, 15);
+    });
+
+    test('passer d’un document à un autre puis revenir conserve la page exacte', () async {
+      await docService.openPath('/docs/manuel.pdf');
+      await doc.handle(const GoToPage(18));
+      await settle();
+
+      // Basculer sur un second document sans fermer l'application
+      await docService.openPath('/docs/autre.pdf');
+      await doc.handle(const GoToPage(7));
+      await settle();
+
+      // Vérifier que le premier document a bien sauvegardé sa page
+      expect(history.entryFor('/docs/manuel.pdf')!.page, 18);
+      expect(history.entryFor('/docs/autre.pdf')!.page, 7);
+
+      // Revenir sur le premier document
+      await docService.openPath('/docs/manuel.pdf');
+      await settle();
+      expect(docService.state.currentPage, 18);
     });
 
     test('lastOpenPath est mis à jour à chaque ouverture de fichier', () async {

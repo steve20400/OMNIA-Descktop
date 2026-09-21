@@ -223,7 +223,9 @@ class PlaybackService implements PlaybackStateSink {
         after.isDocument &&
         after.file != null &&
         before.file?.path == after.file!.path &&
+        before.status == PlaybackStatus.playing &&
         after.status == PlaybackStatus.playing &&
+        _pendingResumePath == null &&
         (before.currentPage != after.currentPage ||
             before.scrollFraction != after.scrollFraction)) {
       unawaited(
@@ -822,6 +824,15 @@ class PlaybackService implements PlaybackStateSink {
       _pendingResumePage = offer.page;
       _pendingResumeScroll = offer.scroll;
       _pendingResumePath = path;
+      update((st) => st.copyWith(
+        currentPage: offer.page ?? 1,
+        scrollFraction: offer.scroll ?? 0.0,
+      ));
+    } else {
+      update((st) => st.copyWith(
+        currentPage: 1,
+        scrollFraction: 0.0,
+      ));
     }
     if (_state.resumeOffer != null) {
       update((st) => st.copyWith(clearResumeOffer: true));
@@ -904,9 +915,17 @@ class PlaybackService implements PlaybackStateSink {
     final store = history;
     if (file == null || store == null || !preferences.rememberPlaybackState) return;
     if (_state.isDocument) {
+      int? pageToSave = _state.currentPage > 0 ? _state.currentPage : null;
+      final active = _active;
+      if (active is PdfController) {
+        final viewerPage = active.viewer.isReady ? active.viewer.pageNumber : null;
+        if (viewerPage != null && viewerPage > 0) {
+          pageToSave = viewerPage;
+        }
+      }
       await store.saveDocumentPosition(
         file.path,
-        page: _state.currentPage > 0 ? _state.currentPage : null,
+        page: pageToSave,
         pageCount: _state.totalPages > 0 ? _state.totalPages : null,
         scrollFraction: _state.scrollFraction,
       );

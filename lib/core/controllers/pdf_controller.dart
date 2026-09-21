@@ -67,6 +67,7 @@ class PdfController implements MediaController {
   Future<void> open(MediaFile file, PlaybackStateSink sink) async {
     _sink = sink;
     _targetPage = null;
+    final pendingPage = sink.state.currentPage > 0 ? sink.state.currentPage : 1;
     sink.update(
       (st) => st.copyWith(
         file: file,
@@ -74,7 +75,7 @@ class PdfController implements MediaController {
         position: Duration.zero,
         duration: Duration.zero,
         hasVideo: false,
-        currentPage: 0,
+        currentPage: pendingPage,
         totalPages: 0,
         rotation: 0,
         zoom: 1.0,
@@ -111,10 +112,13 @@ class PdfController implements MediaController {
       await _closeSession();
       _publish(PdfSession(path: file.path, document: document, outline: outline, viewer: viewer));
 
+      final targetPage = pendingPage.clamp(1, document.pages.length);
+      _targetPage = targetPage > 1 ? targetPage : null;
+
       sink.update(
         (st) => st.copyWith(
           status: PlaybackStatus.playing,
-          currentPage: 1,
+          currentPage: targetPage,
           totalPages: document.pages.length,
         ),
       );
