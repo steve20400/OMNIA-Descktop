@@ -93,7 +93,7 @@ void main() {
       );
 
       final result = handleShortcut(event, capturedRef);
-      await Future<void>.delayed(Duration.zero);
+      await tester.pumpAndSettle();
       expect(result, KeyEventResult.handled);
       expect(dispatched, contains(const NextFile()));
     });
@@ -149,7 +149,7 @@ void main() {
       );
 
       final result = handleShortcut(event, capturedRef);
-      await Future<void>.delayed(Duration.zero);
+      await tester.pumpAndSettle();
       expect(result, KeyEventResult.handled);
       expect(dispatched, contains(const NextPage()));
     });
@@ -206,7 +206,7 @@ void main() {
       );
 
       final result = handleShortcut(event, capturedRef);
-      await Future<void>.delayed(Duration.zero);
+      await tester.pumpAndSettle();
       expect(result, KeyEventResult.handled);
       // Comme nextPath() est null, repli sur le défilement du document
       expect(dispatched, contains(const NextPage()));
