@@ -103,6 +103,9 @@ KeyEventResult handleShortcut(
   final isPageNavAction = action == ShortcutAction.nextPage ||
       action == ShortcutAction.previousPage;
 
+  // ignore: avoid_print
+  print('DEBUG: isDoc=${state.isDocument}, isPageKey=$isPageKey, isFileNav=$isFileNavAction, isPageNav=$isPageNavAction, docFocused=${ref.read(documentUiProvider).documentFocused}, action=$action');
+
   if (state.isDocument && (isPageKey || isFileNavAction || isPageNavAction)) {
     final isForward = event.logicalKey == LogicalKeyboardKey.pageDown ||
         action == ShortcutAction.nextFile ||
