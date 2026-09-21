@@ -95,7 +95,47 @@ KeyEventResult handleShortcut(
   // Sur un document ou une photo, monter / descendre et gauche / droite
   // doivent piloter la navigation du document et JAMAIS le volume !
   PlayerCommand? contextualCommand;
-  if (state.mediaType == MediaType.pdf) {
+
+  final isPageKey = event.logicalKey == LogicalKeyboardKey.pageUp ||
+      event.logicalKey == LogicalKeyboardKey.pageDown;
+  final isFileNavAction = action == ShortcutAction.nextFile ||
+      action == ShortcutAction.previousFile;
+  final isPageNavAction = action == ShortcutAction.nextPage ||
+      action == ShortcutAction.previousPage;
+
+  if (state.isDocument && (isPageKey || isFileNavAction || isPageNavAction)) {
+    final isForward = event.logicalKey == LogicalKeyboardKey.pageDown ||
+        action == ShortcutAction.nextFile ||
+        action == ShortcutAction.nextPage;
+    final docFocused = ref.read(documentUiProvider).documentFocused;
+
+    if (docFocused) {
+      // Document cliqué : défilement ou changement de page dans le document
+      if (state.mediaType == MediaType.pdf) {
+        contextualCommand = isForward ? const NextPage() : const PreviousPage();
+      } else {
+        final delta = isForward ? 0.15 : -0.15;
+        contextualCommand = ScrollTo((state.scrollFraction + delta).clamp(0.0, 1.0));
+      }
+    } else {
+      // Document non cliqué ou clic sur la barre latérale : fichier suivant/précédent
+      final playlist = ref.read(playlistServiceProvider);
+      final target = isForward ? playlist.nextPath() : playlist.previousPath();
+      if (target != null) {
+        contextualCommand = isForward ? const NextFile() : const PreviousFile();
+      } else {
+        // Repli : si aucun autre fichier n'est disponible, faire défiler le document
+        if (state.mediaType == MediaType.pdf) {
+          contextualCommand = isForward ? const NextPage() : const PreviousPage();
+        } else {
+          final delta = isForward ? 0.15 : -0.15;
+          contextualCommand = ScrollTo((state.scrollFraction + delta).clamp(0.0, 1.0));
+        }
+      }
+    }
+  }
+
+  if (contextualCommand == null && state.mediaType == MediaType.pdf) {
     if (state.documentLayout == DocumentLayout.continuous) {
       contextualCommand = switch (action) {
         ShortcutAction.volumeUp => const ScrollDocument(-175.0),

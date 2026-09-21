@@ -68,6 +68,13 @@ class Stage extends ConsumerWidget {
       content = AudioStage(key: const ValueKey('audio'), file: state.file!);
     }
 
+    if (state.isDocument) {
+      content = Listener(
+        onPointerDown: (_) => ref.read(documentUiProvider.notifier).setDocumentFocused(true),
+        behavior: HitTestBehavior.translucent,
+        child: content,
+      );
+    }
 
     return ColoredBox(
       color: colors.velvet,

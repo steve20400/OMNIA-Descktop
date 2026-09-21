@@ -136,13 +136,32 @@ class _ContinuousView extends ConsumerStatefulWidget {
 
 class _ContinuousViewState extends ConsumerState<_ContinuousView> {
   double? _lastWidth;
+  double _accumulatedScroll = 0;
+  Timer? _scrollDebounce;
 
-  void _fitWidth() {
+  @override
+  void dispose() {
+    _scrollDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _fitToWidth(double availableWidth) {
     final viewer = widget.session.viewer;
     if (!viewer.isReady) return;
-    final cover = viewer.coverScale;
-    if (cover > 0) {
-      viewer.setZoom(viewer.visibleRect.center, cover);
+    final pages = widget.session.document.pages;
+    if (pages.isEmpty) return;
+    final currentPage = ref.read(playbackStateProvider).currentPage;
+    final pageIndex = (currentPage > 0 ? currentPage - 1 : 0).clamp(0, pages.length - 1);
+    final page = pages[pageIndex];
+    final isMini = ref.read(playbackStateProvider).miniPlayer;
+    final margin = isMini ? 4.0 : (OmniaMetrics.space3 * 2);
+    final effectiveWidth = availableWidth - margin;
+    if (page.width > 0 && effectiveWidth > 0) {
+      final targetScale = effectiveWidth / page.width;
+      viewer.setZoom(viewer.visibleRect.center, targetScale);
+    } else {
+      final cover = viewer.coverScale;
+      if (cover > 0) viewer.setZoom(viewer.visibleRect.center, cover);
     }
   }
 
@@ -154,10 +173,21 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
     GestureBinding.instance.pointerSignalResolver.register(event, (_) {
       final viewer = widget.session.viewer;
       if (!viewer.isReady) return;
-      final center = viewer.visibleRect.center;
-      // Étalonnage du défilement continu : ~5 crans de molette par page (environ 175 px par cran)
-      final step = dy > 0 ? 175.0 : -175.0;
-      viewer.setZoom(Offset(center.dx, center.dy + step), viewer.currentZoom);
+      _accumulatedScroll += (dy > 0 ? 150.0 : -150.0);
+      _scrollDebounce ??= Timer(const Duration(milliseconds: 16), () {
+        if (!mounted || !widget.session.viewer.isReady) {
+          _accumulatedScroll = 0;
+          _scrollDebounce = null;
+          return;
+        }
+        final delta = _accumulatedScroll;
+        _accumulatedScroll = 0;
+        _scrollDebounce = null;
+        final center = widget.session.viewer.visibleRect.center;
+        final targetY = center.dy + delta;
+        final safeY = targetY < 0 ? 0.0 : targetY;
+        widget.session.viewer.setZoom(Offset(center.dx, safeY), widget.session.viewer.currentZoom);
+      });
     });
   }
 
@@ -165,6 +195,8 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isMini = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
+    final currentPage = ref.watch(playbackStateProvider.select((s) => s.currentPage));
+    final initialPage = currentPage > 0 ? currentPage.clamp(1, widget.session.pageCount) : 1;
 
     return Listener(
       onPointerSignal: _onPointerSignal,
@@ -174,7 +206,7 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
             final targetPage = ref.read(playbackStateProvider).currentPage;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
-                _fitWidth();
+                _fitToWidth(constraints.maxWidth);
                 if (targetPage > 1 && widget.session.viewer.isReady) {
                   widget.session.viewer.goToPage(pageNumber: targetPage, anchor: PdfPageAnchor.top);
                 }
@@ -188,6 +220,7 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
             // libérer quand elle se démonte (passage en mode page par page).
             PdfDocumentRefDirect(widget.session.document, autoDispose: false),
             controller: widget.session.viewer,
+            initialPageNumber: initialPage,
             params: PdfViewerParams(
               backgroundColor: widget.paper,
               margin: isMini ? 2.0 : OmniaMetrics.space3,
@@ -203,12 +236,11 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
               textSelectionParams: const PdfTextSelectionParams(enabled: true),
               onViewerReady: (_, controller) {
                 widget.onReady(controller);
-                final targetPage = ref.read(playbackStateProvider).currentPage;
-                if (targetPage > 1) {
-                  unawaited(controller.goToPage(pageNumber: targetPage, anchor: PdfPageAnchor.top));
+                if (initialPage > 1) {
+                  unawaited(controller.goToPage(pageNumber: initialPage, anchor: PdfPageAnchor.top));
                 }
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _fitWidth();
+                  if (mounted) _fitToWidth(constraints.maxWidth);
                 });
               },
               onDocumentChanged: (document) {

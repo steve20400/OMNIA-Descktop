@@ -42,10 +42,20 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
 - **Menu overflow compact** : Sur toutes les barres d'outils, lorsque la fenêtre est rétrécie ou en mini-lecteur compact, les commandes secondaires se regroupent automatiquement dans le menu 3 points (`Icons.more_horiz_rounded`).
 - **Restauration automatique** : Dès que la fenêtre est agrandie, toutes les icônes reprennent naturellement leur place en ligne sans surcharge.
 
-### 1.6 Préservation de Position & Continuité de Lecture Multi-Médias
+### 1.6 Préservation de Position, Adaptation Bidirectionnelle & Navigation Intelligente
 - **Maintien strict de la page et du défilement lors des bascules (Normal ⬌ Mini-lecteur)** :
-  - Lors de la transition entre la fenêtre normale et le mini-lecteur compact (ou lors du redimensionnement dynamique de la fenêtre), maintien absolu de la page active et de la position de lecture (`scrollFraction`, `currentPage`). Le document ne réinitialise jamais à la page 1 ou au début du texte.
-  - Clés d'état partagées et recalcul fluide de la largeur utile (`_fitWidth`) avec recentrage automatique de la vue sur la page en cours.
+  - Lors de la transition entre la fenêtre normale et le mini-lecteur compact (et vice versa), maintien absolu de la page active et de la position de lecture (`scrollFraction`, `currentPage`). Le document ne réinitialise jamais à la page 1 ou au début du texte.
+  - Initialisation directe de `PdfViewer` via `initialPageNumber` et garde anti-artefact bloquant les réinitialisations intempestives du moteur de rendu.
+  - Défilement fluide de `TextView` synchronisé par métriques de défilement (`ScrollMetricsNotification`).
+- **Adaptation bidirectionnelle continue de la largeur du document (Réduction ET Agrandissement)** :
+  - Ajustement automatique dynamique de la largeur du document par rapport à la taille de la fenêtre, aussi bien lorsque la fenêtre est rétrécie que lorsqu'elle est agrandie (`_fitToWidth` adaptatif pour PDF et contraintes fluides sans plafond rigide pour les fichiers texte/code).
+- **Routage intelligent des raccourcis PageUp / PageDown** :
+  - Si l'utilisateur clique sur la page du document : `PageUp` et `PageDown` font défiler le document ou tournent les pages.
+  - Si l'utilisateur n'a pas encore cliqué sur le document (ouverture directe) ou clique sur la barre latérale/tiroir de playlist : `PageUp` et `PageDown` sélectionnent le fichier précédent/suivant de la liste de lecture.
+  - Repli intelligent : S'il n'y a pas d'autre fichier dans la liste de lecture, les touches `PageUp` et `PageDown` se replient automatiquement sur le défilement du document.
+- **Défilement continu sécurisé et anti-crash (Protection contre les pages blanches)** :
+  - Accumulateur de défilement cadencé à la trame (60 fps) évitant la saturation de requêtes de tuiles natives de PDFium lors de défilements ultra-rapides à la molette.
+  - Verrouillage des coordonnées de défilement pour interdire les valeurs négatives ou hors-limites responsables d'erreurs graphiques ou d'écrans blancs.
 - **Persistance haute-fréquence et reprise de session (Anti-coupure / Crash / Redémarrage)** :
   - Fréquence de sauvegarde de la progression audio/vidéo toutes les 5 secondes (au lieu d'un intervalle d'une minute) éliminant tout décalage en cas de coupure de courant ou de fermeture brutale.
   - Sauvegarde synchrone et systématique de l'état de lecture des documents texte, code et PDF lors de la fermeture de la fenêtre ou du changement de fichier.

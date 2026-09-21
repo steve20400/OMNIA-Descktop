@@ -150,6 +150,11 @@ class PdfController implements MediaController {
         // intermédiaire comme l'initialisation de la vue.
         return;
       }
+    } else if (page == 1 && sink.state.currentPage > 1) {
+      // Artéfact d'initialisation de pdfrx (montage d'une nouvelle vue lors de la
+      // bascule mini-lecteur ⬌ fenêtre normale) : ne jamais écraser la page courante.
+      unawaited(viewer.goToPage(pageNumber: sink.state.currentPage, anchor: PdfPageAnchor.top));
+      return;
     }
     final cover = viewer.coverScale;
     final zoom = cover > 0 ? viewer.currentZoom / cover : sink.state.zoom;

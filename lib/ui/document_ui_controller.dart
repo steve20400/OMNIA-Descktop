@@ -11,6 +11,7 @@ class DocumentUiState {
     this.isEditing = false,
     this.saveRequest = 0,
     this.hasUnsavedChanges = false,
+    this.documentFocused = false,
     this.draftPath,
     this.draftText,
   });
@@ -31,6 +32,9 @@ class DocumentUiState {
   /// Vrai si le texte a été modifié mais pas encore enregistré sur le disque.
   final bool hasUnsavedChanges;
 
+  /// Vrai si l'utilisateur a cliqué sur la zone du document (pour orienter PgUp/PgDn).
+  final bool documentFocused;
+
   /// Chemin absolu du document en cours de modification.
   final String? draftPath;
 
@@ -43,6 +47,7 @@ class DocumentUiState {
     bool? isEditing,
     int? saveRequest,
     bool? hasUnsavedChanges,
+    bool? documentFocused,
     String? draftPath,
     String? draftText,
   }) =>
@@ -52,6 +57,7 @@ class DocumentUiState {
         isEditing: isEditing ?? this.isEditing,
         saveRequest: saveRequest ?? this.saveRequest,
         hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
+        documentFocused: documentFocused ?? this.documentFocused,
         draftPath: draftPath ?? this.draftPath,
         draftText: draftText ?? this.draftText,
       );
@@ -76,6 +82,12 @@ class DocumentUiController extends Notifier<DocumentUiState> {
   void setUnsavedChanges(bool value) =>
       state = state.copyWith(hasUnsavedChanges: value);
 
+  void setDocumentFocused(bool value) {
+    if (state.documentFocused != value) {
+      state = state.copyWith(documentFocused: value);
+    }
+  }
+
   /// Enregistre les modifications textuelles en mémoire.
   void setDraft({required String path, required String text}) {
     state = state.copyWith(
@@ -93,6 +105,7 @@ class DocumentUiController extends Notifier<DocumentUiState> {
       isEditing: state.isEditing,
       saveRequest: state.saveRequest,
       hasUnsavedChanges: false,
+      documentFocused: false,
       draftPath: null,
       draftText: null,
     );

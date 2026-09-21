@@ -150,7 +150,7 @@ class _TextViewState extends ConsumerState<TextView> {
     // la position de lecture sauvegardée.
     if (fraction == 0.0 && ref.read(playbackStateProvider).scrollFraction > 0.01) return;
     _reportDebounce?.cancel();
-    _reportDebounce = Timer(const Duration(milliseconds: 300), () {
+    _reportDebounce = Timer(const Duration(milliseconds: 100), () {
       if (mounted) ref.dispatch(ScrollTo(fraction));
     });
   }
@@ -268,7 +268,7 @@ class _TextViewState extends ConsumerState<TextView> {
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: miniPlayer ? double.infinity : 900),
+                constraints: const BoxConstraints(maxWidth: double.infinity),
                 child: TextField(
                   controller: _editController,
                   maxLines: null,
@@ -303,7 +303,7 @@ class _TextViewState extends ConsumerState<TextView> {
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: miniPlayer ? double.infinity : 900),
+              constraints: const BoxConstraints(maxWidth: double.infinity),
               child: SelectableText.rich(
                 _highlighted(doc.text, widget.search?.state, mono, reading),
               ),
@@ -313,11 +313,23 @@ class _TextViewState extends ConsumerState<TextView> {
       );
     }
 
-    return AnimatedContainer(
-      duration: OmniaMotion.stage,
-      curve: OmniaMotion.stageCurve,
-      color: reading.paper,
-      child: content,
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (metrics) {
+        final targetFraction = ref.read(playbackStateProvider).scrollFraction;
+        if (targetFraction > 0.01 && metrics.metrics.maxScrollExtent > 0) {
+          final currentFraction = metrics.metrics.pixels / metrics.metrics.maxScrollExtent;
+          if ((currentFraction - targetFraction).abs() > 0.02) {
+            _scroll.jumpTo(metrics.metrics.maxScrollExtent * targetFraction);
+          }
+        }
+        return false;
+      },
+      child: AnimatedContainer(
+        duration: OmniaMotion.stage,
+        curve: OmniaMotion.stageCurve,
+        color: reading.paper,
+        child: content,
+      ),
     );
   }
 

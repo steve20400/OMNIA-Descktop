@@ -427,18 +427,22 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       docWidget = const SizedBox.shrink();
     }
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        StageContextMenu(
-          child: _windowGestures(
-            hasMedia: false,
-            allowWindowDrag: !isEditing,
-            child: docWidget,
+    return Listener(
+      onPointerDown: (_) => ref.read(documentUiProvider.notifier).setDocumentFocused(true),
+      behavior: HitTestBehavior.translucent,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          StageContextMenu(
+            child: _windowGestures(
+              hasMedia: false,
+              allowWindowDrag: !isEditing,
+              child: docWidget,
+            ),
           ),
-        ),
-        _MiniDocumentOverlay(state: state),
-      ],
+          _MiniDocumentOverlay(state: state),
+        ],
+      ),
     );
   }
 
@@ -1537,14 +1541,17 @@ class _MiniBottomPlaylist extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final showFilters = constraints.maxHeight >= 110;
-        return Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: colors.curtain,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        return Listener(
+          onPointerDown: (_) => ref.read(documentUiProvider.notifier).setDocumentFocused(false),
+          behavior: HitTestBehavior.translucent,
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: colors.curtain,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               // En-tête : Titre, info file d'attente (YouTube) et boutons de repli
               InkWell(
                 onTap: onClose,
@@ -1638,9 +1645,10 @@ class _MiniBottomPlaylist extends ConsumerWidget {
               ),
             ],
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
   }
 }
 
