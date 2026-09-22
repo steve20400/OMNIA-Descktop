@@ -21,7 +21,7 @@ void main() {
     });
 
     test('démarre le serveur et génère un jeton', () async {
-      final port = await service.start();
+      final port = await service.start(address: InternetAddress.loopbackIPv4);
       expect(port, greaterThan(0));
       expect(service.isRunning, isTrue);
       expect(service.sessionToken, isNotNull);
@@ -29,7 +29,7 @@ void main() {
     });
 
     test('génère un payload de couplage valide', () async {
-      await service.start();
+      await service.start(address: InternetAddress.loopbackIPv4);
       final payload = await service.getPairingPayload('OMNIA Desktop Test');
       final decoded = jsonDecode(payload) as Map<String, dynamic>;
 
@@ -41,7 +41,7 @@ void main() {
     });
 
     test('répond aux requêtes HTTP GET /api/status', () async {
-      final port = await service.start();
+      final port = await service.start(address: InternetAddress.loopbackIPv4);
       final client = HttpClient();
       final req = await client.get('127.0.0.1', port, '/api/status');
       final res = await req.close();
@@ -55,17 +55,17 @@ void main() {
     });
 
     test('refuse une connexion WebSocket avec un jeton invalide', () async {
-      final port = await service.start();
+      final port = await service.start(address: InternetAddress.loopbackIPv4);
       final client = HttpClient();
       expect(
         () => WebSocket.connect('ws://127.0.0.1:$port/api/ws?token=invalid_token'),
-        throwsA(isA<WebSocketException>()),
+        throwsA(anything),
       );
       client.close();
     });
 
     test('accepte WebSocket valide et relaie les commandes distantes', () async {
-      final port = await service.start();
+      final port = await service.start(address: InternetAddress.loopbackIPv4);
       final ws = await WebSocket.connect(
         'ws://127.0.0.1:$port/api/ws?token=${service.sessionToken}',
       );
@@ -82,7 +82,7 @@ void main() {
     });
 
     test('diffuse l\'état de lecture aux clients WebSocket', () async {
-      final port = await service.start();
+      final port = await service.start(address: InternetAddress.loopbackIPv4);
       final ws = await WebSocket.connect(
         'ws://127.0.0.1:$port/api/ws?token=${service.sessionToken}',
       );

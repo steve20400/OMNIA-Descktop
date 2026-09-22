@@ -58,15 +58,16 @@ class OmniaConnectService {
   String? get sessionToken => _sessionToken;
 
   /// Démarre le serveur local et génère le jeton d'appairage éphémère.
-  Future<int> start() async {
+  Future<int> start({InternetAddress? address}) async {
     if (_server != null) return _server!.port;
 
     _sessionToken = _generateToken();
+    final bindAddress = address ?? InternetAddress.anyIPv4;
     try {
-      _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
+      _server = await HttpServer.bind(bindAddress, port);
     } catch (_) {
       // Si le port 41530 est occupé, on alloue un port dynamique
-      _server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
+      _server = await HttpServer.bind(bindAddress, 0);
     }
 
     _server!.listen(_handleRequest);
