@@ -253,7 +253,7 @@ void main() {
     });
 
     testWidgets('section Connexions sans fil permet de basculer OMNIA Connect et afficher le QR code', (tester) async {
-      final harness = await _pump(tester, section: SettingsSection.connect);
+      await _pump(tester, section: SettingsSection.connect);
 
       expect(find.text('OMNIA Connect local'), findsOneWidget);
       expect(find.text('Mode de liaison'), findsOneWidget);
@@ -272,7 +272,7 @@ void main() {
     });
 
     testWidgets('section Réseau & Mises à jour permet de lancer la vérification et le téléchargement', (tester) async {
-      final harness = await _pump(tester, section: SettingsSection.network);
+      await _pump(tester, section: SettingsSection.network);
 
       expect(find.text('Version de l\'application'), findsOneWidget);
       expect(find.text('Canal de mise à jour'), findsOneWidget);
