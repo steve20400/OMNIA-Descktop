@@ -108,7 +108,10 @@ Future<void> main(List<String> args) async {
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: OmniaApp(onExit: instance.dispose),
+      child: OmniaApp(
+        onExit: instance.dispose,
+        showSplash: cleanArgs.isEmpty,
+      ),
     ),
   );
 }

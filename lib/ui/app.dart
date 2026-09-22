@@ -10,6 +10,7 @@ import '../core/utils/platform_session.dart';
 import '../l10n/app_localizations.dart';
 import 'app_close.dart';
 import 'screens/player_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme/omnia_theme.dart';
 
 /// Clé globale pour accéder au navigateur racine depuis n'importe où
@@ -20,11 +21,14 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 ///
 /// Mémorise aussi la géométrie de fenêtre et met à jour le titre natif.
 class OmniaApp extends ConsumerStatefulWidget {
-  const OmniaApp({super.key, this.onExit});
+  const OmniaApp({super.key, this.onExit, this.showSplash = false});
 
   /// Appelé quand le système demande la fermeture de l'application : libère
   /// ce qui doit l'être (verrou d'instance unique) avant de quitter.
   final Future<void> Function()? onExit;
+
+  /// Active l'animation de chargement initiale (Splash Screen) lors du démarrage à froid.
+  final bool showSplash;
 
   @override
   ConsumerState<OmniaApp> createState() => _OmniaAppState();
@@ -169,7 +173,9 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
         }
         return const Locale('fr');
       },
-      home: const PlayerScreen(),
+      home: widget.showSplash
+          ? const SplashScreen(targetWidget: PlayerScreen())
+          : const PlayerScreen(),
     );
   }
 }
