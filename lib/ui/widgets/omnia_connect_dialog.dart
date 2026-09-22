@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
 import '../../core/providers.dart';
-import '../../core/services/omnia_connect_service.dart';
 import '../theme/omnia_theme.dart';
 import 'omnia_button.dart';
 import 'omnia_qr_code.dart';
@@ -86,7 +85,7 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
       backgroundColor: colors.curtain,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colors.ash, width: 1),
+        side: BorderSide(color: colors.seam, width: 1),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
@@ -117,7 +116,7 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                       children: [
                         Text(
                           'OMNIA Connect',
-                          style: type.primary.copyWith(
+                          style: type.bodyStrong.copyWith(
                             color: colors.screen,
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
@@ -170,10 +169,10 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                       decoration: BoxDecoration(
                         color: connected
                             ? Colors.green.withValues(alpha: 0.15)
-                            : colors.ash.withValues(alpha: 0.3),
+                            : colors.seam.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: connected ? Colors.green : colors.ash,
+                          color: connected ? Colors.green : colors.seam,
                           width: 1,
                         ),
                       ),
