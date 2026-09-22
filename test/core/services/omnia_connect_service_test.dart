@@ -109,5 +109,39 @@ void main() {
 
       await ws.close();
     });
+
+    test('OmniaConnectClient se connecte, envoie des commandes et reçoit l\'état', () async {
+      final port = await service.start(address: InternetAddress.loopbackIPv4);
+      final client = OmniaConnectClient();
+
+      final ok = await client.connect(
+        host: '127.0.0.1',
+        port: port,
+        token: service.sessionToken!,
+        name: 'Client Test',
+      );
+      expect(ok, isTrue);
+      expect(client.connected, isTrue);
+
+      final cmdFuture = service.remoteCommands.first;
+      client.sendCommand(const NextFile());
+      final cmd = await cmdFuture;
+      expect(cmd, isA<NextFile>());
+
+      final stateFuture = client.remoteState.first;
+      service.broadcastState(
+        const PlaybackState(
+          status: PlaybackStatus.paused,
+          position: Duration(seconds: 15),
+          duration: Duration(minutes: 3),
+        ),
+      );
+      final remoteState = await stateFuture;
+      expect(remoteState.status, PlaybackStatus.paused);
+      expect(remoteState.position, const Duration(seconds: 15));
+
+      await client.disconnect();
+      client.dispose();
+    });
   });
 }
