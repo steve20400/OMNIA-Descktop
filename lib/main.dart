@@ -140,6 +140,7 @@ Future<void> _showWindow({
     if (bounds != null && !isWaylandSession) {
       await windowManager.setPosition(bounds.topLeft);
     }
+    await windowManager.setMinimumSize(WindowSizes.mainMinimum);
     if (maximized) await windowManager.maximize();
     if (alwaysOnTop) await windowManager.setAlwaysOnTop(true);
     await windowManager.setPreventClose(true);

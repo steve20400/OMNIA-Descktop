@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/models/app_preferences.dart';
+import '../core/models/window_sizes.dart';
 import '../core/providers.dart';
 import '../core/utils/platform_session.dart';
 import '../l10n/app_localizations.dart';
@@ -44,6 +45,7 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
   void initState() {
     super.initState();
     final window = ref.read(windowServiceProvider);
+    window.setMinimumSize(WindowSizes.mainMinimum);
     _geometrySub = window.geometryChanges.listen((_) {
       _saveDebounce?.cancel();
       _saveDebounce = Timer(const Duration(milliseconds: 400), _saveGeometry);
