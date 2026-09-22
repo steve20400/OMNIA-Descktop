@@ -63,10 +63,16 @@ class PlaybackService implements PlaybackStateSink {
         equalizerGains: prefs.equalizerGains,
         readingDark: prefs.readingDark,
         documentLayout: prefs.pdfLayout,
+        alwaysOnTop: prefs.normalPlayerAlwaysOnTop,
       );
+      if (prefs.normalPlayerAlwaysOnTop) {
+        unawaited(window.setAlwaysOnTop(true));
+      }
     }
+
     _subscription = bus.stream.listen(_onCommand);
     _playlistSubscription = playlist.stream.listen(_onPlaylistChanged);
+    unawaited(history?.pruneExpired(preferences.historyRetentionDays));
   }
 
   /// Préférences courantes (valeurs par défaut sans stockage).
@@ -213,11 +219,14 @@ class PlaybackService implements PlaybackStateSink {
     // Documents : mémoriser page et défilement à chaque changement. Ce sont
     // des événements rares (un tour de page, une fin de défilement), pas un
     // battement continu.
-    if (after.isDocument &&
+    if (preferences.rememberPlaybackState &&
+        after.isDocument &&
         after.file != null &&
         before.file?.path == after.file!.path &&
         after.status == PlaybackStatus.playing &&
-        (before.currentPage != after.currentPage ||
+        _pendingResumePath == null &&
+        (before.status != PlaybackStatus.playing ||
+            before.currentPage != after.currentPage ||
             before.scrollFraction != after.scrollFraction)) {
       unawaited(
         history?.saveDocumentPosition(
@@ -229,13 +238,14 @@ class PlaybackService implements PlaybackStateSink {
       );
     }
 
-    // Sauvegarder la progression au fil de la lecture, une fois par minute
-    // entamée, pour ne pas écrire à chaque battement de position.
-    if (!after.isDocument &&
+    // Sauvegarder la progression au fil de la lecture toutes les 5 secondes
+    // au lieu d'une fois par minute, pour ne rien perdre en cas d'interruption.
+    if (preferences.rememberPlaybackState &&
+        !after.isDocument &&
         before.file?.path == after.file?.path &&
         after.file != null &&
         after.duration > Duration.zero &&
-        before.position.inMinutes != after.position.inMinutes) {
+        (after.position.inSeconds - before.position.inSeconds).abs() >= 5) {
       unawaited(
         history?.savePosition(
           after.file!.path,
@@ -400,13 +410,30 @@ class PlaybackService implements PlaybackStateSink {
     if (_state.mediaType == MediaType.text && _state.zoom != p.textScale) {
       await tryHandle(SetZoom(p.textScale));
     }
+
+    final shouldBeOnTop = _state.miniPlayer ? p.miniPlayerAlwaysOnTop : p.normalPlayerAlwaysOnTop;
+    if (_state.alwaysOnTop != shouldBeOnTop) {
+      await window.setAlwaysOnTop(shouldBeOnTop);
+      update((st) => st.copyWith(alwaysOnTop: shouldBeOnTop));
+    }
   }
+
 
   // --- Reprise de lecture --------------------------------------------------------
 
   /// Ce qu'il y aurait à reprendre pour ce fichier, selon son type.
-  static ResumeOffer? _offerFrom(MediaType type, HistoryEntry? entry) {
-    if (entry == null) return null;
+  static ResumeOffer? _offerFrom(
+    MediaType type,
+    HistoryEntry? entry, {
+    bool remember = true,
+    int retentionDays = 0,
+    DateTime? now,
+  }) {
+    if (entry == null || !remember) return null;
+    if (retentionDays > 0) {
+      final days = (now ?? DateTime.now()).difference(entry.lastOpened).inDays;
+      if (days >= retentionDays) return null;
+    }
     if (type.isDocument) {
       final page = entry.resumePage;
       if (page != null) return ResumeOffer(page: page);
@@ -493,11 +520,25 @@ class PlaybackService implements PlaybackStateSink {
         await _setFullscreen(!_state.fullscreen);
       case ExitFullscreen():
         if (_state.fullscreen) await _setFullscreen(false);
-      case ToggleAlwaysOnTop():
-        final next = !_state.alwaysOnTop;
-        await window.setAlwaysOnTop(next);
-        update((st) => st.copyWith(alwaysOnTop: next));
+      case ToggleAlwaysOnTop(:final forMiniPlayer):
+        final targetMini = forMiniPlayer ?? _state.miniPlayer;
+        if (targetMini) {
+          final next = !(settings?.preferences.miniPlayerAlwaysOnTop ?? true);
+          await _applyPreferences(preferences.copyWith(miniPlayerAlwaysOnTop: next));
+          if (_state.miniPlayer) {
+            await window.setAlwaysOnTop(next);
+            update((st) => st.copyWith(alwaysOnTop: next));
+          }
+        } else {
+          final next = !(settings?.preferences.normalPlayerAlwaysOnTop ?? false);
+          await _applyPreferences(preferences.copyWith(normalPlayerAlwaysOnTop: next));
+          if (!_state.miniPlayer) {
+            await window.setAlwaysOnTop(next);
+            update((st) => st.copyWith(alwaysOnTop: next));
+          }
+        }
       case SetLoopMode(:final mode):
+
         update((st) => st.copyWith(endMode: mode));
         unawaited(settings?.setEndOfPlaybackMode(mode.name));
       case CycleLoopMode():
@@ -528,16 +569,19 @@ class PlaybackService implements PlaybackStateSink {
         await _applyPreferences(preferences.merge(changes));
       case SetScreenshotFolder(:final path):
         await settings?.setScreenshotFolder(path);
+      case SetRecordingFolder(:final path):
+        await settings?.setRecordingFolder(path);
       case TakeScreenshot():
+
         await _takeScreenshot();
       case ToggleRecording():
         await (_state.recording ? _stopRecording() : _startRecording());
       case ToggleMiniPlayer():
         await _setMiniPlayer(!_state.miniPlayer);
       case SetVolume() || VolumeRelative() || ToggleMute() when _active == null:
-        // Le curseur de volume reste utilisable sans fichier ouvert : le
-        // réglage est mémorisé et appliqué au prochain fichier.
-        _applyVolumeWithoutController(command);
+        if (!_state.hasFile || _state.mediaType.isAv) {
+          _applyVolumeWithoutController(command);
+        }
       default:
         // Toute autre commande concerne le média courant.
         await _active?.handle(command);
@@ -634,9 +678,10 @@ class PlaybackService implements PlaybackStateSink {
           visible.right - size.width - _miniMargin,
           visible.bottom - size.height - _miniMargin,
         );
+    final miniOnTop = settings?.preferences.miniPlayerAlwaysOnTop ?? true;
     await _applyMiniShape(shape, origin & size);
-    await window.setAlwaysOnTop(true);
-    update((st) => st.copyWith(miniPlayer: true, alwaysOnTop: true));
+    await window.setAlwaysOnTop(miniOnTop);
+    update((st) => st.copyWith(miniPlayer: true, alwaysOnTop: miniOnTop));
   }
 
   Future<void> _exitMiniPlayer() async {
@@ -651,9 +696,11 @@ class PlaybackService implements PlaybackStateSink {
     final previous = _boundsBeforeMini;
     if (previous != null) await window.setBounds(previous);
     if (_maximizedBeforeMini) await window.setMaximized(true);
-    await window.setAlwaysOnTop(_alwaysOnTopBeforeMini);
-    update((st) => st.copyWith(miniPlayer: false, alwaysOnTop: _alwaysOnTopBeforeMini));
+    final normalOnTop = settings?.preferences.normalPlayerAlwaysOnTop ?? _alwaysOnTopBeforeMini;
+    await window.setAlwaysOnTop(normalOnTop);
+    update((st) => st.copyWith(miniPlayer: false, alwaysOnTop: normalOnTop));
     _boundsBeforeMini = null;
+
     _maximizedBeforeMini = false;
     _miniArea = null;
   }
@@ -685,7 +732,7 @@ class PlaybackService implements PlaybackStateSink {
     }
     await window.setMinimumSize(_miniMinimum(shape));
     await window.setBounds(bounds);
-    if (shape > 0) {
+    if (shape > 0 && _state.hasVideo && _state.videoAspect != null) {
       await window.setAspectRatio(shape);
       _aspectLocked = true;
     }
@@ -698,6 +745,8 @@ class PlaybackService implements PlaybackStateSink {
   static double? _miniShapeFor(PlaybackState s) {
     final aspect = s.videoAspect;
     if (aspect != null) return aspect;
+    if (s.mediaType == MediaType.image) return 16.0 / 10.0;
+    if (s.isDocument) return 4.0 / 3.0;
     return s.hasVideo ? null : 0.0;
   }
 
@@ -730,16 +779,21 @@ class PlaybackService implements PlaybackStateSink {
     await _stopRecording();
     await _savePositionOfCurrentFile();
 
+    // Mémorise le chemin pour la restauration de la session au démarrage
+    unawaited(settings?.setLastOpenPath(path));
+
     final type = MediaRouter.typeForPath(path);
     final file = MediaFile(path: path, type: type);
     final controller = router.controllerFor(type);
 
-    // Le mini-lecteur ne sait montrer que l'audio et la vidéo : un document
-    // déposé dessus (ou une erreur de format) reprend la fenêtre entière.
-    if (_state.miniPlayer && !type.isAv) await _setMiniPlayer(false);
+    // Le mini-lecteur affiche désormais vidéos, audios, images et documents :
+    // seul un type inconnu ou invalide provoque la reprise de la fenêtre entière.
+    if (_state.miniPlayer && type == MediaType.unknown) await _setMiniPlayer(false);
 
     playlist.setCurrent(path);
-    unawaited(playlist.ensureFolderFor(path));
+    if (!path.startsWith('http://') && !path.startsWith('https://')) {
+      unawaited(playlist.ensureFolderFor(path));
+    }
 
     if (controller == null) {
       await _closeActive(clearCurrent: false);
@@ -759,18 +813,33 @@ class PlaybackService implements PlaybackStateSink {
     _active = controller;
 
     // Reprise : automatique, proposée, ou jamais, selon les préférences.
-    final offer = _offerFrom(type, history?.entryFor(path));
+    final offer = _offerFrom(
+      type,
+      history?.entryFor(path),
+      remember: preferences.rememberPlaybackState,
+      retentionDays: preferences.historyRetentionDays,
+    );
     final policy = preferences.resumePolicy;
     _clearPendingResume();
+    final resumePage = (offer != null && policy == ResumePolicy.auto) ? offer.page : null;
+    final resumeScroll = (offer != null && policy == ResumePolicy.auto) ? offer.scroll : null;
     if (offer != null && policy == ResumePolicy.auto) {
       _pendingResume = offer.position;
       _pendingResumePage = offer.page;
       _pendingResumeScroll = offer.scroll;
       _pendingResumePath = path;
     }
-    if (_state.resumeOffer != null) {
-      update((st) => st.copyWith(clearResumeOffer: true));
-    }
+    update((st) => st.copyWith(
+      file: file,
+      status: PlaybackStatus.loading,
+      position: Duration.zero,
+      duration: Duration.zero,
+      currentPage: resumePage ?? (type == MediaType.pdf ? 1 : 0),
+      totalPages: 0,
+      scrollFraction: resumeScroll ?? 0.0,
+      clearResumeOffer: true,
+      clearError: true,
+    ));
 
     // Inscrit le fichier dans les récents dès maintenant, avant même que la
     // lecture ait commencé.
@@ -847,9 +916,17 @@ class PlaybackService implements PlaybackStateSink {
   Future<void> _savePositionOfCurrentFile() async {
     final file = _state.file;
     final store = history;
-    if (file == null || store == null) return;
-    // Les documents sont mémorisés au fil des changements de page.
-    if (_state.isDocument) return;
+    if (file == null || store == null || !preferences.rememberPlaybackState) return;
+    if (_state.isDocument) {
+      await store.saveDocumentPosition(
+        file.path,
+        page: _state.currentPage > 0 ? _state.currentPage : null,
+        pageCount: _state.totalPages > 0 ? _state.totalPages : null,
+        scrollFraction: _state.scrollFraction,
+      );
+      playlist.refreshEntry(file.path);
+      return;
+    }
     if (_state.status == PlaybackStatus.ended) return;
     if (_state.duration <= Duration.zero) return;
     await store.savePosition(
@@ -1009,6 +1086,15 @@ class PlaybackService implements PlaybackStateSink {
       if (attempt < attempts - 1) await Future<void>.delayed(recordingCheckDelay);
     }
     return size;
+  }
+
+  /// Interrompt immédiatement et sans délai la lecture en cours.
+  Future<void> stopImmediately() async {
+    await _savePositionOfCurrentFile();
+    final active = _active;
+    if (active != null) {
+      await active.close();
+    }
   }
 
   /// Libère ce service. Les contrôleurs de média ne sont pas libérés ici :

@@ -9,9 +9,13 @@ import '../models/app_preferences.dart';
 import '../models/media_file.dart';
 import '../models/media_type.dart';
 import '../models/playback_status.dart';
+import '../utils/doc_reader.dart';
 import '../utils/os_errors.dart';
 import '../utils/text_encoding.dart';
 import 'media_controller.dart';
+import 'media_router.dart';
+
+
 
 /// Un fichier texte chargé, prêt à être affiché.
 class TextDocument {
@@ -68,16 +72,31 @@ class TextController implements MediaController {
   Stream<TextDocument?> get documents => _documents.stream;
 
   @override
-  Set<MediaType> get supportedTypes => const {MediaType.text};
+  Set<MediaType> get supportedTypes => const {MediaType.text, MediaType.doc};
 
   void _publish(TextDocument? doc) {
     _document = doc;
     if (!_documents.isClosed) _documents.add(doc);
   }
 
+  /// Met à jour le document courant avec le texte modifié par l'utilisateur.
+  void updateText(String newText) {
+    final doc = _document;
+    if (doc == null) return;
+    _publish(
+      TextDocument(
+        path: doc.path,
+        text: newText,
+        isMarkdown: doc.isMarkdown,
+        encoding: doc.encoding,
+      ),
+    );
+  }
+
   @override
   Future<void> open(MediaFile file, PlaybackStateSink sink) async {
     _sink = sink;
+    final resumeScroll = sink.state.scrollFraction > 0 ? sink.state.scrollFraction : 0.0;
     sink.update(
       (st) => st.copyWith(
         file: file,
@@ -87,7 +106,7 @@ class TextController implements MediaController {
         hasVideo: false,
         currentPage: 0,
         totalPages: 0,
-        scrollFraction: 0,
+        scrollFraction: resumeScroll,
         zoom: _clampScale(_preferences().textScale),
         clearError: true,
       ),
@@ -99,19 +118,35 @@ class TextController implements MediaController {
       final Uint8List bytes = length > maxBytes
           ? await _readPrefix(ioFile, maxBytes)
           : await ioFile.readAsBytes();
-      final decoded = decodeText(bytes);
       final ext = p.extension(file.path).toLowerCase();
+      final extClean = ext.replaceFirst('.', '');
+      final isDocFamily = file.type == MediaType.doc ||
+          MediaRouter.docExtensions.contains(extClean);
 
-      _publish(
-        TextDocument(
-          path: file.path,
-          text: normaliseLineEndings(decoded.text),
-          isMarkdown: ext == '.md' || ext == '.markdown',
-          encoding: decoded.encoding,
-        ),
-      );
-      sink.update((st) => st.copyWith(status: PlaybackStatus.playing));
+      if (isDocFamily) {
+        final extracted = DocReader.extract(bytes, file.path);
+        _publish(
+          TextDocument(
+            path: file.path,
+            text: normaliseLineEndings(extracted.text),
+            isMarkdown: extracted.isMarkdown,
+            encoding: extracted.formatDescription,
+          ),
+        );
+      } else {
+        final decoded = decodeText(bytes);
+        _publish(
+          TextDocument(
+            path: file.path,
+            text: normaliseLineEndings(decoded.text),
+            isMarkdown: ext == '.md' || ext == '.markdown',
+            encoding: decoded.encoding,
+          ),
+        );
+      }
+      sink.update((st) => st.copyWith(status: PlaybackStatus.playing, scrollFraction: resumeScroll));
     } on FileSystemException catch (e) {
+
       _publish(null);
       sink.update(
         (st) => st.copyWith(
@@ -156,6 +191,10 @@ class TextController implements MediaController {
         sink.update((st) => st.copyWith(readingDark: !st.readingDark));
       case ScrollTo(:final fraction):
         sink.update((st) => st.copyWith(scrollFraction: fraction.clamp(0.0, 1.0)));
+      case ScrollDocument(:final delta):
+        final step = (delta / 2500.0).clamp(-0.1, 0.1);
+        final next = (sink.state.scrollFraction + step).clamp(0.0, 1.0);
+        sink.update((st) => st.copyWith(scrollFraction: next));
       default:
         return false;
     }

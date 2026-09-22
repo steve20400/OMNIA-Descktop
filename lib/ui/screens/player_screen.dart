@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
+import '../../core/models/media_type.dart';
 import '../../core/models/playback_state.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';
@@ -28,6 +31,7 @@ import '../widgets/control_bar.dart';
 import '../widgets/document_bar.dart';
 import '../widgets/find_bar.dart';
 import '../widgets/help_overlay.dart';
+import '../widgets/image_bar.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/osd_overlay.dart';
 import '../widgets/recording_indicator.dart';
@@ -61,10 +65,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void initState() {
     super.initState();
     _playerFocus.attach(_focusNode);
-    // Argument en ligne de commande : `omnia /chemin/fichier.mkv`.
+    // Argument en ligne de commande : `omnia /chemin/fichier.mkv` ou reprise de session.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final command = commandForLaunchArguments(ref.read(launchArgumentsProvider));
-      if (command != null) ref.dispatch(command, source: CommandSource.cli);
+      if (command != null) {
+        ref.dispatch(command, source: CommandSource.cli);
+      } else {
+        final prefs = ref.read(preferencesProvider);
+        if (prefs.restoreLastSession) {
+          final lastPath = ref.read(settingsStoreProvider).lastOpenPath;
+          if (lastPath != null && File(lastPath).existsSync()) {
+            ref.dispatch(OpenFile(lastPath), source: CommandSource.system);
+          }
+        }
+      }
       _chrome.setAutoHide(_autoHideFor(ref.read(playbackStateProvider)));
     });
   }
@@ -87,7 +101,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// un document en fenêtre également, on y navigue de page en page.
   static bool _autoHideFor(PlaybackState s) {
     if (!s.hasFile || s.status == PlaybackStatus.error) return false;
-    if (s.isDocument) return s.fullscreen;
+    if (s.isDocument || s.mediaType == MediaType.image) return s.fullscreen;
     if (!s.mediaType.isAv || s.status != PlaybackStatus.playing) return false;
     return s.hasVideo || s.fullscreen;
   }
@@ -164,7 +178,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     // zoom.
     if (dy == 0) return;
     final state = ref.read(playbackStateProvider);
-    if (state.isDocument) {
+    if (state.isDocument || state.mediaType == MediaType.image) {
       if (!HardwareKeyboard.instance.isControlPressed) return;
       // On consomme l'événement : la vue ne doit pas défiler en plus de zoomer.
       GestureBinding.instance.pointerSignalResolver.register(event, (_) {
@@ -195,6 +209,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       ),
     );
     final isDocument = ref.watch(playbackStateProvider.select((s) => s.isDocument));
+    final isImage = ref.watch(playbackStateProvider.select((s) => s.mediaType == MediaType.image));
     final miniPlayer = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
 
     // Les écoutes avant toute sortie anticipée : flutter_riverpod les referme
@@ -373,7 +388,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                               child: RepaintBoundary(
                                                 child: isDocument
                                                     ? const DocumentBar()
-                                                    : const ControlBar(),
+                                                    : (isImage
+                                                        ? const ImageBar()
+                                                        : const ControlBar()),
                                               ),
                                             ),
                                           ),
@@ -440,9 +457,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Widget _resizable(Widget child, {required bool enabled}) {
     if (!needsCustomResizeEdges) return child;
     return DragToResizeArea(
-      resizeEdgeSize: 5,
+      resizeEdgeSize: 8,
       enableResizeEdges: enabled ? null : const [],
       child: child,
     );
   }
+
 }

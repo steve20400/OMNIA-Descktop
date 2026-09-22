@@ -50,5 +50,11 @@ void main() {
       expect(WindowSizes.miniAudio.width, greaterThanOrEqualTo(WindowSizes.miniAudioMinimum.width));
       expect(WindowSizes.miniAudio.height, greaterThanOrEqualTo(WindowSizes.miniAudioMinimum.height));
     });
+
+    test('plancher de la fenêtre principale : dimensions compactes sans collision', () {
+      expect(WindowSizes.mainMinimum, const Size(320, 240));
+      expect(WindowSizes.mainMinimum.width, greaterThanOrEqualTo(320));
+      expect(WindowSizes.mainMinimum.height, greaterThanOrEqualTo(240));
+    });
   });
 }

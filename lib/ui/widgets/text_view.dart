@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../../core/commands/player_command.dart';
 import '../../core/controllers/text_controller.dart';
 import '../../core/providers.dart';
 import '../document_search.dart';
+import '../document_ui_controller.dart';
 import '../theme/omnia_theme.dart';
 
 /// Vue d'un fichier texte ou Markdown, en lecture seule.
@@ -30,13 +33,18 @@ class TextView extends ConsumerStatefulWidget {
 
 class _TextViewState extends ConsumerState<TextView> {
   final ScrollController _scroll = ScrollController();
+  late final TextEditingController _editController;
   Timer? _reportDebounce;
+  Timer? _autoSaveTimer;
   double? _pendingRestore;
   int _lastMatch = -1;
+  int _seenSaveRequest = 0;
+  bool _hasUnsavedChanges = false;
 
   @override
   void initState() {
     super.initState();
+    _editController = TextEditingController(text: widget.document.text);
     _scroll.addListener(_onScrolled);
     widget.search?.addListener(_onSearchChanged);
   }
@@ -49,17 +57,88 @@ class _TextViewState extends ConsumerState<TextView> {
       widget.search?.addListener(_onSearchChanged);
     }
     if (old.document.path != widget.document.path) {
+      if (_hasUnsavedChanges) {
+        _autoSaveTimer?.cancel();
+        try {
+          File(old.document.path).writeAsStringSync(_editController.text);
+        } catch (_) {}
+      }
       _lastMatch = -1;
+      _hasUnsavedChanges = false;
+      _editController.text = widget.document.text;
       if (_scroll.hasClients) _scroll.jumpTo(0);
+    } else {
+      final currentFraction = ref.read(playbackStateProvider).scrollFraction;
+      if (currentFraction > 0.01) {
+        _restoreIfNeeded(currentFraction);
+      }
     }
   }
 
   @override
   void dispose() {
     _reportDebounce?.cancel();
+    _autoSaveTimer?.cancel();
+    if (_hasUnsavedChanges) {
+      try {
+        File(widget.document.path).writeAsStringSync(_editController.text, flush: true);
+      } catch (_) {}
+    }
     _scroll.dispose();
+    _editController.dispose();
     widget.search?.removeListener(_onSearchChanged);
     super.dispose();
+  }
+
+  Future<void> _saveFile({bool silent = false}) async {
+    _autoSaveTimer?.cancel();
+    try {
+      final file = File(widget.document.path);
+      file.writeAsStringSync(_editController.text, flush: true);
+      _hasUnsavedChanges = false;
+      if (mounted) {
+        ref.read(documentUiProvider.notifier).clearDraft();
+        ref.read(textControllerProvider).updateText(_editController.text);
+        ref.read(documentUiProvider.notifier).setUnsavedChanges(false);
+        if (!silent) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            const SnackBar(
+              content: Text('Fichier enregistré avec succès.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l’enregistrement : $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _onTextChanged(String text) {
+    _hasUnsavedChanges = true;
+    ref.read(documentUiProvider.notifier).setDraft(
+          path: widget.document.path,
+          text: text,
+        );
+    _scheduleAutoSave();
+  }
+
+  void _scheduleAutoSave() {
+    _autoSaveTimer?.cancel();
+    final prefs = ref.read(preferencesProvider);
+    if (!prefs.docAutoSave) return;
+    _autoSaveTimer = Timer(Duration(seconds: prefs.docAutoSaveIntervalSeconds), () {
+      if (mounted && ref.read(documentUiProvider).hasUnsavedChanges) {
+        _saveFile(silent: true);
+      }
+    });
   }
 
   void _onScrolled() {
@@ -67,8 +146,11 @@ class _TextViewState extends ConsumerState<TextView> {
     final max = _scroll.position.maxScrollExtent;
     if (max <= 0) return;
     final fraction = (_scroll.offset / max).clamp(0.0, 1.0);
+    // Éviter qu'une réinitialisation temporaire du viewport à 0 n'écrase
+    // la position de lecture sauvegardée.
+    if (fraction == 0.0 && ref.read(playbackStateProvider).scrollFraction > 0.01) return;
     _reportDebounce?.cancel();
-    _reportDebounce = Timer(const Duration(milliseconds: 300), () {
+    _reportDebounce = Timer(const Duration(milliseconds: 100), () {
       if (mounted) ref.dispatch(ScrollTo(fraction));
     });
   }
@@ -98,7 +180,15 @@ class _TextViewState extends ConsumerState<TextView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
       final max = _scroll.position.maxScrollExtent;
-      if (max > 0) _scroll.jumpTo(max * fraction);
+      if (max > 0) {
+        _scroll.jumpTo(max * fraction);
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_scroll.hasClients) return;
+          final retryMax = _scroll.position.maxScrollExtent;
+          if (retryMax > 0) _scroll.jumpTo(retryMax * fraction);
+        });
+      }
     });
   }
 
@@ -106,6 +196,7 @@ class _TextViewState extends ConsumerState<TextView> {
   Widget build(BuildContext context) {
     final scale = ref.watch(playbackStateProvider.select((s) => s.zoom));
     final dark = ref.watch(playbackStateProvider.select((s) => s.readingDark));
+    final miniPlayer = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
 
     // Le core demande une position (reprise, télécommande) : on s'y rend une
     // fois, sans boucler avec les positions qu'on lui renvoie nous-mêmes.
@@ -118,7 +209,13 @@ class _TextViewState extends ConsumerState<TextView> {
     });
 
     final reading = ReadingPalette.of(dark: dark);
-    final baseSize = 15.0 * scale;
+    final baseSize = (miniPlayer ? 12.5 : 15.0) * scale;
+    final docPadding = miniPlayer
+        ? const EdgeInsets.all(OmniaMetrics.space2)
+        : const EdgeInsets.symmetric(
+            horizontal: OmniaMetrics.space8,
+            vertical: OmniaMetrics.space6,
+          );
     final body = TextStyle(
       fontFamily: OmniaFonts.ui,
       fontSize: baseSize,
@@ -133,18 +230,65 @@ class _TextViewState extends ConsumerState<TextView> {
     );
 
     final doc = widget.document;
+    final ui = ref.watch(documentUiProvider);
     _restoreIfNeeded(ref.read(playbackStateProvider).scrollFraction);
 
+    ref.listen<bool>(documentUiProvider.select((u) => u.isEditing), (prev, next) {
+      if (prev == true && next == false && ref.read(documentUiProvider).hasUnsavedChanges) {
+        _autoSaveTimer?.cancel();
+        _saveFile(silent: true);
+      }
+    });
+
+    ref.listen<bool>(documentUiProvider.select((u) => u.hasUnsavedChanges), (prev, next) {
+      if (prev == true && next == false) {
+        _hasUnsavedChanges = false;
+        _autoSaveTimer?.cancel();
+      }
+    });
+
+    if (ui.saveRequest != _seenSaveRequest) {
+      _seenSaveRequest = ui.saveRequest;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _saveFile();
+      });
+    }
+
     final Widget content;
-    if (doc.isMarkdown) {
+    if (ui.isEditing) {
+      content = CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyS, control: true): _saveFile,
+        },
+        child: Scrollbar(
+          controller: _scroll,
+          child: SingleChildScrollView(
+            controller: _scroll,
+            padding: docPadding,
+            child: SizedBox(
+              width: double.infinity,
+              child: TextField(
+                controller: _editController,
+                maxLines: null,
+                style: doc.isMarkdown ? body : mono,
+                cursorColor: reading.accent,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                onChanged: _onTextChanged,
+              ),
+            ),
+          ),
+        ),
+      );
+    } else if (doc.isMarkdown) {
       content = Markdown(
         data: doc.text,
         controller: _scroll,
         selectable: true,
-        padding: EdgeInsets.symmetric(
-          horizontal: OmniaMetrics.space8,
-          vertical: OmniaMetrics.space6,
-        ),
+        padding: docPadding,
         styleSheet: _markdownStyle(reading, body, mono, baseSize),
       );
     } else {
@@ -152,28 +296,34 @@ class _TextViewState extends ConsumerState<TextView> {
         controller: _scroll,
         child: SingleChildScrollView(
           controller: _scroll,
-          padding: const EdgeInsets.symmetric(
-            horizontal: OmniaMetrics.space8,
-            vertical: OmniaMetrics.space6,
-          ),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: SelectableText.rich(
-                _highlighted(doc.text, widget.search?.state, mono, reading),
-              ),
+          padding: docPadding,
+          child: SizedBox(
+            width: double.infinity,
+            child: SelectableText.rich(
+              _highlighted(doc.text, widget.search?.state, mono, reading),
             ),
           ),
         ),
       );
     }
 
-    return AnimatedContainer(
-      duration: OmniaMotion.stage,
-      curve: OmniaMotion.stageCurve,
-      color: reading.paper,
-      child: content,
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (metrics) {
+        final targetFraction = ref.read(playbackStateProvider).scrollFraction;
+        if (targetFraction > 0.01 && metrics.metrics.maxScrollExtent > 0) {
+          final currentFraction = metrics.metrics.pixels / metrics.metrics.maxScrollExtent;
+          if ((currentFraction - targetFraction).abs() > 0.02) {
+            _scroll.jumpTo(metrics.metrics.maxScrollExtent * targetFraction);
+          }
+        }
+        return false;
+      },
+      child: AnimatedContainer(
+        duration: OmniaMotion.stage,
+        curve: OmniaMotion.stageCurve,
+        color: reading.paper,
+        child: content,
+      ),
     );
   }
 

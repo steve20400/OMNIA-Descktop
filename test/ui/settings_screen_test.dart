@@ -144,9 +144,12 @@ void main() {
     await _drain(tester);
     await _tap(tester, find.text('Demander'));
     await _drain(tester);
+    await _tap(tester, find.text('Nouvelle fenêtre'));
+    await _drain(tester);
 
     expect(harness.store.preferences.themeMode, AppThemeMode.light);
     expect(harness.store.preferences.resumePolicy, ResumePolicy.ask);
+    expect(harness.store.preferences.inAppOpenTarget, InAppOpenTarget.newWindow);
   });
 
   testWidgets('Échap ferme l’écran', (tester) async {
@@ -242,11 +245,48 @@ void main() {
       final harness = await _pump(tester, size: const Size(360, 240));
       final before = harness.store.preferences.singleInstance;
 
-      await _tap(tester, find.byType(OmniaSwitch));
+      await _tap(tester, find.byType(OmniaSwitch).first);
       await _drain(tester);
 
       expect(harness.store.preferences.singleInstance, !before);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('section Connexions sans fil permet de basculer OMNIA Connect et afficher le QR code', (tester) async {
+      await _pump(tester, section: SettingsSection.connect);
+
+      expect(find.text('OMNIA Connect local'), findsOneWidget);
+      expect(find.text('Mode de liaison'), findsOneWidget);
+      expect(find.text('Contrôle à distance'), findsOneWidget);
+      expect(find.text('Diffusion locale (Streaming)'), findsOneWidget);
+      expect(find.text('Suggérer l\'application Mobile'), findsOneWidget);
+
+      // Basculer l'affichage du QR code d'appairage
+      expect(find.text('Afficher l\'appairage'), findsOneWidget);
+      expect(find.text('Aucun appareil associé pour le moment'), findsOneWidget);
+      await _tap(tester, find.text('Afficher l\'appairage'));
+      expect(find.text('Scannez avec OMNIA Mobile'), findsOneWidget);
+      expect(find.text('Ouvrir OMNIA Connect'), findsOneWidget);
+
+      await _tap(tester, find.text('Masquer'));
+      expect(find.text('Scannez avec OMNIA Mobile'), findsNothing);
+    });
+
+    testWidgets('section Réseau & Mises à jour permet de lancer la vérification et le téléchargement', (tester) async {
+      await _pump(tester, section: SettingsSection.network);
+
+      expect(find.text('Version de l\'application'), findsOneWidget);
+      expect(find.text('Canal de mise à jour'), findsOneWidget);
+      expect(find.text('Vérification automatique'), findsOneWidget);
+
+      // Télécharger la dernière version en direct
+      final dlBtn = find.text('Télécharger la dernière version');
+      expect(dlBtn, findsOneWidget);
+      await _tap(tester, dlBtn);
+      await tester.pumpAndSettle();
+
+      // Vérifie que l'état passe à prêt pour installation en place
+      expect(find.text('Installer et redémarrer'), findsOneWidget);
     });
 
     testWidgets('chaque section tient à 360 × 240, et à 320 × 240', (tester) async {

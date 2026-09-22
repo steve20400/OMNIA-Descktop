@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -114,7 +116,7 @@ class _PdfStageState extends ConsumerState<PdfStage> {
   ];
 }
 
-class _ContinuousView extends ConsumerWidget {
+class _ContinuousView extends ConsumerStatefulWidget {
   const _ContinuousView({
     super.key,
     required this.session,
@@ -129,29 +131,117 @@ class _ContinuousView extends ConsumerWidget {
   final Color paper;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ContinuousView> createState() => _ContinuousViewState();
+}
+
+class _ContinuousViewState extends ConsumerState<_ContinuousView> {
+  double? _lastWidth;
+  double _accumulatedScroll = 0;
+  Timer? _scrollDebounce;
+  Timer? _resizeDebounce;
+
+  @override
+  void dispose() {
+    _scrollDebounce?.cancel();
+    _resizeDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _fitToWidth() {
+    final viewer = widget.session.viewer;
+    if (!viewer.isReady) return;
+    final cover = viewer.coverScale;
+    if (cover > 0) {
+      viewer.setZoom(viewer.visibleRect.center, cover);
+    }
+  }
+
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) return;
+    if (HardwareKeyboard.instance.isControlPressed) return; // Ctrl gère le zoom
+    final dy = event.scrollDelta.dy;
+    if (dy.abs() < 0.5) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+      final viewer = widget.session.viewer;
+      if (!viewer.isReady) return;
+      _accumulatedScroll += (dy > 0 ? 150.0 : -150.0);
+      _scrollDebounce ??= Timer(const Duration(milliseconds: 16), () {
+        if (!mounted || !widget.session.viewer.isReady) {
+          _accumulatedScroll = 0;
+          _scrollDebounce = null;
+          return;
+        }
+        final delta = _accumulatedScroll;
+        _accumulatedScroll = 0;
+        _scrollDebounce = null;
+        final center = widget.session.viewer.visibleRect.center;
+        final targetY = center.dy + delta;
+        final safeY = targetY < 0 ? 0.0 : targetY;
+        widget.session.viewer.setZoom(Offset(center.dx, safeY), widget.session.viewer.currentZoom);
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
-    return PdfViewer(
-      // Le document appartient au contrôleur du core : la vue ne doit pas le
-      // libérer quand elle se démonte (passage en mode page par page).
-      PdfDocumentRefDirect(session.document, autoDispose: false),
-      controller: session.viewer,
-      params: PdfViewerParams(
-        backgroundColor: paper,
-        margin: OmniaMetrics.space3,
-        // Les raccourcis sont ceux d'OMNIA, pas ceux de pdfrx.
-        enableKeyboardNavigation: false,
-        pageDropShadow: BoxShadow(
-          color: Colors.black.withValues(alpha: 0.35),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
-        ),
-        matchTextColor: colors.projector.withValues(alpha: 0.35),
-        activeMatchTextColor: colors.projector.withValues(alpha: 0.7),
-        textSelectionParams: const PdfTextSelectionParams(enabled: true),
-        onViewerReady: (_, controller) => onReady(controller),
-        onDocumentChanged: (document) {
-          if (document == null) onDocumentClosed();
+    final isMini = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
+    final currentPage = ref.watch(playbackStateProvider.select((s) => s.currentPage));
+    final initialPage = currentPage > 0 ? currentPage.clamp(1, widget.session.pageCount) : 1;
+
+    return Listener(
+      onPointerSignal: _onPointerSignal,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (_lastWidth != null && (constraints.maxWidth - _lastWidth!).abs() > 2) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _fitToWidth();
+            });
+            _resizeDebounce?.cancel();
+            _resizeDebounce = Timer(const Duration(milliseconds: 50), () {
+              if (mounted) _fitToWidth();
+            });
+          }
+          _lastWidth = constraints.maxWidth;
+
+          return PdfViewer(
+            // Le document appartient au contrôleur du core : la vue ne doit pas le
+            // libérer quand elle se démonte (passage en mode page par page).
+            PdfDocumentRefDirect(widget.session.document, autoDispose: false),
+            controller: widget.session.viewer,
+            initialPageNumber: initialPage,
+            params: PdfViewerParams(
+              backgroundColor: widget.paper,
+              margin: isMini ? 2.0 : OmniaMetrics.space3,
+              // Les raccourcis sont ceux d'OMNIA, pas ceux de pdfrx.
+              enableKeyboardNavigation: false,
+              pageDropShadow: BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+              matchTextColor: colors.projector.withValues(alpha: 0.35),
+              activeMatchTextColor: colors.projector.withValues(alpha: 0.7),
+              textSelectionParams: const PdfTextSelectionParams(enabled: true),
+              onViewerReady: (_, controller) {
+                widget.onReady(controller);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && controller.isReady) {
+                    final cover = controller.coverScale;
+                    if (cover > 0) {
+                      controller.setZoom(controller.visibleRect.center, cover);
+                    }
+                    if (initialPage > 1) {
+                      unawaited(controller.goToPage(pageNumber: initialPage, anchor: PdfPageAnchor.top));
+                    }
+                  }
+                });
+              },
+              onDocumentChanged: (document) {
+                if (document == null) widget.onDocumentClosed();
+              },
+            ),
+          );
         },
       ),
     );
@@ -204,32 +294,43 @@ class _PagedViewState extends ConsumerState<_PagedView> {
       _transform.value = Matrix4.diagonal3Values(zoom, zoom, 1);
     }
 
+    final miniPlayer = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
+
     return Listener(
       onPointerSignal: _onPointerSignal,
       child: InteractiveViewer(
         transformationController: _transform,
+        panEnabled: !miniPlayer,
         minScale: PlaybackState.minZoom,
         maxScale: PlaybackState.maxZoom,
         onInteractionEnd: (_) {
           final scale = _transform.value.getMaxScaleOnAxis();
           if ((scale - zoom).abs() > 0.001) ref.dispatch(SetZoom(scale));
         },
-        child: Center(
+        child: Align(
+          alignment: Alignment.topCenter,
           child: Padding(
-            padding: const EdgeInsets.all(OmniaMetrics.space4),
-            child: PdfPageView(
-              document: widget.session.document,
-              pageNumber: page.clamp(1, widget.session.pageCount),
-              rotationOverride: PdfPageRotation.values[widget.rotation % 4],
-              backgroundColor: widget.paper,
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.35),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+            padding: EdgeInsets.symmetric(
+              horizontal: miniPlayer ? 2.0 : OmniaMetrics.space4,
+              vertical: miniPlayer ? 2.0 : OmniaMetrics.space2,
+            ),
+            child: FittedBox(
+              fit: BoxFit.fitWidth,
+              alignment: Alignment.topCenter,
+              child: PdfPageView(
+                document: widget.session.document,
+                pageNumber: page.clamp(1, widget.session.pageCount),
+                rotationOverride: PdfPageRotation.values[widget.rotation % 4],
+                backgroundColor: widget.paper,
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

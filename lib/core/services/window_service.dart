@@ -43,8 +43,14 @@ abstract interface class WindowService {
   /// après.
   Future<void> setMaximized(bool value);
 
+  /// Détruit et ferme définitivement la fenêtre native.
+  Future<void> destroy();
+
   /// Émet à chaque déplacement/redimensionnement/maximisation.
   Stream<void> get geometryChanges;
+
+  /// Émet lorsqu'une demande de fermeture native est reçue (bouton X de l'OS, Alt+F4).
+  Stream<void> get closeRequests;
 }
 
 /// Implémentation basée sur `window_manager`.
@@ -54,9 +60,13 @@ class WindowManagerService with WindowListener implements WindowService {
   }
 
   final StreamController<void> _geometry = StreamController<void>.broadcast();
+  final StreamController<void> _closeRequests = StreamController<void>.broadcast();
 
   @override
   Stream<void> get geometryChanges => _geometry.stream;
+
+  @override
+  Stream<void> get closeRequests => _closeRequests.stream;
 
   @override
   Future<bool> isFullscreen() => windowManager.isFullScreen();
@@ -86,7 +96,10 @@ class WindowManagerService with WindowListener implements WindowService {
   }
 
   @override
-  Future<void> close() => windowManager.close();
+  Future<void> close() => windowManager.destroy();
+
+  @override
+  Future<void> destroy() => windowManager.destroy();
 
   @override
   Future<void> setTitle(String title) => windowManager.setTitle(title);
@@ -155,9 +168,13 @@ class WindowManagerService with WindowListener implements WindowService {
   @override
   void onWindowUnmaximize() => _geometry.add(null);
 
+  @override
+  void onWindowClose() => _closeRequests.add(null);
+
   void dispose() {
     windowManager.removeListener(this);
     _geometry.close();
+    _closeRequests.close();
   }
 }
 
@@ -172,9 +189,15 @@ class FakeWindowService implements WindowService {
   Rect bounds = const Rect.fromLTWH(0, 0, 1200, 760);
 
   final StreamController<void> _geometry = StreamController<void>.broadcast();
+  final StreamController<void> _closeRequests = StreamController<void>.broadcast();
 
   @override
   Stream<void> get geometryChanges => _geometry.stream;
+
+  @override
+  Stream<void> get closeRequests => _closeRequests.stream;
+
+  void emitCloseRequest() => _closeRequests.add(null);
 
   @override
   Future<bool> isFullscreen() async => fullscreen;
@@ -199,6 +222,9 @@ class FakeWindowService implements WindowService {
 
   @override
   Future<void> close() async => closed = true;
+
+  @override
+  Future<void> destroy() async => closed = true;
 
   @override
   Future<void> setTitle(String value) async => title = value;

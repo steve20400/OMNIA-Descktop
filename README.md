@@ -3,15 +3,16 @@
 **Lecteur personnel de médias, avec manipulation grâce au mobile.**
 
 Lecteur universel desktop : vidéo, audio, PDF et texte dans une seule application.
-Flutter + media_kit (libmpv), architecture « bus de commandes » prête pour la future télécommande mobile
-([OMNIA-Mobile](https://github.com/steve20400/OMNIA-Mobile)).
+Architecture « bus de commandes » avec télécommande mobile et synchronisation locale Zero-Internet OMNIA Connect
+([OMNIA-Mobile](https://github.com/steve20400/OMNIA-MOBILE)).
 
-> État : **les six phases du plan sont en place.**
+> État : **les six phases du plan et le protocole OMNIA Connect sont en place.**
 > Fondations et thème ; playlist automatique du dossier ; confort de lecture (OSD, récents, menu
 > contextuel, instance unique, aide) ; documents (PDF, texte, Markdown) ; fonctions avancées
-> (sous-titres, pistes audio, capture, boucle A-B, image, égaliseur, vue audio, mini-lecteur) ;
-> finitions (paramètres, éditeur de raccourcis, installateurs).
-> Voir `DESIGN.md` pour le plan design.
+> (sous-titres, pistes audio, capture, boucle A-B, retouche d'image, égaliseur, vue audio, mini-lecteur universel) ;
+> synchronisation réseau local Zero-Internet OMNIA Connect (QR code, WebSocket, streaming HTTP Range) ;
+> finitions (paramètres, éditeur de raccourcis, installateurs Windows et Linux).
+> Voir `DESIGN.md` pour le plan design et `ROADMAP_PHASE2_MOBILE_ECOSYSTEM.md` pour la feuille de route multiplateforme.
 
 ## Plateformes
 
@@ -106,7 +107,35 @@ de dossier ; un test vérifie qu'elles ne divergent pas. Après avoir ajouté un
 python tool/make_installer_assoc.py
 ```
 
-### Ubuntu
+### Scripts d'installation et de désinstallation pour Ubuntu / Linux
+
+Deux scripts automatisés à la racine du dépôt permettent de gérer l'installation et la désinstallation propre d'OMNIA sur **Ubuntu** (et distributions dérivées Debian) :
+
+#### 1. Désinstaller une ancienne version avant une mise à jour (`uninstall.sh`)
+Pour supprimer proprement toute ancienne version installée (fichiers `.deb`, archive dans `/opt/omnia`, lanceurs `.desktop`, icônes et liens système) afin de repartir sur une base saine :
+```bash
+./uninstall.sh
+```
+*Ou directement depuis GitHub sans cloner :*
+```bash
+curl -sSL https://raw.githubusercontent.com/steve20400/OMNIA-Descktop/fix/linux-x11-video/uninstall.sh | bash
+```
+
+#### 2. Installer ou mettre à jour OMNIA (`install.sh`)
+Après avoir téléchargé la nouvelle version (`.deb` ou `.tar.gz`) depuis les Releases ou dans votre dossier `~/Téléchargements` :
+```bash
+./install.sh
+```
+*Ou directement depuis GitHub :*
+```bash
+curl -sSL https://raw.githubusercontent.com/steve20400/OMNIA-Descktop/fix/linux-x11-video/install.sh | bash
+```
+Ce script :
+- Installe automatiquement la bibliothèque multimédia essentielle **`libmpv`** (`libmpv2`, `libmpv-dev`, `mpv`).
+- Détecte le fichier d'installation dans le dossier courant ou dans `~/Téléchargements`.
+- Déploie l'exécutable, configure `/usr/local/bin/omnia`, installe les icônes haute résolution et le lanceur d'application pour le menu Ubuntu.
+
+### Compilation manuelle (Ubuntu)
 
 ```bash
 flutter build linux --release
@@ -117,14 +146,18 @@ sudo ln -sf /opt/omnia/omnia /usr/local/bin/omnia
 # Intégration au bureau. Le nom du fichier .desktop DOIT être l'identifiant
 # d'application (dev.omnia.omnia), sinon GNOME ne peut pas relier la fenêtre
 # à son icône sous Wayland.
-mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/scalable/apps
+mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/scalable/apps ~/.local/share/pixmaps
 cp linux/dev.omnia.omnia.desktop ~/.local/share/applications/
-cp linux/dev.omnia.omnia.svg     ~/.local/share/icons/hicolor/scalable/apps/
+cp -r linux/icons/hicolor/*      ~/.local/share/icons/hicolor/
+cp linux/dev.omnia.omnia.png     ~/.local/share/pixmaps/dev.omnia.omnia.png
 update-desktop-database ~/.local/share/applications
 gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
 ```
 
-« Ouvrir avec → OMNIA » est ensuite proposé pour les formats audio, vidéo, PDF et texte.
+Un script d'installation automatisé est également fourni dans `linux/install.sh`.
+
+« Ouvrir avec → OMNIA » est ensuite proposé pour les formats audio, vidéo, PDF, documents Word/texte et images.
+
 
 ### Icône
 

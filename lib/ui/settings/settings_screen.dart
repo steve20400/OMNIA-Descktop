@@ -13,6 +13,7 @@ import '../../core/models/end_of_playback_mode.dart';
 import '../../core/models/equalizer.dart';
 import '../../core/models/playback_state.dart';
 import '../../core/providers.dart';
+import '../../core/services/update_service.dart';
 import '../../core/utils/screenshot_naming.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
@@ -21,7 +22,9 @@ import '../recent_files.dart';
 import '../theme/omnia_theme.dart';
 import '../widgets/key_cap.dart';
 import '../widgets/omnia_button.dart';
+import '../widgets/omnia_connect_dialog.dart';
 import '../widgets/omnia_icon_button.dart';
+import '../widgets/omnia_qr_code.dart';
 import '../widgets/recent_files_menu.dart';
 import 'settings_controller.dart';
 import 'settings_controls.dart';
@@ -169,6 +172,8 @@ IconData _iconFor(SettingsSection section) => switch (section) {
       SettingsSection.documents => Icons.description_outlined,
       SettingsSection.shortcuts => Icons.keyboard_outlined,
       SettingsSection.screenshots => Icons.photo_camera_outlined,
+      SettingsSection.connect => Icons.wifi_tethering_rounded,
+      SettingsSection.network => Icons.cloud_sync_rounded,
       SettingsSection.history => Icons.history_rounded,
     };
 
@@ -180,6 +185,8 @@ String _labelFor(SettingsSection section, AppLocalizations l10n) => switch (sect
       SettingsSection.documents => l10n.settingsSectionDocuments,
       SettingsSection.shortcuts => l10n.settingsSectionShortcuts,
       SettingsSection.screenshots => l10n.settingsSectionScreenshots,
+      SettingsSection.connect => 'Connexions sans fil',
+      SettingsSection.network => 'Réseau & Mises à jour',
       SettingsSection.history => l10n.settingsSectionHistory,
     };
 
@@ -394,6 +401,8 @@ class _SettingsBodyState extends ConsumerState<_SettingsBody> {
       SettingsSection.documents => const _DocumentsSection(),
       SettingsSection.shortcuts => const ShortcutEditor(),
       SettingsSection.screenshots => const _ScreenshotsSection(),
+      SettingsSection.connect => const _ConnectSection(),
+      SettingsSection.network => const _NetworkSection(),
       SettingsSection.history => const _HistorySection(),
     };
 
@@ -540,10 +549,90 @@ class _GeneralSection extends ConsumerWidget {
             onChanged: (v) => ref.change((p) => p.copyWith(singleInstance: v)),
           ),
         ),
+        const SettingDivider(),
+        SettingRow(
+          title: l10n.settingsInAppOpenTarget,
+          hint: l10n.settingsInAppOpenTargetHint,
+          control: OmniaSegmented<InAppOpenTarget>(
+            values: InAppOpenTarget.values,
+            selected: p.inAppOpenTarget,
+            labelOf: (v) => switch (v) {
+              InAppOpenTarget.currentWindow => l10n.inAppOpenCurrent,
+              InAppOpenTarget.newWindow => l10n.inAppOpenNew,
+            },
+            onChanged: (v) => ref.change((p) => p.copyWith(inAppOpenTarget: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: '${l10n.alwaysOnTop} · ${l10n.alwaysOnTopNormal}',
+          control: OmniaSwitch(
+            label: l10n.alwaysOnTopNormal,
+            value: p.normalPlayerAlwaysOnTop,
+            onChanged: (v) => ref.change((p) => p.copyWith(normalPlayerAlwaysOnTop: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: '${l10n.alwaysOnTop} · ${l10n.alwaysOnTopMini}',
+          control: OmniaSwitch(
+            label: l10n.alwaysOnTopMini,
+            value: p.miniPlayerAlwaysOnTop,
+            onChanged: (v) => ref.change((p) => p.copyWith(miniPlayerAlwaysOnTop: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Reprendre la session au démarrage',
+          hint: 'Rouvre automatiquement le dernier média ou document lors de l’ouverture d’OMNIA',
+          control: OmniaSwitch(
+            label: 'Reprendre la session',
+            value: p.restoreLastSession,
+            onChanged: (v) => ref.change((p) => p.copyWith(restoreLastSession: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Version & Mises à jour en place',
+          hint: 'OMNIA v0.1.0 • Les mises à jour s’installent directement sans désinstallation préalable (vos réglages et documents restent intacts)',
+          control: OmniaButton(
+            label: 'À jour (v0.1.0)',
+            icon: Icons.check_circle_outline_rounded,
+            onPressed: () {
+              showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: context.colors.curtain,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: Row(
+                    children: [
+                      Icon(Icons.system_update_alt_rounded, color: context.colors.projector),
+                      const SizedBox(width: 10),
+                      Text('OMNIA v0.1.0', style: TextStyle(color: context.colors.screen)),
+                    ],
+                  ),
+                  content: Text(
+                    'Vous utilisez la dernière version d’OMNIA.\n\n'
+                    'Toutes les nouvelles versions s’installent directement par-dessus la version existante sans nécessiter de désinstallation préalable.\n'
+                    'Vos réglages, votre historique et vos raccourcis sont intégralement conservés.',
+                    style: TextStyle(color: context.colors.dust, height: 1.4),
+                  ),
+                  actions: [
+                    OmniaButton(
+                      label: 'Fermer',
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
 }
+
 
 // --- Lecture ------------------------------------------------------------------------
 
@@ -776,6 +865,44 @@ class _DocumentsSection extends ConsumerWidget {
             onChanged: (v) => ref.change((p) => p.copyWith(textScale: v)),
           ),
         ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Sauvegarde automatique des documents',
+          hint: 'Enregistre automatiquement les fichiers texte et code modifiés pour éviter toute perte de données',
+          control: OmniaSwitch(
+            label: 'Sauvegarde automatique',
+            value: p.docAutoSave,
+            onChanged: (v) => ref.change((p) => p.copyWith(docAutoSave: v)),
+          ),
+        ),
+        if (p.docAutoSave) ...[
+          const SettingDivider(),
+          SettingRow(
+            title: 'Délai d’inactivité avant sauvegarde',
+            hint: 'Temps d’attente après la dernière touche saisie avant d’écrire sur le disque',
+            control: OmniaSegmented<int>(
+              values: AppPreferences.docAutoSaveIntervals,
+              selected: p.docAutoSaveIntervalSeconds,
+              labelOf: (v) => '$v s',
+              onChanged: (v) => ref.change((p) => p.copyWith(docAutoSaveIntervalSeconds: v)),
+            ),
+          ),
+        ],
+        const SettingDivider(),
+        SettingRow(
+          title: 'Fermeture avec modifications en cours',
+          hint: 'Action à effectuer si l’application est fermée alors qu’un document est en cours d’édition',
+          control: OmniaSegmented<UnsavedChangesPolicy>(
+            values: UnsavedChangesPolicy.values,
+            selected: p.unsavedChangesPolicy,
+            labelOf: (v) => switch (v) {
+              UnsavedChangesPolicy.ask => 'Demander',
+              UnsavedChangesPolicy.save => 'Enregistrer',
+              UnsavedChangesPolicy.discard => 'Ignorer',
+            },
+            onChanged: (v) => ref.change((p) => p.copyWith(unsavedChangesPolicy: v)),
+          ),
+        ),
       ],
     );
   }
@@ -783,10 +910,17 @@ class _DocumentsSection extends ConsumerWidget {
 
 // --- Captures -----------------------------------------------------------------------
 
-/// Dossier des captures tel qu'il sera utilisé, et s'il a été choisi à la main.
+/// Dossier des captures d'écran vidéo tel qu'il sera utilisé, et s'il a été choisi à la main.
 final screenshotFolderProvider = FutureProvider<({String path, bool custom})>((ref) async {
-  final folder = await ref.watch(screenshotServiceProvider).folder();
+  final folder = await ref.watch(screenshotServiceProvider).screenshotFolder();
   final custom = ref.watch(settingsStoreProvider).screenshotFolder != null;
+  return (path: folder.path, custom: custom);
+});
+
+/// Dossier des enregistrements audio tel qu'il sera utilisé, et s'il a été choisi à la main.
+final recordingFolderProvider = FutureProvider<({String path, bool custom})>((ref) async {
+  final folder = await ref.watch(screenshotServiceProvider).recordingFolder();
+  final custom = ref.watch(settingsStoreProvider).recordingFolder != null;
   return (path: folder.path, custom: custom);
 });
 
@@ -800,6 +934,8 @@ class _ScreenshotsSection extends ConsumerStatefulWidget {
 class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
   late final TextEditingController _pattern =
       TextEditingController(text: ref.read(preferencesProvider).screenshotNamePattern);
+  late final TextEditingController _suffix =
+      TextEditingController(text: ref.read(preferencesProvider).imageEditSuffix);
   final FocusNode _patternFocus = FocusNode(debugLabel: 'omnia.settings.pattern');
 
   @override
@@ -813,13 +949,14 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
   @override
   void dispose() {
     _pattern.dispose();
+    _suffix.dispose();
     _patternFocus.dispose();
     super.dispose();
   }
 
-  /// Change le dossier par le bus, puis relit le dossier effectif une fois la
+  /// Change le dossier des captures par le bus, puis relit le dossier effectif une fois la
   /// commande traitée.
-  Future<void> _setFolder(String? path) async {
+  Future<void> _setScreenshotFolder(String? path) async {
     final bus = ref.read(commandBusProvider);
     final service = ref.read(playbackServiceProvider);
     bus.dispatch(SetScreenshotFolder(path));
@@ -828,12 +965,32 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
     if (mounted) ref.invalidate(screenshotFolderProvider);
   }
 
-  Future<void> _choose() async {
+  Future<void> _chooseScreenshotFolder() async {
     final dir = await FilePicker.getDirectoryPath(
+      dialogTitle: 'OMNIA',
       windowsOptions: const WindowsOptions(lockParentWindow: true),
       linuxOptions: const LinuxOptions(lockParentWindow: true),
     );
-    if (dir != null && mounted) await _setFolder(dir);
+    if (dir != null && mounted) await _setScreenshotFolder(dir);
+  }
+
+  /// Change le dossier des enregistrements audio par le bus.
+  Future<void> _setRecordingFolder(String? path) async {
+    final bus = ref.read(commandBusProvider);
+    final service = ref.read(playbackServiceProvider);
+    bus.dispatch(SetRecordingFolder(path));
+    await Future<void>.delayed(Duration.zero);
+    await service.idle;
+    if (mounted) ref.invalidate(recordingFolderProvider);
+  }
+
+  Future<void> _chooseRecordingFolder() async {
+    final dir = await FilePicker.getDirectoryPath(
+      dialogTitle: 'OMNIA',
+      windowsOptions: const WindowsOptions(lockParentWindow: true),
+      linuxOptions: const LinuxOptions(lockParentWindow: true),
+    );
+    if (dir != null && mounted) await _setRecordingFolder(dir);
   }
 
   @override
@@ -841,7 +998,8 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
     final l10n = AppLocalizations.of(context);
     final colors = context.colors;
     final type = context.type;
-    final folder = ref.watch(screenshotFolderProvider);
+    final screenshotFolder = ref.watch(screenshotFolderProvider);
+    final recordingFolder = ref.watch(recordingFolderProvider);
 
     final preview = screenshotFileName(
       '/Films/Film.mkv',
@@ -856,13 +1014,12 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SettingRow(
-          title: l10n.settingsScreenshotFolder,
-          hint: folder.when(
+          title: l10n.settingsScreenshotFolderVideo,
+          hint: screenshotFolder.when(
             data: (f) => f.custom ? f.path : '${l10n.settingsScreenshotFolderDefault} · ${f.path}',
             loading: () => '…',
             error: (_, _) => l10n.settingsScreenshotFolderDefault,
           ),
-          // Côte à côte quand la place le permet, l'un sous l'autre sinon.
           control: Wrap(
             spacing: OmniaMetrics.space2,
             runSpacing: OmniaMetrics.space2,
@@ -870,13 +1027,43 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
               _FittingButton(
                 label: l10n.settingsChooseFolder,
                 icon: Icons.folder_open_rounded,
-                onPressed: _choose,
+                onPressed: _chooseScreenshotFolder,
               ),
               _FittingButton(
                 label: l10n.settingsResetFolder,
                 icon: Icons.restart_alt_rounded,
                 showIcon: false,
-                onPressed: folder.valueOrNull?.custom == true ? () => _setFolder(null) : null,
+                onPressed: screenshotFolder.valueOrNull?.custom == true
+                    ? () => _setScreenshotFolder(null)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: l10n.settingsRecordingFolder,
+          hint: recordingFolder.when(
+            data: (f) => f.custom ? f.path : '${l10n.settingsScreenshotFolderDefault} · ${f.path}',
+            loading: () => '…',
+            error: (_, _) => l10n.settingsScreenshotFolderDefault,
+          ),
+          control: Wrap(
+            spacing: OmniaMetrics.space2,
+            runSpacing: OmniaMetrics.space2,
+            children: [
+              _FittingButton(
+                label: l10n.settingsChooseFolder,
+                icon: Icons.folder_open_rounded,
+                onPressed: _chooseRecordingFolder,
+              ),
+              _FittingButton(
+                label: l10n.settingsResetFolder,
+                icon: Icons.restart_alt_rounded,
+                showIcon: false,
+                onPressed: recordingFolder.valueOrNull?.custom == true
+                    ? () => _setRecordingFolder(null)
+                    : null,
               ),
             ],
           ),
@@ -885,6 +1072,7 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
         const SizedBox(height: OmniaMetrics.space3),
         Text(l10n.settingsScreenshotPattern, style: type.bodyStrong),
         const SizedBox(height: OmniaMetrics.space2),
+
         Container(
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space3),
@@ -933,6 +1121,498 @@ class _ScreenshotsSectionState extends ConsumerState<_ScreenshotsSection> {
         ),
         const SizedBox(height: OmniaMetrics.space3),
         Text(l10n.settingsScreenshotPreview(preview), style: type.caption),
+        const SizedBox(height: OmniaMetrics.space6),
+        SettingRow(
+          title: 'Suffixe des copies modifiées',
+          hint: 'Ajouté au nom de fichier lors de la retouche (ex. photo_modifié.png)',
+          control: SizedBox(
+            width: 140,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.curtain,
+                borderRadius: OmniaMetrics.controlRadius,
+                border: Border.all(color: colors.seam),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: TextField(
+                  controller: _suffix,
+                  style: type.body,
+                  cursorColor: colors.projector,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  onChanged: (value) {
+                    ref.change((p) => p.copyWith(
+                          imageEditSuffix: value.trim().isEmpty
+                              ? AppPreferences.defaultImageEditSuffix
+                              : value.trim(),
+                        ));
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// --- Connexions sans fil & OMNIA Connect -------------------------------------
+
+class _ConnectSection extends ConsumerStatefulWidget {
+  const _ConnectSection();
+
+  @override
+  ConsumerState<_ConnectSection> createState() => _ConnectSectionState();
+}
+
+class _ConnectSectionState extends ConsumerState<_ConnectSection> {
+  bool _showQrCode = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+    final p = ref.watch(preferencesProvider);
+    final connectService = ref.watch(omniaConnectServiceProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SettingRow(
+          title: 'OMNIA Connect local',
+          hint: 'Partage, synchronisation et télécommande sans Internet sur le réseau local.',
+          control: OmniaSwitch(
+            label: 'OMNIA Connect',
+            value: p.omniaConnectEnabled,
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(omniaConnectEnabled: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Mode de liaison',
+          hint: 'Technologie utilisée pour découvrir et relier les appareils.',
+          control: OmniaSegmented<String>(
+            values: const ['wifi', 'hotspot', 'bluetooth'],
+            selected: p.wirelessMode,
+            labelOf: (v) => switch (v) {
+              'hotspot' => 'Point d\'accès',
+              'bluetooth' => 'Bluetooth',
+              _ => 'Wi-Fi local',
+            },
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(wirelessMode: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Contrôle à distance',
+          hint: 'Autoriser la télécommande depuis un smartphone ou une autre instance OMNIA.',
+          control: OmniaSwitch(
+            label: 'Contrôle à distance',
+            value: p.allowRemoteControl,
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(allowRemoteControl: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Diffusion locale (Streaming)',
+          hint: 'Autoriser la diffusion vidéo, audio ou document en temps réel.',
+          control: OmniaSwitch(
+            label: 'Diffusion locale',
+            value: p.allowRemoteStreaming,
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(allowRemoteStreaming: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Appairage rapide & QR Code',
+          hint: 'Scannez le code avec OMNIA Mobile ou saisissez la clé d\'association.',
+          control: _FittingButton(
+            label: _showQrCode ? 'Masquer' : 'Afficher l\'appairage',
+            icon: Icons.qr_code_2_rounded,
+            onPressed: () => setState(() => _showQrCode = !_showQrCode),
+          ),
+        ),
+        if (_showQrCode) ...[
+          const SizedBox(height: OmniaMetrics.space2),
+          Container(
+            padding: const EdgeInsets.all(OmniaMetrics.space3),
+            decoration: BoxDecoration(
+              color: colors.curtain.withValues(alpha: 0.6),
+              borderRadius: OmniaMetrics.controlRadius,
+              border: Border.all(color: colors.seam),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                OmniaQrCode(
+                  data: '{"protocol":"omnia-connect","name":"OMNIA Desktop","port":${connectService.port}}',
+                  size: 130,
+                  color: colors.velvet,
+                  backgroundColor: Colors.white,
+                ),
+                const SizedBox(width: OmniaMetrics.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Scannez avec OMNIA Mobile', style: type.bodyStrong),
+                      const SizedBox(height: OmniaMetrics.space1),
+                      Text(
+                        'Port local : ${connectService.port} · Protocole v1.0',
+                        style: type.secondary,
+                      ),
+                      const SizedBox(height: OmniaMetrics.space1),
+                      Text(
+                        'Chiffrement local Zero-Internet',
+                        style: type.timecode.copyWith(color: colors.projector),
+                      ),
+                      const SizedBox(height: OmniaMetrics.space2),
+                      OmniaButton(
+                        label: 'Ouvrir OMNIA Connect',
+                        icon: Icons.sensors_rounded,
+                        onPressed: () => OmniaConnectDialog.show(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: OmniaMetrics.space2),
+        ],
+        const SettingDivider(),
+        SettingRow(
+          title: 'Appareils associés',
+          hint: 'Appareils autorisés à piloter ou diffuser des médias.',
+          control: _FittingButton(
+            label: 'Actualiser',
+            icon: Icons.refresh_rounded,
+            onPressed: () => setState(() {}),
+          ),
+        ),
+        const SizedBox(height: OmniaMetrics.space1),
+        if (connectService.hasConnectedClients || connectService.client.connected)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: OmniaMetrics.space3,
+              vertical: OmniaMetrics.space2,
+            ),
+            decoration: BoxDecoration(
+              color: colors.velvet.withValues(alpha: 0.25),
+              borderRadius: OmniaMetrics.controlRadius,
+              border: Border.all(color: colors.seam.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.phone_android_rounded, size: OmniaMetrics.iconSize, color: Colors.greenAccent),
+                const SizedBox(width: OmniaMetrics.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('OMNIA Mobile (Connecté en direct)', style: type.bodyStrong),
+                      Text('Réseau local · Télécommande et projection actives', style: type.secondary),
+                    ],
+                  ),
+                ),
+                OmniaIconButton(
+                  icon: Icons.link_off_rounded,
+                  tooltip: 'Déconnecter',
+                  onPressed: () {
+                    connectService.stop();
+                    connectService.client.disconnect();
+                    setState(() {});
+                  },
+                ),
+              ],
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: OmniaMetrics.space3,
+              vertical: OmniaMetrics.space3,
+            ),
+            decoration: BoxDecoration(
+              color: colors.velvet.withValues(alpha: 0.25),
+              borderRadius: OmniaMetrics.controlRadius,
+              border: Border.all(color: colors.seam.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.phonelink_erase_rounded, size: OmniaMetrics.iconSize, color: colors.dust),
+                const SizedBox(width: OmniaMetrics.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Aucun appareil associé pour le moment', style: type.bodyStrong),
+                      Text('Scannez le QR code ci-dessus ou ouvrez OMNIA Connect pour lier votre smartphone.', style: type.secondary),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Suggérer l\'application Mobile',
+          hint: 'Rappel hebdomadaire pour installer OMNIA sur votre smartphone et activer la télécommande.',
+          control: OmniaSwitch(
+            label: 'Suggérer OMNIA Mobile',
+            value: !p.mobilePromoDismissed,
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(mobilePromoDismissed: !v)),
+          ),
+        ),
+        const SizedBox(height: OmniaMetrics.space3),
+      ],
+    );
+  }
+}
+
+// --- Réseau & Mises à jour --------------------------------------------------
+
+class _NetworkSection extends ConsumerStatefulWidget {
+  const _NetworkSection();
+
+  @override
+  ConsumerState<_NetworkSection> createState() => _NetworkSectionState();
+}
+
+class _NetworkSectionState extends ConsumerState<_NetworkSection> {
+  UpdateStatus _status = UpdateStatus.idle;
+  UpdateInfo? _info;
+  double _progress = 0.0;
+  int _downloaded = 0;
+  int _total = 0;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final service = ref.read(updateServiceProvider);
+    _status = service.status;
+    _info = service.info;
+    _progress = service.downloadProgress;
+    _downloaded = service.downloadedBytes;
+  }
+
+  Future<void> _checkUpdates() async {
+    setState(() {
+      _status = UpdateStatus.checking;
+      _error = null;
+    });
+    final service = ref.read(updateServiceProvider);
+    final p = ref.read(preferencesProvider);
+    final info = await service.checkForUpdates(channel: p.updateChannel);
+    if (!mounted) return;
+    setState(() {
+      _status = service.status;
+      _info = info;
+    });
+  }
+
+  Future<void> _downloadAndInstall() async {
+    final service = ref.read(updateServiceProvider);
+    setState(() {
+      _status = UpdateStatus.downloading;
+      _error = null;
+    });
+
+    final success = await service.downloadUpdate(
+      onProgress: (p, dl, tot) {
+        if (!mounted) return;
+        setState(() {
+          _progress = p;
+          _downloaded = dl;
+          _total = tot;
+        });
+      },
+    );
+
+    if (!mounted) return;
+    if (success) {
+      setState(() => _status = UpdateStatus.readyToInstall);
+    } else {
+      setState(() {
+        _status = UpdateStatus.error;
+        _error = service.errorMessage ?? 'Erreur de téléchargement';
+      });
+    }
+  }
+
+  Future<void> _applyInstall() async {
+    final service = ref.read(updateServiceProvider);
+    await service.applyUpdate();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+    final p = ref.watch(preferencesProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SettingRow(
+          title: 'Version de l\'application',
+          hint: 'OMNIA Desktop v0.1.0 (Production open-source)',
+          control: _status == UpdateStatus.checking
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : _FittingButton(
+                  label: 'Rechercher',
+                  icon: Icons.refresh_rounded,
+                  onPressed: _checkUpdates,
+                ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Vérification automatique',
+          hint: 'Rechercher automatiquement les nouvelles versions au démarrage.',
+          control: OmniaSwitch(
+            label: 'Vérification auto',
+            value: p.autoCheckUpdates,
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(autoCheckUpdates: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Canal de mise à jour',
+          hint: 'Source des binaires et artéfacts d\'installation.',
+          control: OmniaSegmented<String>(
+            values: const ['stable', 'preview'],
+            selected: p.updateChannel,
+            labelOf: (v) => switch (v) {
+              'preview' => 'CI GitHub',
+              _ => 'Stable',
+            },
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(updateChannel: v)),
+          ),
+        ),
+        const SettingDivider(),
+        Container(
+          padding: const EdgeInsets.all(OmniaMetrics.space3),
+          decoration: BoxDecoration(
+            color: colors.curtain.withValues(alpha: 0.5),
+            borderRadius: OmniaMetrics.controlRadius,
+            border: Border.all(color: colors.seam),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    _status == UpdateStatus.available
+                        ? Icons.system_update_rounded
+                        : _status == UpdateStatus.downloading
+                            ? Icons.downloading_rounded
+                            : _status == UpdateStatus.readyToInstall
+                                ? Icons.check_circle_rounded
+                                : Icons.verified_rounded,
+                    color: _status == UpdateStatus.available || _status == UpdateStatus.downloading
+                        ? colors.projector
+                        : _status == UpdateStatus.readyToInstall
+                            ? Colors.greenAccent
+                            : colors.screen.withValues(alpha: 0.7),
+                    size: 22,
+                  ),
+                  const SizedBox(width: OmniaMetrics.space2),
+                  Expanded(
+                    child: Text(
+                      _status == UpdateStatus.available
+                          ? 'Nouvelle version disponible : v${_info?.latestVersion ?? "0.2.0"}'
+                          : _status == UpdateStatus.downloading
+                              ? 'Téléchargement en cours...'
+                              : _status == UpdateStatus.readyToInstall
+                                  ? 'Mise à jour prête pour installation'
+                                  : 'Votre version d\'OMNIA est à jour',
+                      style: type.bodyStrong,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: OmniaMetrics.space2),
+              Text(
+                _status == UpdateStatus.readyToInstall
+                    ? 'Le paquet d\'installation a été vérifié. Cliquez sur Installer pour appliquer la mise à jour en place sans désinstaller vos données.'
+                    : _info?.releaseNotes ??
+                        'Mises à jour téléchargées directement depuis GitHub Releases ou serveurs miroirs sans manipulation manuelle.',
+                style: type.secondary,
+              ),
+              if (_status == UpdateStatus.downloading) ...[
+                const SizedBox(height: OmniaMetrics.space2),
+                LinearProgressIndicator(
+                  value: _progress > 0 ? _progress : null,
+                  backgroundColor: colors.hover,
+                  valueColor: AlwaysStoppedAnimation<Color>(colors.projector),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                const SizedBox(height: OmniaMetrics.space1),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _total > 0
+                          ? '${(_downloaded / (1024 * 1024)).toStringAsFixed(1)} Mo / ${(_total / (1024 * 1024)).toStringAsFixed(1)} Mo'
+                          : '${(_downloaded / (1024 * 1024)).toStringAsFixed(1)} Mo',
+                      style: type.secondary,
+                    ),
+                    Text(
+                      '${(_progress * 100).toInt()} %',
+                      style: type.bodyStrong.copyWith(color: colors.projector),
+                    ),
+                  ],
+                ),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: OmniaMetrics.space2),
+                Text(_error!, style: type.secondary.copyWith(color: Colors.redAccent)),
+              ],
+              const SizedBox(height: OmniaMetrics.space3),
+              Wrap(
+                spacing: OmniaMetrics.space2,
+                runSpacing: OmniaMetrics.space2,
+                children: [
+                  if (_status == UpdateStatus.available || _status == UpdateStatus.upToDate || _status == UpdateStatus.idle)
+                    OmniaButton(
+                      label: _status == UpdateStatus.available
+                          ? 'Télécharger la mise à jour'
+                          : 'Télécharger la dernière version',
+                      icon: Icons.download_rounded,
+                      onPressed: _downloadAndInstall,
+                    ),
+                  if (_status == UpdateStatus.readyToInstall)
+                    OmniaButton(
+                      label: 'Installer et redémarrer',
+                      icon: Icons.auto_mode_rounded,
+                      onPressed: _applyInstall,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Dépôt et miroirs officiels',
+          hint: 'github.com/steve20400/OMNIA-Descktop · Synchronisé.',
+          control: Text(
+            'HTTPS · Actif',
+            style: type.secondary.copyWith(color: Colors.greenAccent),
+          ),
+        ),
+        const SizedBox(height: OmniaMetrics.space3),
       ],
     );
   }
@@ -948,10 +1628,37 @@ class _HistorySection extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final type = context.type;
     final recents = ref.watch(recentFilesProvider);
+    final p = ref.watch(preferencesProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        SettingRow(
+          title: l10n.settingsRememberPlaybackState,
+          hint: l10n.settingsRememberPlaybackStateHint,
+          control: OmniaSwitch(
+            label: l10n.settingsRememberPlaybackState,
+            value: p.rememberPlaybackState,
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(rememberPlaybackState: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
+          title: l10n.settingsHistoryRetention,
+          hint: l10n.settingsHistoryRetentionHint,
+          control: OmniaSegmented<int>(
+            values: AppPreferences.retentionDaysOptions,
+            selected: p.historyRetentionDays,
+            labelOf: (v) => switch (v) {
+              7 => l10n.historyRetention7Days,
+              30 => l10n.historyRetention30Days,
+              90 => l10n.historyRetention90Days,
+              _ => l10n.historyRetentionUnlimited,
+            },
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(historyRetentionDays: v)),
+          ),
+        ),
+        const SettingDivider(),
         SettingRow(
           title: l10n.recentFiles,
           hint: l10n.settingsRecentHint,

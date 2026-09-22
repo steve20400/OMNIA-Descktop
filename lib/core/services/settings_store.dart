@@ -18,8 +18,11 @@ abstract final class SettingsKeys {
   static const playlistDescending = 'playlist.descending';
   static const endOfPlaybackMode = 'playback.endMode';
   static const screenshotFolder = 'screenshots.folder';
+  static const recordingFolder = 'recordings.folder';
   static const preferences = 'preferences';
+
   static const lastVolume = 'playback.lastVolume';
+  static const lastOpenPath = 'playback.lastOpenPath';
   static const keymapOverrides = 'keymap.overrides';
   static const miniLongSide = 'mini.longSide';
   static const miniX = 'mini.x';
@@ -81,7 +84,16 @@ abstract interface class SettingsStore {
   /// Dossier des captures d'écran ; `null` = dossier par défaut du système.
   String? get screenshotFolder;
   Future<void> setScreenshotFolder(String? path);
+
+  /// Dossier des enregistrements audio ; `null` = dossier par défaut du système.
+  String? get recordingFolder;
+  Future<void> setRecordingFolder(String? path);
+
+  /// Chemin du dernier média ou document ouvert, pour la reprise de session.
+  String? get lastOpenPath;
+  Future<void> setLastOpenPath(String? path);
 }
+
 
 /// Implémentation Hive (fichier local dans le dossier de données de l'app).
 class HiveSettingsStore implements SettingsStore {
@@ -237,7 +249,24 @@ class HiveSettingsStore implements SettingsStore {
   Future<void> setScreenshotFolder(String? path) => path == null
       ? _box.delete(SettingsKeys.screenshotFolder)
       : _box.put(SettingsKeys.screenshotFolder, path);
+
+  @override
+  String? get recordingFolder => _box.get(SettingsKeys.recordingFolder) as String?;
+
+  @override
+  Future<void> setRecordingFolder(String? path) => path == null
+      ? _box.delete(SettingsKeys.recordingFolder)
+      : _box.put(SettingsKeys.recordingFolder, path);
+
+  @override
+  String? get lastOpenPath => _box.get(SettingsKeys.lastOpenPath) as String?;
+
+  @override
+  Future<void> setLastOpenPath(String? path) => path == null
+      ? _box.delete(SettingsKeys.lastOpenPath)
+      : _box.put(SettingsKeys.lastOpenPath, path);
 }
+
 
 /// Implémentation en mémoire : tests, et repli quand le stockage local est
 /// déjà tenu par une autre instance.
@@ -349,4 +378,21 @@ class MemorySettingsStore implements SettingsStore {
 
   @override
   Future<void> setScreenshotFolder(String? path) async => _screenshotFolder = path;
+
+  String? _recordingFolder;
+
+  @override
+  String? get recordingFolder => _recordingFolder;
+
+  @override
+  Future<void> setRecordingFolder(String? path) async => _recordingFolder = path;
+
+  String? _lastOpenPath;
+
+  @override
+  String? get lastOpenPath => _lastOpenPath;
+
+  @override
+  Future<void> setLastOpenPath(String? path) async => _lastOpenPath = path;
 }
+

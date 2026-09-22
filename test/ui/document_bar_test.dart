@@ -195,7 +195,44 @@ void main() {
       expect(find.byIcon(Icons.remove_rounded), findsOneWidget);
       expect(find.byIcon(Icons.add_rounded), findsOneWidget);
       expect(find.byIcon(Icons.dark_mode_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
       expect(find.byTooltip('Plus de commandes'), findsNothing);
+    });
+
+    testWidgets('texte : bascule en mode modification affiche le bouton enregistrer', (tester) async {
+      await pumpBar(tester, _text);
+      await resizeWindow(tester, const Size(1200, 400));
+
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.save_rounded), findsNothing);
+
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.save_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('document bureautique (DOC/PPTX) : affiche le bouton modifier', (tester) async {
+      const docState = PlaybackState(
+        file: MediaFile(path: '/docs/Presentation.pptx', type: MediaType.doc),
+      );
+      await pumpBar(tester, docState);
+      await resizeWindow(tester, const Size(1200, 400));
+
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('bouton mini-lecteur présent et émet ToggleMiniPlayer', (tester) async {
+      final harness = await pumpBar(tester, _pdf);
+      await resizeWindow(tester, const Size(1200, 400));
+
+      expect(find.byIcon(Icons.picture_in_picture_alt_rounded), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.picture_in_picture_alt_rounded));
+      await tester.pumpAndSettle();
+      expect(harness.commands.whereType<ToggleMiniPlayer>(), hasLength(1));
     });
   });
 }

@@ -5,21 +5,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/models/app_preferences.dart';
+import '../core/models/window_sizes.dart';
 import '../core/providers.dart';
 import '../core/utils/platform_session.dart';
 import '../l10n/app_localizations.dart';
+import 'app_close.dart';
 import 'screens/player_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme/omnia_theme.dart';
+
+/// Clé globale pour accéder au navigateur racine depuis n'importe où
+/// (notamment lors des demandes de fermeture du système).
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Racine de l'application : thème, localisation, écran unique.
 ///
 /// Mémorise aussi la géométrie de fenêtre et met à jour le titre natif.
 class OmniaApp extends ConsumerStatefulWidget {
-  const OmniaApp({super.key, this.onExit});
+  const OmniaApp({super.key, this.onExit, this.showSplash = false});
 
   /// Appelé quand le système demande la fermeture de l'application : libère
   /// ce qui doit l'être (verrou d'instance unique) avant de quitter.
   final Future<void> Function()? onExit;
+
+  /// Active l'animation de chargement initiale (Splash Screen) lors du démarrage à froid.
+  final bool showSplash;
 
   @override
   ConsumerState<OmniaApp> createState() => _OmniaAppState();
@@ -27,6 +37,7 @@ class OmniaApp extends ConsumerStatefulWidget {
 
 class _OmniaAppState extends ConsumerState<OmniaApp> {
   StreamSubscription<void>? _geometrySub;
+  StreamSubscription<void>? _closeSub;
   Timer? _saveDebounce;
   AppLifecycleListener? _lifecycle;
 
@@ -34,12 +45,27 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
   void initState() {
     super.initState();
     final window = ref.read(windowServiceProvider);
+    window.setMinimumSize(WindowSizes.mainMinimum);
     _geometrySub = window.geometryChanges.listen((_) {
       _saveDebounce?.cancel();
       _saveDebounce = Timer(const Duration(milliseconds: 400), _saveGeometry);
     });
+    _closeSub = window.closeRequests.listen((_) {
+      closeApplication(ref);
+    });
     _lifecycle = AppLifecycleListener(
       onExitRequested: () async {
+        final canClose = await handleUnsavedChangesGuard(ref);
+        if (!canClose) {
+          return AppExitResponse.cancel; // Interrompt la fermeture système !
+        }
+
+        try {
+          await ref.read(avControllerProvider).player.stop();
+        } catch (_) {}
+        try {
+          await ref.read(playbackServiceProvider).stopImmediately();
+        } catch (_) {}
         await widget.onExit?.call();
         return AppExitResponse.exit;
       },
@@ -103,6 +129,7 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
   @override
   void dispose() {
     _lifecycle?.dispose();
+    _closeSub?.cancel();
     _saveDebounce?.cancel();
     _geometrySub?.cancel();
     super.dispose();
@@ -120,6 +147,7 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
     final language = ref.watch(preferencesProvider.select((p) => p.language));
 
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'OMNIA',
       debugShowCheckedModeBanner: false,
       theme: buildOmniaTheme(Brightness.light),
@@ -147,7 +175,9 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
         }
         return const Locale('fr');
       },
-      home: const PlayerScreen(),
+      home: widget.showSplash
+          ? const SplashScreen(targetWidget: PlayerScreen())
+          : const PlayerScreen(),
     );
   }
 }

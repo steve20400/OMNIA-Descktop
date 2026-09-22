@@ -4,21 +4,25 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'commands/player_command.dart';
 import 'commands/player_command_bus.dart';
 import 'controllers/av_controller.dart';
+import 'controllers/image_controller.dart';
 import 'controllers/media_router.dart';
 import 'controllers/pdf_controller.dart';
 import 'controllers/text_controller.dart';
+
 import 'models/app_preferences.dart';
 import 'models/playback_state.dart';
 import 'models/playlist_state.dart';
 import 'services/audio_metadata_service.dart';
 import 'services/folder_scanner.dart';
 import 'services/history_store.dart';
+import 'services/omnia_connect_service.dart';
 import 'services/playback_service.dart';
 import 'services/playlist_service.dart';
 import 'services/screen_wake.dart';
 import 'services/screenshot_service.dart';
 import 'services/settings_store.dart';
 import 'services/system_integration.dart';
+import 'services/update_service.dart';
 import 'services/window_service.dart';
 
 /// Câblage Riverpod du core. L'interface ne lit que ces providers.
@@ -62,6 +66,20 @@ final screenshotServiceProvider = Provider<ScreenshotService>(
   (ref) => ScreenshotService(settings: ref.watch(settingsStoreProvider)),
 );
 
+/// Service de communication locale Zero-Internet OMNIA Connect.
+final omniaConnectServiceProvider = Provider<OmniaConnectService>((ref) {
+  final service = OmniaConnectService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// Service de mise à jour transparente in-app (GitHub Releases / CI).
+final updateServiceProvider = Provider<UpdateService>((ref) {
+  final service = UpdateService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
 /// Tags et pochettes des fichiers audio.
 final audioMetadataServiceProvider =
     Provider<AudioMetadataService>((_) => const IsolateAudioMetadataService());
@@ -94,13 +112,22 @@ final pdfControllerProvider = Provider<PdfController>((ref) {
   return controller;
 });
 
+/// Images (PNG, JPEG, WebP, SVG, etc.).
+final imageControllerProvider = Provider<ImageController>((ref) {
+  final controller = ImageController();
+  ref.onDispose(controller.dispose);
+  return controller;
+});
+
 final mediaRouterProvider = Provider<MediaRouter>(
   (ref) => MediaRouter([
     ref.watch(avControllerProvider),
     ref.watch(textControllerProvider),
     ref.watch(pdfControllerProvider),
+    ref.watch(imageControllerProvider),
   ]),
 );
+
 
 final playlistServiceProvider = Provider<PlaylistService>((ref) {
   final router = ref.watch(mediaRouterProvider);

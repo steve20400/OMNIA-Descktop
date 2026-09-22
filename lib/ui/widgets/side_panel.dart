@@ -13,6 +13,7 @@ import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../chrome_controller.dart';
 import '../document_search_provider.dart';
+import '../document_ui_controller.dart';
 import '../panel_controller.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
@@ -174,49 +175,52 @@ class _SidePanelState extends ConsumerState<SidePanel> {
           width = panel.width;
         }
 
-        return AnimatedContainer(
-          duration: OmniaMotion.panel,
-          curve: OmniaMotion.panelCurve,
-          width: width,
-          decoration: BoxDecoration(
-            color: colors.curtain,
-            border: Border(right: BorderSide(color: colors.seam)),
-            // Posé sur la scène, le tiroir se détache par une ombre portée.
-            boxShadow: widget.drawer
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: OmniaMetrics.overlayShadowAlpha),
-                      blurRadius: OmniaMetrics.overlayShadowBlur,
-                    ),
-                  ]
-                : null,
-          ),
-          // Replié, le panneau ne construit rien : une liste de plusieurs
-          // milliers de lignes n'a pas à être mesurée, ni ses champs à rester
-          // atteignables au clavier, pendant qu'elle est invisible.
-          child: !open
-              ? null
-              : ClipRect(
-                  child: OverflowBox(
-                    alignment: Alignment.centerLeft,
-                    minWidth: width,
-                    maxWidth: width,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _PanelHeader(playlist: playlist),
-                        if (pdf != null)
-                          PanelTabBar(
-                            selected: tab,
-                            onSelected: (t) => setState(() => _tab = t),
-                          ),
-                        if (tab == PanelTab.folder) ...[
-                          _SearchField(
-                            controller: _search,
-                            focusNode: _searchFocus,
-                            onChanged: (value) => ref.dispatch(SetPlaylistQuery(value)),
-                          ),
-                          const _FilterRow(),
+        return Listener(
+          onPointerDown: (_) => ref.read(documentUiProvider.notifier).setDocumentFocused(false),
+          behavior: HitTestBehavior.translucent,
+          child: AnimatedContainer(
+            duration: OmniaMotion.panel,
+            curve: OmniaMotion.panelCurve,
+            width: width,
+            decoration: BoxDecoration(
+              color: colors.curtain,
+              border: Border(right: BorderSide(color: colors.seam)),
+              // Posé sur la scène, le tiroir se détache par une ombre portée.
+              boxShadow: widget.drawer
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: OmniaMetrics.overlayShadowAlpha),
+                        blurRadius: OmniaMetrics.overlayShadowBlur,
+                      ),
+                    ]
+                  : null,
+            ),
+            // Replié, le panneau ne construit rien : une liste de plusieurs
+            // milliers de lignes n'a pas à être mesurée, ni ses champs à rester
+            // atteignables au clavier, pendant qu'elle est invisible.
+            child: !open
+                ? null
+                : ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.centerLeft,
+                      minWidth: width,
+                      maxWidth: width,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _PanelHeader(playlist: playlist),
+                          if (pdf != null)
+                            PanelTabBar(
+                              selected: tab,
+                              onSelected: (t) => setState(() => _tab = t),
+                            ),
+                          if (tab == PanelTab.folder) ...[
+                            _SearchField(
+                              controller: _search,
+                              focusNode: _searchFocus,
+                              onChanged: (value) => ref.dispatch(SetPlaylistQuery(value)),
+                            ),
+                            const _FilterRow(),
                         ],
                         Divider(height: 1, thickness: 1, color: colors.seam),
                         Expanded(
@@ -237,6 +241,7 @@ class _SidePanelState extends ConsumerState<SidePanel> {
                     ),
                   ),
                 ),
+          ),
         );
       },
     );
@@ -497,7 +502,9 @@ class _FilterRow extends ConsumerWidget {
           PlaylistFilter.video => l10n.filterVideo,
           PlaylistFilter.audio => l10n.filterAudio,
           PlaylistFilter.documents => l10n.filterDocuments,
+          PlaylistFilter.images => l10n.filterImages,
         };
+
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(

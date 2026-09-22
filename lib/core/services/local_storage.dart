@@ -63,3 +63,31 @@ AppPreferences? readPreferencesSnapshot(Directory dir) {
     return null;
   }
 }
+
+/// Nom du fichier JSON de secours pour l'historique et les positions.
+const String historySnapshotName = 'history.json';
+
+/// Sauvegarde une copie de l'historique en JSON pour les fenêtres secondaires
+/// et la persistance lors des fermetures système.
+Future<void> writeHistorySnapshot(Directory dir, Map<String, dynamic> entriesJson) async {
+  try {
+    await dir.create(recursive: true);
+    await File(p.join(dir.path, historySnapshotName))
+        .writeAsString(jsonEncode(entriesJson), flush: true);
+  } on Object {
+    // Écriture de secours.
+  }
+}
+
+/// Lit la copie de l'historique en JSON.
+Map<String, dynamic> readHistorySnapshot(Directory dir) {
+  try {
+    final file = File(p.join(dir.path, historySnapshotName));
+    if (!file.existsSync()) return {};
+    final json = jsonDecode(file.readAsStringSync());
+    if (json is! Map) return {};
+    return Map<String, dynamic>.from(json);
+  } on Object {
+    return {};
+  }
+}

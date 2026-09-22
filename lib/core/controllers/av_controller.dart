@@ -67,6 +67,11 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
   /// afficher « en pause » pendant le chargement.
   bool _opening = false;
 
+  /// Vitesse de lecture persistée d'un média à l'autre au sein de la playlist :
+  /// si l'utilisateur accélère (ex. 1.5×, 2×), le média suivant démarre
+  /// automatiquement et directement à cette même vitesse sans revenir à 1×.
+  double _persistedSpeed = 1.0;
+
   /// Pistes rapportées par mpv pour le fichier courant, pour retrouver un
   /// objet piste à partir de son identifiant.
   Tracks _tracks = const Tracks();
@@ -89,6 +94,7 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     await _setProperty('scale', 'spline36');
     await _setProperty('dscale', 'mitchell');
     await _setProperty('correct-downscaling', 'yes');
+    await _setProperty('demuxer-max-back-bytes', '50M');
   }
 
   // Position : mpv la publie à chaque image affichée, soit 25 à 60 fois par
@@ -117,7 +123,16 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
       s.duration.listen((duration) => _update((st) => st.copyWith(duration: duration))),
       s.buffering.listen((buffering) => _update((st) => st.copyWith(buffering: buffering))),
       s.volume.listen((volume) => _update((st) => st.copyWith(volume: volume))),
-      s.rate.listen((rate) => _update((st) => st.copyWith(speed: rate))),
+      s.rate.listen((rate) {
+        if (_opening && (rate - _persistedSpeed).abs() > 0.01) {
+          // Pendant le chargement du fichier suivant, mpv réinitialise souvent le taux à 1.0.
+          // On réapplique immédiatement la vitesse voulue pour la conserver sans accroc.
+          unawaited(player.setRate(_persistedSpeed));
+          return;
+        }
+        _persistedSpeed = rate;
+        _update((st) => st.copyWith(speed: rate));
+      }),
       // Dimensions d'affichage de l'image : media_kit les tire de
       // `video-out-params` (dw, dh), rapport d'aspect et rotation compris.
       // Largeur et hauteur arrivent sur deux flux, mais l'état du moteur tient
@@ -164,7 +179,13 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
         );
       }),
       s.playing.listen((playing) {
-        if (playing) _opening = false;
+        if (playing) {
+          _opening = false;
+          // Continuité de la vitesse de lecture sur le média suivant
+          if ((player.state.rate - _persistedSpeed).abs() > 0.01) {
+            unawaited(player.setRate(_persistedSpeed));
+          }
+        }
         // À la pause, la position affichée est l'exacte, pas la dernière
         // retenue par le filtre de fréquence.
         if (!playing) _publishPosition(player.state.position);
@@ -246,7 +267,8 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     _sink = sink;
     _opening = true;
 
-    if (!File(file.path).existsSync()) {
+    final isNetworkStream = file.path.startsWith('http://') || file.path.startsWith('https://');
+    if (!isNetworkStream && !File(file.path).existsSync()) {
       _opening = false;
       // Remettre position, durée et présence vidéo à zéro : sans cela, l'état
       // garderait celles du fichier précédent, et la sauvegarde de position
@@ -272,6 +294,9 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     // moteur peut publier ses propres valeurs pendant l'ouverture, qui
     // écraseraient celles de l'utilisateur.
     final state = sink.state;
+    if (state.speed > 0) {
+      _persistedSpeed = state.speed;
+    }
 
     sink.update(
       (st) => st.copyWith(
@@ -280,6 +305,7 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
         position: Duration.zero,
         duration: Duration.zero,
         hasVideo: file.type == MediaType.video,
+        speed: _persistedSpeed,
         // Dimensions de l'image : connues seulement une fois la première image
         // décodée. Jusque-là, le mini-lecteur garde sa forme.
         videoWidth: 0,
@@ -310,7 +336,7 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
 
       await player.open(Media(file.path), play: true);
 
-      await player.setRate(state.speed);
+      await player.setRate(_persistedSpeed);
       await player.setVolume(state.volume);
       await _setMuted(state.muted);
       await _setProperty('sub-visibility', state.subtitlesVisible ? 'yes' : 'no');
@@ -485,6 +511,7 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     final steps = (speed / PlaybackState.speedStep).round();
     final s = (steps * PlaybackState.speedStep)
         .clamp(PlaybackState.minSpeed, PlaybackState.maxSpeed);
+    _persistedSpeed = s;
     await player.setRate(s);
     // En lecture rapide, mpv peut sauter des images en retard dès le
     // décodage : le mouvement est moins fluide, mais l'image ne décroche pas.
@@ -606,8 +633,9 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
   Future<bool> startRecording(String path) async {
     final platform = player.platform;
     if (platform is! NativePlayer) return false;
+    final normalizedPath = path.replaceAll('\\', '/');
     try {
-      await platform.setProperty('stream-record', path);
+      await platform.setProperty('stream-record', normalizedPath);
       if ((await platform.getProperty('stream-record')).trim().isEmpty) return false;
       // Point de départ du repli : la position exacte du moteur, et non celle
       // de l'état, filtrée à six mises à jour par seconde.
@@ -639,13 +667,16 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     final to = player.state.position;
     // Rien ne s'est écoulé : il n'y a aucune séquence à écrire.
     if (to <= from) return false;
+    final normalizedPath = path.replaceAll('\\', '/');
     try {
-      await platform.command(['dump-cache', _seconds(from), _seconds(to), path]);
+      await platform.command(['dump-cache', _seconds(from), _seconds(to), normalizedPath]);
       return true;
     } on Object {
       return false;
     }
   }
+
+
 
   @override
   Future<void> close() async {

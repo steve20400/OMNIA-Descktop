@@ -263,5 +263,26 @@ void main() {
       await store.clear();
       expect(store.recent(), isEmpty);
     });
+
+    test('pruneExpired purge les entrées au-delà du seuil de jours', () async {
+      await store.savePosition('/recent.mkv',
+          position: const Duration(minutes: 10), duration: const Duration(minutes: 90), now: t0);
+      await store.savePosition('/old.mkv',
+          position: const Duration(minutes: 10),
+          duration: const Duration(minutes: 90),
+          now: t0.subtract(const Duration(days: 35)));
+
+      await store.pruneExpired(30, now: t0);
+      expect(store.entryFor('/recent.mkv'), isNotNull);
+      expect(store.entryFor('/old.mkv'), isNull);
+
+      // Si jours <= 0, rien n'est purgé
+      await store.savePosition('/very_old.mkv',
+          position: const Duration(minutes: 10),
+          duration: const Duration(minutes: 90),
+          now: t0.subtract(const Duration(days: 100)));
+      await store.pruneExpired(0, now: t0);
+      expect(store.entryFor('/very_old.mkv'), isNotNull);
+    });
   });
 }

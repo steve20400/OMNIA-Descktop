@@ -174,6 +174,7 @@ class FakeDocController implements MediaController {
   @override
   Future<void> open(MediaFile file, PlaybackStateSink sink) async {
     this.sink = sink;
+    final initialPage = sink.state.currentPage > 0 ? sink.state.currentPage : 1;
     sink.update(
       (s) => s.copyWith(
         file: file,
@@ -181,7 +182,7 @@ class FakeDocController implements MediaController {
         position: Duration.zero,
         duration: Duration.zero,
         hasVideo: false,
-        currentPage: file.type == MediaType.pdf ? 1 : 0,
+        currentPage: file.type == MediaType.pdf ? initialPage : 0,
         totalPages: file.type == MediaType.pdf ? 40 : 0,
         scrollFraction: 0,
         clearError: true,
@@ -855,6 +856,52 @@ void main() {
       expect(docService.state.file?.name, 'manuel.pdf');
       expect(history.entryFor('/docs/manuel.pdf')!.completed, isTrue);
     });
+
+    test('la position du document est sauvegardée lors de stopImmediately', () async {
+      await docService.openPath('/docs/manuel.pdf');
+      await doc.handle(const GoToPage(15));
+      await settle();
+      await docService.stopImmediately();
+      final entry = history.entryFor('/docs/manuel.pdf')!;
+      expect(entry.page, 15);
+    });
+
+    test('passer d’un document à un autre puis revenir conserve la page exacte', () async {
+      await docService.openPath('/docs/manuel.pdf');
+      await doc.handle(const GoToPage(18));
+      await settle();
+
+      // Basculer sur un second document sans fermer l'application
+      await docService.openPath('/docs/autre.pdf');
+      await doc.handle(const GoToPage(7));
+      await settle();
+
+      // Vérifier que le premier document a bien sauvegardé sa page
+      expect(history.entryFor('/docs/manuel.pdf')!.page, 18);
+      expect(history.entryFor('/docs/autre.pdf')!.page, 7);
+
+      // Revenir sur le premier document
+      await docService.openPath('/docs/manuel.pdf');
+      await settle();
+      expect(docService.state.currentPage, 18);
+    });
+
+    test('lastOpenPath est mis à jour à chaque ouverture de fichier', () async {
+      final store = MemorySettingsStore();
+      final s = PlaybackService(
+        bus: bus,
+        router: MediaRouter([av, doc]),
+        window: window,
+        playlist: playlist,
+        history: history,
+        settings: store,
+      );
+      await s.openPath('/media/piste1.mp3');
+      expect(store.lastOpenPath, '/media/piste1.mp3');
+      await s.openPath('/docs/manuel.pdf');
+      expect(store.lastOpenPath, '/docs/manuel.pdf');
+      await s.dispose();
+    });
   });
 
   group('Capture d’écran', () {
@@ -1161,7 +1208,7 @@ void main() {
       expect(service.state.miniPlayer, isTrue);
     });
 
-    test('un document déposé sur le mini-lecteur rend la fenêtre entière', () async {
+    test('un format inconnu déposé sur le mini-lecteur rend la fenêtre entière, médias et documents restent', () async {
       window.bounds = const Rect.fromLTWH(100, 80, 1200, 760);
       await service.openPath('/serie/ep1.mkv');
       bus.dispatch(const ToggleMiniPlayer());
@@ -1172,8 +1219,16 @@ void main() {
       await service.openPath('/serie/ep2.mkv');
       expect(service.state.miniPlayer, isTrue);
 
-      // Un PDF : il faut la fenêtre entière pour le lire.
+      // Une image : le mini-lecteur sait l'afficher, il reste.
+      await service.openPath('/serie/photo.jpg');
+      expect(service.state.miniPlayer, isTrue);
+
+      // Un PDF : le mini-lecteur sait désormais l'afficher, il reste.
       await service.openPath('/serie/notes.pdf');
+      expect(service.state.miniPlayer, isTrue);
+
+      // Un fichier inconnu / non supporté : il faut la fenêtre entière.
+      await service.openPath('/serie/archive.unknownformatxyz');
       expect(service.state.miniPlayer, isFalse);
       expect(window.bounds, const Rect.fromLTWH(100, 80, 1200, 760));
       expect(window.minimumSize, WindowSizes.mainMinimum);

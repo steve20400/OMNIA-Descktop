@@ -53,8 +53,11 @@ sealed class PlayerCommand {
       'toggleRecording' => const ToggleRecording(),
       'setLoopMode' => SetLoopMode(EndOfPlaybackMode.fromJson(json['mode'])),
       'cycleLoopMode' => const CycleLoopMode(),
-      'toggleAlwaysOnTop' => const ToggleAlwaysOnTop(),
+      'toggleAlwaysOnTop' => ToggleAlwaysOnTop(
+          forMiniPlayer: json['forMiniPlayer'] as bool?,
+        ),
       'toggleSidePanel' => const ToggleSidePanel(),
+
       'setSidePanelVisible' => SetSidePanelVisible(_bool(json, 'visible')),
       'setSidePanelWidth' => SetSidePanelWidth(_num(json, 'width').toDouble()),
       'setControlBarWidth' => SetControlBarWidth(_num(json, 'width').toDouble()),
@@ -82,7 +85,9 @@ sealed class PlayerCommand {
           ),
         ),
       'setScreenshotFolder' => SetScreenshotFolder(json['path'] as String?),
+      'setRecordingFolder' => SetRecordingFolder(json['path'] as String?),
       'zoomRelative' => ZoomRelative(_num(json, 'factor').toDouble()),
+
       'fitZoom' => FitZoom(FitMode.fromJson(json['mode'])),
       'rotateDocument' => RotateDocument(_num(json, 'quarterTurns').toInt()),
       'toggleReadingDarkMode' => const ToggleReadingDarkMode(),
@@ -90,6 +95,7 @@ sealed class PlayerCommand {
         SetDocumentLayout(DocumentLayout.fromJson(json['layout'])),
       'toggleDocumentLayout' => const ToggleDocumentLayout(),
       'scrollTo' => ScrollTo(_num(json, 'fraction').toDouble()),
+      'scrollDocument' => ScrollDocument(_num(json, 'delta').toDouble()),
       'setSubtitleTrack' => SetSubtitleTrack(json['id'] as String?),
       'toggleSubtitles' => const ToggleSubtitles(),
       'loadSubtitleFile' => LoadSubtitleFile(_string(json, 'path')),
@@ -335,10 +341,14 @@ final class CycleLoopMode extends PlayerCommand {
 }
 
 final class ToggleAlwaysOnTop extends PlayerCommand {
-  const ToggleAlwaysOnTop();
+  const ToggleAlwaysOnTop({this.forMiniPlayer});
+  final bool? forMiniPlayer;
   @override
   String get type => 'toggleAlwaysOnTop';
+  @override
+  Map<String, Object?> get arguments => {'forMiniPlayer': forMiniPlayer};
 }
+
 
 final class ToggleSidePanel extends PlayerCommand {
   const ToggleSidePanel();
@@ -526,6 +536,17 @@ final class SetScreenshotFolder extends PlayerCommand {
   Map<String, Object?> get arguments => {'path': path};
 }
 
+/// Dossier des extraits / enregistrements audio ; `null` revient au dossier par défaut.
+final class SetRecordingFolder extends PlayerCommand {
+  const SetRecordingFolder(this.path);
+  final String? path;
+  @override
+  String get type => 'setRecordingFolder';
+  @override
+  Map<String, Object?> get arguments => {'path': path};
+}
+
+
 // --- Documents -------------------------------------------------------------
 
 /// Multiplie le zoom par [factor] (`Ctrl+molette`).
@@ -591,6 +612,16 @@ final class ScrollTo extends PlayerCommand {
   String get type => 'scrollTo';
   @override
   Map<String, Object?> get arguments => {'fraction': fraction};
+}
+
+/// Émise pour faire défiler le document d'une distance en pixels (positif vers le bas).
+final class ScrollDocument extends PlayerCommand {
+  const ScrollDocument(this.delta);
+  final double delta;
+  @override
+  String get type => 'scrollDocument';
+  @override
+  Map<String, Object?> get arguments => {'delta': delta};
 }
 
 // --- Sous-titres et pistes audio ------------------------------------------

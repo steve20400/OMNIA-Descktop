@@ -209,6 +209,26 @@ class PlaylistService {
   /// Fichier précédent dans la liste affichée. Boucle également.
   String? previousPath() => _relative(-1);
 
+  /// Fichier suivant dans la liste sans reboucler en fin de liste.
+  /// Retourne `null` si on est déjà sur le dernier fichier.
+  String? nextNonLoopingPath() {
+    final paths = _navigablePaths;
+    if (paths.isEmpty) return null;
+    final index = paths.indexOf(_state.currentPath ?? '');
+    if (index < 0) return paths.first;
+    return index + 1 < paths.length ? paths[index + 1] : null;
+  }
+
+  /// Fichier précédent dans la liste sans reboucler en début de liste.
+  /// Retourne `null` si on est déjà sur le premier fichier.
+  String? previousNonLoopingPath() {
+    final paths = _navigablePaths;
+    if (paths.isEmpty) return null;
+    final index = paths.indexOf(_state.currentPath ?? '');
+    if (index <= 0) return null;
+    return paths[index - 1];
+  }
+
   String? _relative(int step) {
     final paths = _navigablePaths;
     if (paths.isEmpty) return null;

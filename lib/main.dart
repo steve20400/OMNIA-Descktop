@@ -25,6 +25,9 @@ Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
 
+  final isNewWindow = args.contains('--new-window');
+  final cleanArgs = args.where((a) => a != '--new-window').toList();
+
   // Instance unique (réglable) : si OMNIA tourne déjà, on lui confie le
   // fichier et on se retire, plutôt que d'ouvrir une seconde fenêtre.
   final Directory dataDirectory;
@@ -34,7 +37,7 @@ Future<void> main(List<String> args) async {
     dataDirectory = await localStorageDirectory();
     single = singleInstanceEnabled(dataDirectory);
     instance = SingleInstanceService(directory: dataDirectory);
-    if (single && await instance.delegateToExisting(args)) {
+    if (single && !isNewWindow && await instance.delegateToExisting(cleanArgs)) {
       exit(0);
     }
   } on Object catch (error) {
@@ -49,33 +52,33 @@ Future<void> main(List<String> args) async {
   HistoryStore history;
   try {
     settings = await HiveSettingsStore.open();
-    history = await HiveHistoryStore.open();
+    history = await HiveHistoryStore.open(dataDirectory: dataDirectory);
   } on Object catch (error) {
-    if (single) {
+    if (single && !isNewWindow) {
       await _showWindow(bounds: null, maximized: false);
       runApp(StartupFailureApp(detail: error.toString()));
       return;
     }
-    // Plusieurs fenêtres autorisées : la première tient la base (Hive la
-    // verrouille). Celle-ci démarre avec des réglages en mémoire, relus depuis
-    // la copie en clair ; son historique ne sera pas conservé.
+    // Plusieurs fenêtres autorisées ou fenêtre détachée : la première tient la base Hive.
+    // Celle-ci démarre avec des réglages en mémoire relus depuis la copie en clair,
+    // et son historique est persisté dans le fichier partagé history.json.
     settings = MemorySettingsStore(
       preferences: readPreferencesSnapshot(dataDirectory) ?? const AppPreferences(),
     );
-    history = MemoryHistoryStore();
+    history = FileHistoryStore(dataDirectory);
   }
 
   final container = ProviderContainer(
     overrides: [
       settingsStoreProvider.overrideWithValue(settings),
       historyStoreProvider.overrideWithValue(history),
-      launchArgumentsProvider.overrideWithValue(args),
+      launchArgumentsProvider.overrideWithValue(cleanArgs),
     ],
   );
 
   // Devenir la première instance : les suivantes nous enverront leurs
   // arguments, qu'on traite comme une ouverture depuis le système.
-  if (single) {
+  if (single && !isNewWindow) {
     try {
       await instance.serve((remoteArgs) {
         // Fichier déposé sur l'icône, « Ouvrir avec » : même règle qu'un dépôt
@@ -99,18 +102,26 @@ Future<void> main(List<String> args) async {
   await _showWindow(
     bounds: settings.windowBounds,
     maximized: settings.windowMaximized,
+    alwaysOnTop: settings.preferences.normalPlayerAlwaysOnTop,
   );
 
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: OmniaApp(onExit: instance.dispose),
+      child: OmniaApp(
+        onExit: instance.dispose,
+        showSplash: cleanArgs.isEmpty,
+      ),
     ),
   );
 }
 
 /// Prépare et affiche la fenêtre sans cadre.
-Future<void> _showWindow({required Rect? bounds, required bool maximized}) async {
+Future<void> _showWindow({
+  required Rect? bounds,
+  required bool maximized,
+  bool alwaysOnTop = false,
+}) async {
   await windowManager.ensureInitialized();
 
   final options = WindowOptions(
@@ -118,6 +129,7 @@ Future<void> _showWindow({required Rect? bounds, required bool maximized}) async
     minimumSize: WindowSizes.mainMinimum,
     center: bounds == null || isWaylandSession,
     backgroundColor: OmniaColors.dark.velvet,
+    alwaysOnTop: alwaysOnTop,
     titleBarStyle: TitleBarStyle.hidden,
     title: 'OMNIA',
   );
@@ -128,7 +140,10 @@ Future<void> _showWindow({required Rect? bounds, required bool maximized}) async
     if (bounds != null && !isWaylandSession) {
       await windowManager.setPosition(bounds.topLeft);
     }
+    await windowManager.setMinimumSize(WindowSizes.mainMinimum);
     if (maximized) await windowManager.maximize();
+    if (alwaysOnTop) await windowManager.setAlwaysOnTop(true);
+    await windowManager.setPreventClose(true);
     await windowManager.show();
     await windowManager.focus();
   });

@@ -10,21 +10,37 @@ import 'local_storage.dart';
 import 'settings_store.dart';
 
 /// Enregistre les captures d'écran sur disque, et choisit où écrire les
-/// extraits enregistrés : même dossier, même motif de nom.
+/// extraits enregistrés : dossiers séparés (images vs audio), même motif de nom.
 class ScreenshotService {
-  ScreenshotService({this.settings, Future<Directory> Function()? defaultFolder})
-      : _defaultFolder = defaultFolder ?? defaultScreenshotFolder;
+  ScreenshotService({
+    this.settings,
+    Future<Directory> Function()? defaultFolder,
+    Future<Directory> Function()? defaultRecordingFolder,
+  })  : _defaultFolder = defaultFolder ?? defaultScreenshotFolder,
+        _defaultRecordingFolder =
+            defaultRecordingFolder ?? defaultFolder ?? defaultScreenshotFolder;
+
 
   final SettingsStore? settings;
   final Future<Directory> Function() _defaultFolder;
+  final Future<Directory> Function() _defaultRecordingFolder;
 
-  /// Dossier de destination : celui des préférences s'il est défini, sinon
-  /// le dossier par défaut du système.
-  Future<Directory> folder() async {
+  /// Dossier de destination pour les captures d'écran vidéo (images PNG).
+  Future<Directory> screenshotFolder() async {
     final configured = settings?.screenshotFolder;
     if (configured != null && configured.isNotEmpty) return Directory(configured);
     return _defaultFolder();
   }
+
+  /// Dossier de destination pour les extraits / enregistrements audio.
+  Future<Directory> recordingFolder() async {
+    final configured = settings?.recordingFolder;
+    if (configured != null && configured.isNotEmpty) return Directory(configured);
+    return _defaultRecordingFolder();
+  }
+
+  /// Dossier de repli pour la rétrocompatibilité : captures d'écran.
+  Future<Directory> folder() => screenshotFolder();
 
   /// Écrit [png] et retourne le chemin du fichier créé. Le nom suit le motif
   /// des préférences ([position] sert au jeton `{position}`).
@@ -37,7 +53,7 @@ class ScreenshotService {
     Duration position = Duration.zero,
     DateTime? now,
   }) async {
-    final dir = await folder();
+    final dir = await screenshotFolder();
     await dir.create(recursive: true);
     final pattern =
         settings?.preferences.screenshotNamePattern ?? AppPreferences.defaultScreenshotPattern;
@@ -50,17 +66,17 @@ class ScreenshotService {
     return path;
   }
 
-  /// Chemin libre pour un extrait : dossier et motif de nom des captures,
-  /// conteneur Matroska, qui accepte tous les codecs (`.mkv`, ou `.mka` pour
-  /// un son seul). Crée le dossier ; lève une [FileSystemException] s'il est
-  /// inaccessible.
+  /// Chemin libre pour un extrait : dossier des enregistrements audio/vidéo
+  /// et motif de nom des captures, conteneur Matroska, qui accepte tous les
+  /// codecs (`.mkv`, ou `.mka` pour un son seul). Crée le dossier ; lève une
+  /// [FileSystemException] s'il est inaccessible.
   Future<String> recordingPath({
     required String mediaPath,
     required bool audioOnly,
     Duration position = Duration.zero,
     DateTime? now,
   }) async {
-    final dir = await folder();
+    final dir = await recordingFolder();
     await dir.create(recursive: true);
     final pattern =
         settings?.preferences.screenshotNamePattern ?? AppPreferences.defaultScreenshotPattern;
@@ -77,6 +93,7 @@ class ScreenshotService {
       extension,
     );
   }
+
 
   /// Deux fichiers dans la même seconde : on suffixe plutôt que d'écraser.
   static Future<String> _freePath(Directory dir, String fileName, String extension) async {

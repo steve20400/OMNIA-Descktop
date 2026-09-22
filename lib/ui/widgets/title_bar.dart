@@ -7,12 +7,15 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../app_close.dart';
 import '../settings/settings_controller.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
+import 'always_on_top_button.dart';
 import 'omnia_icon_button.dart';
 import 'recent_files_menu.dart';
+
 
 /// Barre de titre personnalisée (fenêtre sans cadre).
 ///
@@ -83,8 +86,9 @@ class TitleBar extends ConsumerWidget {
               (showWordmark
                   ? _textWidth(context, l10n.appTitle, type.wordmark) + OmniaMetrics.space3
                   : 0.0) +
-              2 * _leftButtonSize;
+              3 * _leftButtonSize;
           final rightWidth = Platform.isMacOS ? 0.0 : 3 * OmniaMetrics.windowButtonWidth;
+
           final slot = placeTitle(
             barWidth: width,
             leading: leftWidth,
@@ -145,9 +149,11 @@ class TitleBar extends ConsumerWidget {
                       active: ref.watch(settingsUiProvider.select((s) => s.visible)),
                       onPressed: () => ref.read(settingsUiProvider.notifier).toggle(),
                     ),
+                    const AlwaysOnTopButton(),
                   ],
                 ),
               ),
+
               if (!Platform.isMacOS)
                 Positioned(
                   right: 0,
@@ -169,7 +175,7 @@ class TitleBar extends ConsumerWidget {
                         glyph: _WindowGlyph.close,
                         tooltip: l10n.closeWindow,
                         danger: true,
-                        onPressed: window.close,
+                        onPressed: () => closeApplication(ref, context),
                       ),
                     ],
                   ),

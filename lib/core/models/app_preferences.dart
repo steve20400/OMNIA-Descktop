@@ -50,6 +50,33 @@ enum StartupVolume {
       values.firstWhere((e) => e.name == value, orElse: () => StartupVolume.last);
 }
 
+/// Cible d'ouverture des fichiers, dossiers et récents depuis l'application.
+enum InAppOpenTarget {
+  /// Ouvrir dans la fenêtre courante (remplace le média actif).
+  currentWindow,
+
+  /// Ouvrir dans une nouvelle fenêtre indépendante.
+  newWindow;
+
+  static InAppOpenTarget fromJson(Object? value) =>
+      values.firstWhere((e) => e.name == value, orElse: () => InAppOpenTarget.currentWindow);
+}
+
+/// Comportement à la fermeture de l'application si un document contient des modifications non enregistrées.
+enum UnsavedChangesPolicy {
+  /// Demander à l'utilisateur s'il souhaite enregistrer, ignorer ou annuler la fermeture (défaut).
+  ask,
+
+  /// Enregistrer automatiquement et fermer sans avertissement.
+  save,
+
+  /// Ignorer les modifications et fermer immédiatement.
+  discard;
+
+  static UnsavedChangesPolicy fromJson(Object? value) =>
+      values.firstWhere((e) => e.name == value, orElse: () => UnsavedChangesPolicy.ask);
+}
+
 /// Préférences de l'utilisateur, telles que l'écran Paramètres les présente
 /// (§10 du cahier des charges).
 ///
@@ -61,6 +88,7 @@ class AppPreferences {
     this.language = AppLanguage.system,
     this.themeMode = AppThemeMode.dark,
     this.resumePolicy = ResumePolicy.auto,
+    this.restoreLastSession = true,
     this.singleInstance = true,
     this.seekStepSeconds = 5,
     this.defaultSpeed = 1.0,
@@ -75,23 +103,53 @@ class AppPreferences {
     this.readingDark = false,
     this.textScale = 1.0,
     this.screenshotNamePattern = defaultScreenshotPattern,
+    this.normalPlayerAlwaysOnTop = false,
+    this.miniPlayerAlwaysOnTop = true,
+    this.imageEditSuffix = defaultImageEditSuffix,
+    this.imageEditQuality = 92,
+    this.docAutoSave = true,
+    this.docAutoSaveIntervalSeconds = 2,
+    this.unsavedChangesPolicy = UnsavedChangesPolicy.ask,
+    this.inAppOpenTarget = InAppOpenTarget.currentWindow,
+    this.rememberPlaybackState = true,
+    this.historyRetentionDays = 30,
+    this.omniaConnectEnabled = true,
+    this.allowRemoteControl = true,
+    this.allowRemoteStreaming = true,
+    this.wirelessMode = 'wifi',
+    this.autoCheckUpdates = true,
+    this.updateChannel = 'stable',
+    this.mobilePromoDismissed = false,
+    this.mobilePromoSnoozeUntil,
   });
 
   static const AppPreferences defaults = AppPreferences();
+
+  /// Options de rétention de l'historique proposées (en jours, 0 = illimité).
+  static const List<int> retentionDaysOptions = [7, 30, 90, 0];
 
   /// Pas d'avance / recul proposés pour `←` / `→`.
   static const List<int> seekSteps = [5, 10, 30, 60];
 
   /// Vitesses proposées comme vitesse par défaut.
-  static const List<double> speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+  static const List<double> speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+
+  /// Intervalles de sauvegarde automatique proposés (en secondes).
+  static const List<int> docAutoSaveIntervals = [1, 2, 3, 5, 10];
 
   /// Motif de nom des captures : `{name}`, `{date}`, `{time}`, `{position}`.
   static const String defaultScreenshotPattern = '{name} {date} {time}';
+
+  /// Suffixe par défaut pour les copies d'images modifiées.
+  static const String defaultImageEditSuffix = '_modifié';
 
   // Général
   final AppLanguage language;
   final AppThemeMode themeMode;
   final ResumePolicy resumePolicy;
+
+  /// Rouvrir automatiquement le dernier fichier ouvert au démarrage.
+  final bool restoreLastSession;
 
   /// Réutiliser la fenêtre ouverte quand on ouvre un fichier depuis le système.
   /// Pris en compte au démarrage suivant.
@@ -123,13 +181,57 @@ class AppPreferences {
   /// Taille du texte des fichiers `.txt` / `.md` (1.0 = normale).
   final double textScale;
 
+  /// Sauvegarde automatique des documents texte et code modifiés.
+  final bool docAutoSave;
+
+  /// Délai d'inactivité avant la sauvegarde automatique (en secondes).
+  final int docAutoSaveIntervalSeconds;
+
+  /// Règle appliquée à la fermeture si un document est en cours de modification.
+  final UnsavedChangesPolicy unsavedChangesPolicy;
+
   // Captures
   final String screenshotNamePattern;
+
+  // Premier plan
+  final bool normalPlayerAlwaysOnTop;
+  final bool miniPlayerAlwaysOnTop;
+
+  // Images
+  final String imageEditSuffix;
+  final int imageEditQuality;
+
+  /// Cible d'ouverture pour les actions déclenchées au sein de l'application.
+  final InAppOpenTarget inAppOpenTarget;
+
+  /// Mémoriser automatiquement la dernière page ou position de lecture.
+  final bool rememberPlaybackState;
+
+  /// Durée de conservation de l'historique de lecture en jours (0 = sans limite / indéfini).
+  final int historyRetentionDays;
+
+  // Connexions sans fil & OMNIA Connect
+  final bool omniaConnectEnabled;
+  final bool allowRemoteControl;
+  final bool allowRemoteStreaming;
+  final String wirelessMode;
+
+  // Réseau & Mises à jour
+  final bool autoCheckUpdates;
+  final String updateChannel;
+
+  /// Promotion de la version mobile (désactivée ou mise en veille hebdomadaire).
+  final bool mobilePromoDismissed;
+  final DateTime? mobilePromoSnoozeUntil;
+
+  /// Vrai si les ouvertures depuis l'application doivent créer une nouvelle fenêtre.
+  bool get inAppOpenNewWindow => inAppOpenTarget == InAppOpenTarget.newWindow;
 
   AppPreferences copyWith({
     AppLanguage? language,
     AppThemeMode? themeMode,
     ResumePolicy? resumePolicy,
+    bool? restoreLastSession,
     bool? singleInstance,
     int? seekStepSeconds,
     double? defaultSpeed,
@@ -143,12 +245,31 @@ class AppPreferences {
     DocumentLayout? pdfLayout,
     bool? readingDark,
     double? textScale,
+    bool? docAutoSave,
+    int? docAutoSaveIntervalSeconds,
+    UnsavedChangesPolicy? unsavedChangesPolicy,
     String? screenshotNamePattern,
+    bool? normalPlayerAlwaysOnTop,
+    bool? miniPlayerAlwaysOnTop,
+    String? imageEditSuffix,
+    int? imageEditQuality,
+    InAppOpenTarget? inAppOpenTarget,
+    bool? rememberPlaybackState,
+    int? historyRetentionDays,
+    bool? omniaConnectEnabled,
+    bool? allowRemoteControl,
+    bool? allowRemoteStreaming,
+    String? wirelessMode,
+    bool? autoCheckUpdates,
+    String? updateChannel,
+    bool? mobilePromoDismissed,
+    DateTime? mobilePromoSnoozeUntil,
   }) {
     return AppPreferences(
       language: language ?? this.language,
       themeMode: themeMode ?? this.themeMode,
       resumePolicy: resumePolicy ?? this.resumePolicy,
+      restoreLastSession: restoreLastSession ?? this.restoreLastSession,
       singleInstance: singleInstance ?? this.singleInstance,
       seekStepSeconds: _step(seekStepSeconds ?? this.seekStepSeconds),
       defaultSpeed: _speed(defaultSpeed ?? this.defaultSpeed),
@@ -162,14 +283,51 @@ class AppPreferences {
       pdfLayout: pdfLayout ?? this.pdfLayout,
       readingDark: readingDark ?? this.readingDark,
       textScale: (textScale ?? this.textScale).clamp(0.6, 3.0),
+      docAutoSave: docAutoSave ?? this.docAutoSave,
+      docAutoSaveIntervalSeconds: _autoSaveInterval(
+          docAutoSaveIntervalSeconds ?? this.docAutoSaveIntervalSeconds),
+      unsavedChangesPolicy: unsavedChangesPolicy ?? this.unsavedChangesPolicy,
       screenshotNamePattern: _pattern(screenshotNamePattern ?? this.screenshotNamePattern),
+      normalPlayerAlwaysOnTop: normalPlayerAlwaysOnTop ?? this.normalPlayerAlwaysOnTop,
+      miniPlayerAlwaysOnTop: miniPlayerAlwaysOnTop ?? this.miniPlayerAlwaysOnTop,
+      imageEditSuffix: imageEditSuffix ?? this.imageEditSuffix,
+      imageEditQuality: (imageEditQuality ?? this.imageEditQuality).clamp(50, 100),
+      inAppOpenTarget: inAppOpenTarget ?? this.inAppOpenTarget,
+      rememberPlaybackState: rememberPlaybackState ?? this.rememberPlaybackState,
+      historyRetentionDays: _retention(historyRetentionDays ?? this.historyRetentionDays),
+      omniaConnectEnabled: omniaConnectEnabled ?? this.omniaConnectEnabled,
+      allowRemoteControl: allowRemoteControl ?? this.allowRemoteControl,
+      allowRemoteStreaming: allowRemoteStreaming ?? this.allowRemoteStreaming,
+      wirelessMode: wirelessMode ?? this.wirelessMode,
+      autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
+      updateChannel: updateChannel ?? this.updateChannel,
+      mobilePromoDismissed: mobilePromoDismissed ?? this.mobilePromoDismissed,
+      mobilePromoSnoozeUntil: mobilePromoSnoozeUntil ?? this.mobilePromoSnoozeUntil,
     );
   }
+
+  static int _retention(int value) {
+    if (retentionDaysOptions.contains(value)) return value;
+    var best = retentionDaysOptions.first;
+    for (final r in retentionDaysOptions) {
+      if ((r - value).abs() < (best - value).abs()) best = r;
+    }
+    return best;
+  }
+
 
   /// Un pas inconnu retombe sur le plus proche des pas proposés.
   static int _step(int value) {
     var best = seekSteps.first;
     for (final s in seekSteps) {
+      if ((s - value).abs() < (best - value).abs()) best = s;
+    }
+    return best;
+  }
+
+  static int _autoSaveInterval(int value) {
+    var best = docAutoSaveIntervals.first;
+    for (final s in docAutoSaveIntervals) {
       if ((s - value).abs() < (best - value).abs()) best = s;
     }
     return best;
@@ -189,6 +347,7 @@ class AppPreferences {
         'language': language.name,
         'themeMode': themeMode.name,
         'resumePolicy': resumePolicy.name,
+        'restoreLastSession': restoreLastSession,
         'singleInstance': singleInstance,
         'seekStepSeconds': seekStepSeconds,
         'defaultSpeed': defaultSpeed,
@@ -202,7 +361,25 @@ class AppPreferences {
         'pdfLayout': pdfLayout.name,
         'readingDark': readingDark,
         'textScale': textScale,
+        'docAutoSave': docAutoSave,
+        'docAutoSaveIntervalSeconds': docAutoSaveIntervalSeconds,
+        'unsavedChangesPolicy': unsavedChangesPolicy.name,
         'screenshotNamePattern': screenshotNamePattern,
+        'normalPlayerAlwaysOnTop': normalPlayerAlwaysOnTop,
+        'miniPlayerAlwaysOnTop': miniPlayerAlwaysOnTop,
+        'imageEditSuffix': imageEditSuffix,
+        'imageEditQuality': imageEditQuality,
+        'inAppOpenTarget': inAppOpenTarget.name,
+        'rememberPlaybackState': rememberPlaybackState,
+        'historyRetentionDays': historyRetentionDays,
+        'omniaConnectEnabled': omniaConnectEnabled,
+        'allowRemoteControl': allowRemoteControl,
+        'allowRemoteStreaming': allowRemoteStreaming,
+        'wirelessMode': wirelessMode,
+        'autoCheckUpdates': autoCheckUpdates,
+        'updateChannel': updateChannel,
+        'mobilePromoDismissed': mobilePromoDismissed,
+        'mobilePromoSnoozeUntil': mobilePromoSnoozeUntil?.toIso8601String(),
       };
 
   /// Relecture tolérante : une valeur absente, d'un mauvais type ou hors bornes
@@ -219,6 +396,7 @@ class AppPreferences {
       language: AppLanguage.fromJson(json['language']),
       themeMode: AppThemeMode.fromJson(json['themeMode']),
       resumePolicy: ResumePolicy.fromJson(json['resumePolicy']),
+      restoreLastSession: bool0('restoreLastSession', d.restoreLastSession),
       singleInstance: bool0('singleInstance', d.singleInstance),
       seekStepSeconds: (json['seekStepSeconds'] is num)
           ? (json['seekStepSeconds']! as num).round()
@@ -236,11 +414,40 @@ class AppPreferences {
       pdfLayout: DocumentLayout.fromJson(json['pdfLayout']),
       readingDark: bool0('readingDark', d.readingDark),
       textScale: num0('textScale', d.textScale),
+      docAutoSave: bool0('docAutoSave', d.docAutoSave),
+      docAutoSaveIntervalSeconds: (json['docAutoSaveIntervalSeconds'] is num)
+          ? (json['docAutoSaveIntervalSeconds']! as num).round()
+          : d.docAutoSaveIntervalSeconds,
+      unsavedChangesPolicy: UnsavedChangesPolicy.fromJson(json['unsavedChangesPolicy']),
       screenshotNamePattern: json['screenshotNamePattern'] is String
           ? json['screenshotNamePattern']! as String
           : d.screenshotNamePattern,
+      normalPlayerAlwaysOnTop: bool0('normalPlayerAlwaysOnTop', d.normalPlayerAlwaysOnTop),
+      miniPlayerAlwaysOnTop: bool0('miniPlayerAlwaysOnTop', d.miniPlayerAlwaysOnTop),
+      imageEditSuffix: json['imageEditSuffix'] is String
+          ? json['imageEditSuffix']! as String
+          : d.imageEditSuffix,
+      imageEditQuality: (json['imageEditQuality'] is num)
+          ? (json['imageEditQuality']! as num).round()
+          : d.imageEditQuality,
+      inAppOpenTarget: InAppOpenTarget.fromJson(json['inAppOpenTarget']),
+      rememberPlaybackState: bool0('rememberPlaybackState', d.rememberPlaybackState),
+      historyRetentionDays: (json['historyRetentionDays'] is num)
+          ? (json['historyRetentionDays']! as num).round()
+          : d.historyRetentionDays,
+      omniaConnectEnabled: bool0('omniaConnectEnabled', d.omniaConnectEnabled),
+      allowRemoteControl: bool0('allowRemoteControl', d.allowRemoteControl),
+      allowRemoteStreaming: bool0('allowRemoteStreaming', d.allowRemoteStreaming),
+      wirelessMode: json['wirelessMode'] is String ? json['wirelessMode']! as String : d.wirelessMode,
+      autoCheckUpdates: bool0('autoCheckUpdates', d.autoCheckUpdates),
+      updateChannel: json['updateChannel'] is String ? json['updateChannel']! as String : d.updateChannel,
+      mobilePromoDismissed: bool0('mobilePromoDismissed', d.mobilePromoDismissed),
+      mobilePromoSnoozeUntil: json['mobilePromoSnoozeUntil'] is String
+          ? DateTime.tryParse(json['mobilePromoSnoozeUntil']! as String)
+          : null,
     );
   }
+
 
   /// Applique des changements partiels (format de [toJson]) ; les clés
   /// inconnues sont ignorées, les valeurs bornées comme à la relecture.

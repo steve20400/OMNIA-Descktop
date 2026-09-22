@@ -10,12 +10,16 @@ import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../document_search.dart';
 import '../document_search_provider.dart';
+import '../document_ui_controller.dart';
 import '../file_dialogs.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'audio_stage.dart';
+import 'image_stage.dart';
+import 'mobile_promo_banner.dart';
 import 'omnia_button.dart';
+
 import 'pdf_stage.dart';
 import 'recent_files_menu.dart';
 import 'text_view.dart';
@@ -34,7 +38,7 @@ class Stage extends ConsumerWidget {
 
     final textDocument = ref.watch(textDocumentProvider);
 
-    final Widget content;
+    Widget content;
     if (state.status == PlaybackStatus.error) {
       content = _ErrorStage(
         key: const ValueKey('error'),
@@ -43,11 +47,17 @@ class Stage extends ConsumerWidget {
       );
     } else if (!state.hasFile) {
       content = const _EmptyStage(key: ValueKey('empty'));
-    } else if (state.mediaType == MediaType.text && textDocument != null) {
+    } else if ((state.mediaType == MediaType.text || state.mediaType == MediaType.doc) &&
+        textDocument != null) {
       content = TextView(
         key: ValueKey('text:${textDocument.path}'),
         document: textDocument,
         search: ref.watch(documentSearchProvider) as PlainTextSearch?,
+      );
+    } else if (state.mediaType == MediaType.image && state.hasFile) {
+      content = ImageStage(
+        key: ValueKey('image:${state.file!.path}'),
+        file: state.file!,
       );
     } else if (state.mediaType == MediaType.pdf) {
       content = const PdfStage(key: ValueKey('pdf'));
@@ -58,6 +68,14 @@ class Stage extends ConsumerWidget {
       content = const _VideoStage(key: ValueKey('video'));
     } else {
       content = AudioStage(key: const ValueKey('audio'), file: state.file!);
+    }
+
+    if (state.isDocument) {
+      content = Listener(
+        onPointerDown: (_) => ref.read(documentUiProvider.notifier).setDocumentFocused(true),
+        behavior: HitTestBehavior.translucent,
+        child: content,
+      );
     }
 
     return ColoredBox(
@@ -224,6 +242,11 @@ class _EmptyStage extends ConsumerWidget {
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: const RecentFilesList(),
+            ),
+            const SizedBox(height: OmniaMetrics.space5),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: const MobilePromoBanner(),
             ),
           ],
         ),

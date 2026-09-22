@@ -10,6 +10,7 @@ import '../recent_files.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
+import 'omnia_connect_dialog.dart';
 import 'omnia_icon_button.dart';
 import 'omnia_menu.dart';
 
@@ -38,6 +39,11 @@ class OpenMenuButton extends ConsumerWidget {
           trailing: ref.shortcutOf(ShortcutAction.openFolder, l10n),
           onPressed: () => pickAndOpenFolder(ref),
         ),
+        OmniaMenuItem(
+          icon: Icons.wifi_tethering_rounded,
+          label: 'OMNIA Connect (Mobile)',
+          onPressed: () => OmniaConnectDialog.show(context),
+        ),
         const OmniaMenuDivider(),
         OmniaMenuHeader(l10n.recentFiles),
         if (recents.isEmpty)
@@ -49,7 +55,14 @@ class OpenMenuButton extends ConsumerWidget {
               label: p.basename(recent.path),
               subtitle: recent.exists ? p.dirname(recent.path) : l10n.recentMissing,
               enabled: recent.exists,
-              onPressed: () => ref.dispatch(OpenFile(recent.path)),
+              onPressed: () {
+                final prefs = ref.read(preferencesProvider);
+                if (prefs.inAppOpenNewWindow) {
+                  openInNewWindow(recent.path);
+                } else {
+                  ref.dispatch(OpenFile(recent.path));
+                }
+              },
             ),
           const OmniaMenuDivider(),
           OmniaMenuItem(
@@ -119,7 +132,20 @@ class RecentFilesList extends ConsumerWidget {
           _RecentRow(
             recent: recent,
             onTap: () {
+              final prefs = ref.read(preferencesProvider);
+              if (prefs.inAppOpenNewWindow) {
+                openInNewWindow(recent.path);
+              } else {
+                ref.dispatch(OpenFile(recent.path));
+              }
+              onOpened?.call();
+            },
+            onOpenInSameWindow: () {
               ref.dispatch(OpenFile(recent.path));
+              onOpened?.call();
+            },
+            onOpenInNewWindow: () {
+              openInNewWindow(recent.path);
               onOpened?.call();
             },
           ),
@@ -129,10 +155,17 @@ class RecentFilesList extends ConsumerWidget {
 }
 
 class _RecentRow extends StatefulWidget {
-  const _RecentRow({required this.recent, required this.onTap});
+  const _RecentRow({
+    required this.recent,
+    required this.onTap,
+    this.onOpenInSameWindow,
+    this.onOpenInNewWindow,
+  });
 
   final RecentFile recent;
   final VoidCallback onTap;
+  final VoidCallback? onOpenInSameWindow;
+  final VoidCallback? onOpenInNewWindow;
 
   @override
   State<_RecentRow> createState() => _RecentRowState();
@@ -140,6 +173,37 @@ class _RecentRow extends StatefulWidget {
 
 class _RecentRowState extends State<_RecentRow> {
   bool _hovered = false;
+
+  void _showContextMenu(BuildContext context, Offset globalPos) {
+    final l10n = AppLocalizations.of(context);
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+    final position = RelativeRect.fromRect(
+      globalPos & const Size(40, 40),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<String>(
+      context: context,
+      position: position,
+      items: [
+        PopupMenuItem<String>(
+          value: 'same',
+          child: Text(l10n.openInCurrentWindow),
+        ),
+        PopupMenuItem<String>(
+          value: 'new',
+          child: Text(l10n.openInNewWindow),
+        ),
+      ],
+    ).then((choice) {
+      if (choice == 'same') {
+        widget.onOpenInSameWindow?.call();
+      } else if (choice == 'new') {
+        widget.onOpenInNewWindow?.call();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -155,6 +219,9 @@ class _RecentRowState extends State<_RecentRow> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: enabled ? widget.onTap : null,
+        onSecondaryTapDown: enabled
+            ? (details) => _showContextMenu(context, details.globalPosition)
+            : null,
         child: AnimatedContainer(
           duration: OmniaMotion.hover,
           curve: OmniaMotion.hoverCurve,

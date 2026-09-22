@@ -18,6 +18,22 @@ void main() {
       expect(p.equalizerEnabled, isFalse);
       expect(p.pdfLayout, DocumentLayout.continuous);
       expect(p.screenshotNamePattern, AppPreferences.defaultScreenshotPattern);
+      expect(p.normalPlayerAlwaysOnTop, isFalse);
+      expect(p.miniPlayerAlwaysOnTop, isTrue);
+      expect(p.docAutoSave, isTrue);
+      expect(p.docAutoSaveIntervalSeconds, 2);
+      expect(p.unsavedChangesPolicy, UnsavedChangesPolicy.ask);
+      expect(p.inAppOpenTarget, InAppOpenTarget.currentWindow);
+      expect(p.rememberPlaybackState, isTrue);
+      expect(p.historyRetentionDays, 30);
+      expect(p.omniaConnectEnabled, isTrue);
+      expect(p.allowRemoteControl, isTrue);
+      expect(p.allowRemoteStreaming, isTrue);
+      expect(p.wirelessMode, 'wifi');
+      expect(p.autoCheckUpdates, isTrue);
+      expect(p.updateChannel, 'stable');
+      expect(p.mobilePromoDismissed, isFalse);
+      expect(p.mobilePromoSnoozeUntil, isNull);
     });
   });
 
@@ -40,8 +56,24 @@ void main() {
         pdfLayout: DocumentLayout.paged,
         readingDark: true,
         textScale: 1.4,
+        docAutoSave: false,
+        docAutoSaveIntervalSeconds: 5,
+        unsavedChangesPolicy: UnsavedChangesPolicy.save,
         screenshotNamePattern: '{name} @ {position}',
+        normalPlayerAlwaysOnTop: true,
+        miniPlayerAlwaysOnTop: false,
+        inAppOpenTarget: InAppOpenTarget.newWindow,
+        rememberPlaybackState: false,
+        historyRetentionDays: 90,
+        omniaConnectEnabled: false,
+        allowRemoteControl: false,
+        allowRemoteStreaming: false,
+        wirelessMode: 'hotspot',
+        autoCheckUpdates: false,
+        updateChannel: 'preview',
+        mobilePromoDismissed: true,
       );
+
       final restored = AppPreferences.fromJson(p.toJson());
       expect(restored, p);
       expect(restored.hashCode, p.hashCode);
@@ -143,5 +175,6 @@ void main() {
     expect(AppThemeMode.fromJson(null), AppThemeMode.dark);
     expect(ResumePolicy.fromJson('peut-être'), ResumePolicy.auto);
     expect(StartupVolume.fromJson(3), StartupVolume.last);
+    expect(InAppOpenTarget.fromJson('inconnu'), InAppOpenTarget.currentWindow);
   });
 }

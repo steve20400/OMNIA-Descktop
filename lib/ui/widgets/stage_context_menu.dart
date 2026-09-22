@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/models/end_of_playback_mode.dart';
+import '../../core/models/media_type.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/models/video_adjust.dart';
 import '../../core/providers.dart';
@@ -18,6 +19,7 @@ import '../settings/settings_controller.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
 import '../tool_panel_controller.dart';
+import 'image_edit_dialog.dart';
 import 'omnia_menu.dart';
 import 'track_menus.dart';
 
@@ -61,7 +63,9 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(playbackStateProvider);
+    final prefs = ref.watch(preferencesProvider);
     final panelVisible = ref.watch(panelStateProvider.select((p) => p.visible));
+
 
     final hasMedia =
         state.hasFile && state.status != PlaybackStatus.error && state.mediaType.isAv;
@@ -218,6 +222,19 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
             onPressed: () => ref.read(toolPanelProvider.notifier).toggle(ToolPanel.equalizer),
           ),
         ],
+        if (state.mediaType == MediaType.image && state.file != null) ...[
+          const OmniaMenuDivider(),
+          OmniaMenuItem(
+            icon: Icons.tune_rounded,
+            label: 'Retoucher et redimensionner...',
+            onPressed: () => ImageEditDialog.show(context, state.file!),
+          ),
+          OmniaMenuItem(
+            icon: Icons.rotate_right_rounded,
+            label: 'Pivoter de 90°',
+            onPressed: () => ref.dispatch(const RotateDocument()),
+          ),
+        ],
         const OmniaMenuDivider(),
         OmniaMenuItem(
           icon: state.fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
@@ -232,13 +249,29 @@ class _StageContextMenuState extends ConsumerState<StageContextMenu> {
             trailing: ref.shortcutOf(ShortcutAction.miniPlayer, l10n),
             onPressed: () => ref.dispatch(const ToggleMiniPlayer()),
           ),
-        OmniaMenuItem(
+        OmniaSubmenu(
           icon: Icons.push_pin_outlined,
           label: l10n.alwaysOnTop,
-          trailing: ref.shortcutOf(ShortcutAction.alwaysOnTop, l10n),
-          active: state.alwaysOnTop,
-          onPressed: () => ref.dispatch(const ToggleAlwaysOnTop()),
+          children: [
+            OmniaMenuItem(
+              icon: prefs.normalPlayerAlwaysOnTop
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              label: l10n.alwaysOnTopNormal,
+              active: prefs.normalPlayerAlwaysOnTop,
+              onPressed: () => ref.dispatch(const ToggleAlwaysOnTop(forMiniPlayer: false)),
+            ),
+            OmniaMenuItem(
+              icon: prefs.miniPlayerAlwaysOnTop
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              label: l10n.alwaysOnTopMini,
+              active: prefs.miniPlayerAlwaysOnTop,
+              onPressed: () => ref.dispatch(const ToggleAlwaysOnTop(forMiniPlayer: true)),
+            ),
+          ],
         ),
+
         OmniaMenuItem(
           icon: Icons.view_sidebar_outlined,
           label: panelVisible ? l10n.panelHide : l10n.panelShow,

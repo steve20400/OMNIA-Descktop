@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:pdfrx/pdfrx.dart';
 
@@ -49,6 +50,7 @@ class PdfController implements MediaController {
 
   PdfSession? _session;
   PlaybackStateSink? _sink;
+  int? _targetPage;
 
   PdfSession? get session => _session;
   Stream<PdfSession?> get sessions => _sessions.stream;
@@ -64,6 +66,8 @@ class PdfController implements MediaController {
   @override
   Future<void> open(MediaFile file, PlaybackStateSink sink) async {
     _sink = sink;
+    _targetPage = null;
+    final pendingPage = sink.state.currentPage > 0 ? sink.state.currentPage : 1;
     sink.update(
       (st) => st.copyWith(
         file: file,
@@ -71,7 +75,7 @@ class PdfController implements MediaController {
         position: Duration.zero,
         duration: Duration.zero,
         hasVideo: false,
-        currentPage: 0,
+        currentPage: pendingPage,
         totalPages: 0,
         rotation: 0,
         zoom: 1.0,
@@ -108,10 +112,13 @@ class PdfController implements MediaController {
       await _closeSession();
       _publish(PdfSession(path: file.path, document: document, outline: outline, viewer: viewer));
 
+      final targetPage = pendingPage.clamp(1, document.pages.length);
+      _targetPage = targetPage > 1 ? targetPage : null;
+
       sink.update(
         (st) => st.copyWith(
           status: PlaybackStatus.playing,
-          currentPage: 1,
+          currentPage: targetPage,
           totalPages: document.pages.length,
         ),
       );
@@ -139,6 +146,23 @@ class PdfController implements MediaController {
     final sink = _sink;
     if (sink == null || _session == null || !viewer.isReady) return;
     final page = viewer.pageNumber;
+    if (_targetPage != null) {
+      if (page == _targetPage) {
+        _targetPage = null;
+      } else {
+        // En transition vers la page cible : s'assurer que le visualiseur est bien
+        // en train d'y naviguer.
+        if (viewer.isReady && page != _targetPage) {
+          unawaited(viewer.goToPage(pageNumber: _targetPage!, anchor: PdfPageAnchor.top));
+        }
+        return;
+      }
+    } else if (page == 1 && sink.state.currentPage > 1) {
+      // Artéfact d'initialisation de pdfrx (montage d'une nouvelle vue lors de la
+      // bascule mini-lecteur ⬌ fenêtre normale) : ne jamais écraser la page courante.
+      unawaited(viewer.goToPage(pageNumber: sink.state.currentPage, anchor: PdfPageAnchor.top));
+      return;
+    }
     final cover = viewer.coverScale;
     final zoom = cover > 0 ? viewer.currentZoom / cover : sink.state.zoom;
     final changedPage = page != null && page != sink.state.currentPage;
@@ -180,6 +204,11 @@ class PdfController implements MediaController {
         sink.update((st) => st.copyWith(documentLayout: layout));
       case ToggleDocumentLayout():
         sink.update((st) => st.copyWith(documentLayout: st.documentLayout.other));
+      case ScrollDocument(:final delta):
+        if (viewer.isReady) {
+          final center = viewer.visibleRect.center;
+          await viewer.setZoom(Offset(center.dx, center.dy + delta), viewer.currentZoom);
+        }
       default:
         return false;
     }
@@ -191,6 +220,7 @@ class PdfController implements MediaController {
     final total = sink.state.totalPages;
     if (total <= 0) return;
     final target = page.clamp(1, total);
+    _targetPage = target;
     if (viewer.isReady) {
       await viewer.goToPage(pageNumber: target, anchor: PdfPageAnchor.top);
     }
@@ -227,6 +257,7 @@ class PdfController implements MediaController {
   }
 
   Future<void> _closeSession() async {
+    _targetPage = null;
     final current = _session;
     if (current == null) return;
     _publish(null);
