@@ -69,6 +69,7 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
   - Fréquence de sauvegarde de la progression audio/vidéo toutes les 5 secondes (au lieu d'un intervalle d'une minute) éliminant tout décalage en cas de coupure de courant ou de fermeture brutale.
   - Sauvegarde synchrone et systématique de l'état de lecture des documents texte, code et PDF lors de la fermeture de la fenêtre ou du changement de fichier.
   - Option configurable dans les Paramètres : **« Reprendre la session au démarrage »** (`restoreLastSession`), restaurant automatiquement le dernier média (vidéo, audio, PDF ou document) ouvert à sa position ou page exacte.
+  - **Maintien strict de la vitesse de lecture accélérée en playlist** : Lorsqu'un utilisateur lit à vitesse accélérée (ex: 1.25×, 1.5×, 2×), le média suivant dans la liste de lecture démarre automatiquement et immédiatement à la même vitesse sans retour intempestif à 1.0×.
 - **Identité de marque & protection de la propriété intellectuelle** :
   - Attribution stricte de l'identifiant "OMNIA" aux boîtes de dialogue système d'ouverture de fichiers/dossiers et aux classes de fenêtres natives OS (Windows `OMNIA_WIN32_WINDOW`, Linux GLib `OMNIA`), éliminant toute mention des frameworks internes.
 
@@ -125,6 +126,7 @@ L'application mobile sera développée sous Flutter dans un environnement dédi�
   - **Maintien prolongé pour vitesse 2x (*Hold-to-2x*)** : Appui continu n'importe où sur la vidéo accélérant instantanément à 2.0x avec retour fluide à la vitesse normale au relâchement.
   - **Verrouillage tactile de l'écran (*Screen Lock*)** : Bouton de verrouillage évitant les touches accidentelles en lecture mobile, avec pastille de déverrouillage sécurisée.
   - **Sélecteur rapide de vitesse** : Accès direct par pastille temporelle aux paliers 0.5x, 0.75x, 1.0x, 1.25x, 1.5x, 1.75x, 2.0x.
+  - **Continuité de vitesse en playlist** : Maintien strict de la vitesse accélérée (ex: 1.5×, 2×) d'un fichier à l'autre sans réinitialisation intempestive à 1.0×.
 
 ### 2.3 Préservation de Session & Cycle de Vie Mobile
 - **Persistance en cas d'interruption OS (*Background Kill*)** :
