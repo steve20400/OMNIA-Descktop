@@ -32,109 +32,113 @@ class MobilePromoBanner extends ConsumerWidget {
     // Ne pas encombrer si un client mobile est déjà connecté
     if (connectService.hasConnectedClients) return const SizedBox.shrink();
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space3, vertical: OmniaMetrics.space2),
-      padding: const EdgeInsets.all(OmniaMetrics.space4),
-      decoration: BoxDecoration(
-        color: colors.curtain.withValues(alpha: 0.7),
-        borderRadius: OmniaMetrics.controlRadius,
-        border: Border.all(color: colors.projector.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(OmniaMetrics.space2),
-                decoration: BoxDecoration(
-                  color: colors.projector.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space3, vertical: OmniaMetrics.space2),
+        padding: const EdgeInsets.all(OmniaMetrics.space4),
+        decoration: BoxDecoration(
+          color: colors.curtain.withValues(alpha: 0.7),
+          borderRadius: OmniaMetrics.controlRadius,
+          border: Border.all(color: colors.projector.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(OmniaMetrics.space2),
+                  decoration: BoxDecoration(
+                    color: colors.projector.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.phone_android_rounded, color: colors.projector, size: 20),
                 ),
-                child: Icon(Icons.phone_android_rounded, color: colors.projector, size: 20),
-              ),
-              const SizedBox(width: OmniaMetrics.space3),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Découvrez OMNIA pour Mobile (Android / iOS)',
-                      style: TextStyle(
-                        fontFamily: OmniaFonts.ui,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: colors.screen,
+                const SizedBox(width: OmniaMetrics.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Découvrez OMNIA pour Mobile (Android / iOS)',
+                        style: TextStyle(
+                          fontFamily: OmniaFonts.ui,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: colors.screen,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Synchronisation locale sans Internet, projection de vos médias et télécommande tactile.',
-                      style: TextStyle(
-                        fontFamily: OmniaFonts.ui,
-                        fontSize: 12,
-                        color: colors.dust,
+                      const SizedBox(height: 2),
+                      Text(
+                        'Synchronisation locale sans Internet, projection de vos médias et télécommande tactile.',
+                        style: TextStyle(
+                          fontFamily: OmniaFonts.ui,
+                          fontSize: 12,
+                          color: colors.dust,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: OmniaMetrics.space3),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () {
-                  final bus = ref.read(commandBusProvider);
-                  bus.dispatch(
-                    UpdatePreferences.between(
-                      prefs,
-                      prefs.copyWith(
-                        mobilePromoSnoozeUntil: DateTime.now().add(const Duration(days: 7)),
-                      ),
-                    ),
-                  );
-                },
-                child: Text(
-                  'Plus tard',
-                  style: TextStyle(
-                    fontFamily: OmniaFonts.ui,
-                    fontSize: 12,
-                    color: colors.dust,
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: OmniaMetrics.space1),
-              TextButton(
-                onPressed: () {
-                  final bus = ref.read(commandBusProvider);
-                  bus.dispatch(
-                    UpdatePreferences.between(
-                      prefs,
-                      prefs.copyWith(mobilePromoDismissed: true),
+              ],
+            ),
+            const SizedBox(height: OmniaMetrics.space3),
+            Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: OmniaMetrics.space2,
+              runSpacing: OmniaMetrics.space2,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    final bus = ref.read(commandBusProvider);
+                    bus.dispatch(
+                      UpdatePreferences.between(
+                        prefs,
+                        prefs.copyWith(
+                          mobilePromoSnoozeUntil: DateTime.now().add(const Duration(days: 7)),
+                        ),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'Plus tard',
+                    style: TextStyle(
+                      fontFamily: OmniaFonts.ui,
+                      fontSize: 12,
+                      color: colors.dust,
                     ),
-                  );
-                },
-                child: Text(
-                  'Ne plus afficher',
-                  style: TextStyle(
-                    fontFamily: OmniaFonts.ui,
-                    fontSize: 12,
-                    color: colors.dust.withValues(alpha: 0.7),
                   ),
                 ),
-              ),
-              const SizedBox(width: OmniaMetrics.space2),
-              OmniaButton(
-                label: 'Télécharger l\'application',
-                icon: Icons.qr_code_rounded,
-                onPressed: () => _showPromoDialog(context, colors),
-              ),
-            ],
-          ),
-        ],
+                TextButton(
+                  onPressed: () {
+                    final bus = ref.read(commandBusProvider);
+                    bus.dispatch(
+                      UpdatePreferences.between(
+                        prefs,
+                        prefs.copyWith(mobilePromoDismissed: true),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'Ne plus afficher',
+                    style: TextStyle(
+                      fontFamily: OmniaFonts.ui,
+                      fontSize: 12,
+                      color: colors.dust.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+                OmniaButton(
+                  label: 'Télécharger l\'application',
+                  icon: Icons.qr_code_rounded,
+                  onPressed: () => _showPromoDialog(context, colors),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

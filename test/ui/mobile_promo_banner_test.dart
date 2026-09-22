@@ -16,6 +16,9 @@ class _CustomPreferencesNotifier extends PreferencesNotifier {
 
 void main() {
   testWidgets('MobilePromoBanner displays Mobile promotion when not dismissed', (tester) async {
+    tester.view.physicalSize = const Size(800, 600);
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
