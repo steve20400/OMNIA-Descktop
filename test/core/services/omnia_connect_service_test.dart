@@ -66,9 +66,11 @@ void main() {
 
     test('accepte WebSocket valide et relaie les commandes distantes', () async {
       final port = await service.start(address: InternetAddress.loopbackIPv4);
+      final connectedFuture = service.isConnectedStream.firstWhere((c) => c);
       final ws = await WebSocket.connect(
         'ws://127.0.0.1:$port/api/ws?token=${service.sessionToken}',
       );
+      await connectedFuture;
 
       expect(service.hasConnectedClients, isTrue);
 
@@ -83,9 +85,11 @@ void main() {
 
     test('diffuse l\'état de lecture aux clients WebSocket', () async {
       final port = await service.start(address: InternetAddress.loopbackIPv4);
+      final connectedFuture = service.isConnectedStream.firstWhere((c) => c);
       final ws = await WebSocket.connect(
         'ws://127.0.0.1:$port/api/ws?token=${service.sessionToken}',
       );
+      await connectedFuture;
 
       final nextMsgFuture = ws.first;
       service.broadcastState(
