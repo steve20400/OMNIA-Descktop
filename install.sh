@@ -56,6 +56,16 @@ fi
 echo "--> Fichier détecté : $TARGET_FILE (dernière version téléchargée)"
 
 INSTALL_DIR="/opt/omnia"
+IS_UPGRADE=false
+if [ -d "$INSTALL_DIR" ]; then
+    IS_UPGRADE=true
+    echo "--> Version précédente d'OMNIA détectée dans $INSTALL_DIR."
+    echo "--> Mise à jour transparente en place (aucune désinstallation requise)..."
+    echo "--> Vos réglages, historique et préférences stockés dans votre dossier personnel restent 100% intacts."
+    pkill -x omnia 2>/dev/null || true
+    sleep 0.5
+fi
+
 TEMP_DIR=$(mktemp -d /tmp/omnia_install_XXXXXX)
 
 cleanup() {
@@ -237,7 +247,13 @@ fi
 
 echo ""
 echo "=========================================================="
-echo "  ==> OMNIA a été installé avec succès sur votre système !"
+if [ "$IS_UPGRADE" = true ]; then
+    echo "  ==> OMNIA a été mis à jour avec succès vers la nouvelle version !"
+    echo "      Aucune désinstallation de l'ancienne version n'était requise."
+    echo "      Vos réglages personnels et votre historique ont été conservés."
+else
+    echo "  ==> OMNIA a été installé avec succès sur votre système !"
+fi
 echo "=========================================================="
 echo "Vous pouvez lancer l'application :"
 echo "  1. Depuis votre menu des applications en tapant 'OMNIA'"

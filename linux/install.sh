@@ -20,6 +20,9 @@ echo "Installation d'OMNIA dans $DEST_PREFIX..."
 
 mkdir -p "$BIN_DIR" "$APP_DIR" "$PIXMAPS_DIR"
 
+# Fermeture propre de toute instance active avant mise à niveau en place
+pkill -x omnia 2>/dev/null || true
+
 # 1. Binaire / Bundle
 if [ -d "$ROOT_DIR/build/linux/x64/release/bundle" ]; then
   BUNDLE_DIR="$DEST_PREFIX/opt/omnia"

@@ -39,6 +39,15 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ; Installation pour tous (administrateur) ou pour soi seul, au choix.
 PrivilegesRequiredOverridesAllowed=dialog
 ChangesAssociations=yes
+; Mise à niveau en place transparente sans désinstallation préalable :
+; Réutilise automatiquement le dossier, les groupes et les préférences de la version existante.
+UsePreviousAppDir=yes
+UsePreviousGroup=yes
+UsePreviousTasks=yes
+UsePreviousPrivileges=yes
+CloseApplications=yes
+CloseApplicationsFilter=omnia.exe
+RestartApplications=yes
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
