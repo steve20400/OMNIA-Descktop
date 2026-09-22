@@ -1176,20 +1176,21 @@ class _ConnectSectionState extends ConsumerState<_ConnectSection> {
   String? _localIp;
 
   Future<void> _toggleQrCode() async {
-    if (!_showQrCode && _pairingData == null) {
+    final next = !_showQrCode;
+    setState(() => _showQrCode = next);
+    if (next && _pairingData == null) {
       final service = ref.read(omniaConnectServiceProvider);
-      await service.start();
-      final ip = await service.getLocalIpAddress();
-      final payload = await service.getPairingPayload('OMNIA Desktop');
-      if (mounted) {
-        setState(() {
-          _localIp = ip;
-          _pairingData = payload;
-          _showQrCode = true;
-        });
-      }
-    } else {
-      setState(() => _showQrCode = !_showQrCode);
+      try {
+        await service.start();
+        final ip = await service.getLocalIpAddress();
+        final payload = await service.getPairingPayload('OMNIA Desktop');
+        if (mounted) {
+          setState(() {
+            _localIp = ip;
+            _pairingData = payload;
+          });
+        }
+      } catch (_) {}
     }
   }
 
