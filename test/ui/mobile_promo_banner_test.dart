@@ -16,7 +16,8 @@ class _CustomPreferencesNotifier extends PreferencesNotifier {
 
 void main() {
   testWidgets('MobilePromoBanner displays Mobile promotion when not dismissed', (tester) async {
-    tester.view.physicalSize = const Size(800, 600);
+    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
@@ -28,7 +29,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildOmniaTheme(Brightness.dark),
-          home: const Scaffold(body: MobilePromoBanner()),
+          home: const Scaffold(body: SingleChildScrollView(child: MobilePromoBanner())),
         ),
       ),
     );
@@ -42,6 +43,10 @@ void main() {
   });
 
   testWidgets('MobilePromoBanner hides when mobilePromoDismissed is true', (tester) async {
+    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -53,7 +58,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildOmniaTheme(Brightness.dark),
-          home: const Scaffold(body: MobilePromoBanner()),
+          home: const Scaffold(body: SingleChildScrollView(child: MobilePromoBanner())),
         ),
       ),
     );
@@ -64,6 +69,10 @@ void main() {
   });
 
   testWidgets('MobilePromoBanner hides when mobilePromoSnoozeUntil is in the future', (tester) async {
+    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -77,7 +86,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildOmniaTheme(Brightness.dark),
-          home: const Scaffold(body: MobilePromoBanner()),
+          home: const Scaffold(body: SingleChildScrollView(child: MobilePromoBanner())),
         ),
       ),
     );

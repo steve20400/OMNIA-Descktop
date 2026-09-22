@@ -36,13 +36,14 @@ class MobilePromoBanner extends ConsumerWidget {
       type: MaterialType.transparency,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: OmniaMetrics.space3, vertical: OmniaMetrics.space2),
-        padding: const EdgeInsets.all(OmniaMetrics.space4),
+        padding: const EdgeInsets.all(OmniaMetrics.space3),
         decoration: BoxDecoration(
           color: colors.curtain.withValues(alpha: 0.7),
           borderRadius: OmniaMetrics.controlRadius,
           border: Border.all(color: colors.projector.withValues(alpha: 0.35)),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
