@@ -263,12 +263,13 @@ void main() {
 
       // Basculer l'affichage du QR code d'appairage
       expect(find.text('Afficher l\'appairage'), findsOneWidget);
+      expect(find.text('Aucun appareil associé pour le moment'), findsOneWidget);
       await _tap(tester, find.text('Afficher l\'appairage'));
-      expect(find.text('Clé d\'association'), findsOneWidget);
-      expect(find.text('849 - 217'), findsOneWidget);
+      expect(find.text('Scannez avec OMNIA Mobile'), findsOneWidget);
+      expect(find.text('Ouvrir OMNIA Connect'), findsOneWidget);
 
       await _tap(tester, find.text('Masquer'));
-      expect(find.text('849 - 217'), findsNothing);
+      expect(find.text('Scannez avec OMNIA Mobile'), findsNothing);
     });
 
     testWidgets('section Réseau & Mises à jour permet de lancer la vérification et le téléchargement', (tester) async {
