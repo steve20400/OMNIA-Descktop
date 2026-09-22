@@ -2,6 +2,12 @@
 
 Ce document formalise les spécifications techniques, l'architecture logicielle et les jalons de développement du projet **OMNIA**, depuis la consolidation du lecteur de bureau jusqu'à l'application mobile autonome et le protocole de communication en réseau local (Zero-Internet).
 
+## État d'Avancement Global (Jalons Validés en CI)
+- **Phase 1 (Consolidation & Parachèvement Desktop)** : **100% Validée** (CI Linux, Windows et Ubuntu).
+- **Phase 2 (Application Mobile Autonome OMNIA-MOBILE)** : **100% Validée** (27 suites de tests, analyse statique, build APK natif Android).
+- **Phase 3 (Protocole Local Zero-Internet OMNIA Connect)** : **100% Validée** (WebSocket bidirectionnel, streaming partiel HTTP RFC 7233, QR code pur Dart, modales Desktop et Mobile).
+- **Phase 4.1 (Promotion Croisée Mobile ➔ Desktop)** : **100% Validée** (Bannière d'invitation avec mise en veille et masquage persistant).
+
 ---
 
 ## 1. Phase 1 : Consolidation & Parachèvement de la Version Bureau (Desktop)
