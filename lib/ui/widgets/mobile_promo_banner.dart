@@ -37,7 +37,7 @@ class MobilePromoBanner extends ConsumerWidget {
       padding: const EdgeInsets.all(OmniaMetrics.space4),
       decoration: BoxDecoration(
         color: colors.curtain.withValues(alpha: 0.7),
-        borderRadius: OmniaMetrics.cardRadius,
+        borderRadius: OmniaMetrics.controlRadius,
         border: Border.all(color: colors.projector.withValues(alpha: 0.35)),
       ),
       child: Column(
