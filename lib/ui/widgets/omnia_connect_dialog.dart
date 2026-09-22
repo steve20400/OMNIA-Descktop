@@ -186,14 +186,17 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                             color: connected ? Colors.green : colors.dust,
                             size: 16,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            connected
-                                ? 'Périphérique Mobile Appairé et Synchronisé'
-                                : 'Scannez ce QR Code avec l\'application OMNIA Mobile',
-                            style: type.secondary.copyWith(
-                              color: connected ? Colors.green : colors.dust,
-                              fontSize: 12,
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              connected
+                                  ? 'Périphérique Mobile Appairé et Synchronisé'
+                                  : 'Scannez ce QR Code avec l\'application OMNIA Mobile',
+                              style: type.secondary.copyWith(
+                                color: connected ? Colors.green : colors.dust,
+                                fontSize: 12,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -209,11 +212,15 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                   children: [
                     Icon(Icons.shield_outlined, color: colors.dust, size: 14),
                     const SizedBox(width: 6),
-                    Text(
-                      'Chiffrement de session local point-à-point • 100% Hors-ligne',
-                      style: type.secondary.copyWith(
-                        color: colors.dust,
-                        fontSize: 11,
+                    Flexible(
+                      child: Text(
+                        'Chiffrement de session local point-à-point • 100% Hors-ligne',
+                        style: type.secondary.copyWith(
+                          color: colors.dust,
+                          fontSize: 11,
+                        ),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

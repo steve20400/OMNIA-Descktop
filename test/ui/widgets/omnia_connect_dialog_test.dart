@@ -14,6 +14,10 @@ class _StaticPlaybackNotifier extends PlaybackStateNotifier {
 
 void main() {
   testWidgets('OmniaConnectDialog renders title, QR code, and status with initial data', (tester) async {
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [

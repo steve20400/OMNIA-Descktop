@@ -10,6 +10,7 @@ import '../recent_files.dart';
 import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
+import 'omnia_connect_dialog.dart';
 import 'omnia_icon_button.dart';
 import 'omnia_menu.dart';
 
@@ -37,6 +38,11 @@ class OpenMenuButton extends ConsumerWidget {
           label: l10n.openFolder,
           trailing: ref.shortcutOf(ShortcutAction.openFolder, l10n),
           onPressed: () => pickAndOpenFolder(ref),
+        ),
+        OmniaMenuItem(
+          icon: Icons.wifi_tethering_rounded,
+          label: 'OMNIA Connect (Mobile)',
+          onPressed: () => OmniaConnectDialog.show(context),
         ),
         const OmniaMenuDivider(),
         OmniaMenuHeader(l10n.recentFiles),

@@ -13,7 +13,6 @@ import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'always_on_top_button.dart';
-import 'omnia_connect_dialog.dart';
 import 'omnia_icon_button.dart';
 import 'recent_files_menu.dart';
 
@@ -87,7 +86,7 @@ class TitleBar extends ConsumerWidget {
               (showWordmark
                   ? _textWidth(context, l10n.appTitle, type.wordmark) + OmniaMetrics.space3
                   : 0.0) +
-              4 * _leftButtonSize;
+              3 * _leftButtonSize;
           final rightWidth = Platform.isMacOS ? 0.0 : 3 * OmniaMetrics.windowButtonWidth;
 
           final slot = placeTitle(
@@ -151,13 +150,6 @@ class TitleBar extends ConsumerWidget {
                       onPressed: () => ref.read(settingsUiProvider.notifier).toggle(),
                     ),
                     const AlwaysOnTopButton(),
-                    OmniaIconButton(
-                      icon: Icons.wifi_tethering_rounded,
-                      iconSize: OmniaMetrics.iconSize - 2,
-                      size: _leftButtonSize,
-                      tooltip: 'OMNIA Connect (Synchronisation Mobile)',
-                      onPressed: () => OmniaConnectDialog.show(context),
-                    ),
                   ],
                 ),
               ),
