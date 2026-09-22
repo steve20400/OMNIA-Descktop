@@ -1296,7 +1296,7 @@ class _ConnectSectionState extends ConsumerState<_ConnectSection> {
           ),
         ),
         const SizedBox(height: OmniaMetrics.space1),
-        if (connectService.hasConnectedClients)
+        if (connectService.hasConnectedClients || connectService.client.connected)
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: OmniaMetrics.space3,
@@ -1325,6 +1325,7 @@ class _ConnectSectionState extends ConsumerState<_ConnectSection> {
                   tooltip: 'Déconnecter',
                   onPressed: () {
                     connectService.stop();
+                    connectService.client.disconnect();
                     setState(() {});
                   },
                 ),
