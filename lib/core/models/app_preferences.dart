@@ -113,6 +113,12 @@ class AppPreferences {
     this.inAppOpenTarget = InAppOpenTarget.currentWindow,
     this.rememberPlaybackState = true,
     this.historyRetentionDays = 30,
+    this.omniaConnectEnabled = true,
+    this.allowRemoteControl = true,
+    this.allowRemoteStreaming = true,
+    this.wirelessMode = 'wifi',
+    this.autoCheckUpdates = true,
+    this.updateChannel = 'stable',
   });
 
   static const AppPreferences defaults = AppPreferences();
@@ -202,6 +208,16 @@ class AppPreferences {
   /// Durée de conservation de l'historique de lecture en jours (0 = sans limite / indéfini).
   final int historyRetentionDays;
 
+  // Connexions sans fil & OMNIA Connect
+  final bool omniaConnectEnabled;
+  final bool allowRemoteControl;
+  final bool allowRemoteStreaming;
+  final String wirelessMode;
+
+  // Réseau & Mises à jour
+  final bool autoCheckUpdates;
+  final String updateChannel;
+
   /// Vrai si les ouvertures depuis l'application doivent créer une nouvelle fenêtre.
   bool get inAppOpenNewWindow => inAppOpenTarget == InAppOpenTarget.newWindow;
 
@@ -234,6 +250,12 @@ class AppPreferences {
     InAppOpenTarget? inAppOpenTarget,
     bool? rememberPlaybackState,
     int? historyRetentionDays,
+    bool? omniaConnectEnabled,
+    bool? allowRemoteControl,
+    bool? allowRemoteStreaming,
+    String? wirelessMode,
+    bool? autoCheckUpdates,
+    String? updateChannel,
   }) {
     return AppPreferences(
       language: language ?? this.language,
@@ -265,6 +287,12 @@ class AppPreferences {
       inAppOpenTarget: inAppOpenTarget ?? this.inAppOpenTarget,
       rememberPlaybackState: rememberPlaybackState ?? this.rememberPlaybackState,
       historyRetentionDays: _retention(historyRetentionDays ?? this.historyRetentionDays),
+      omniaConnectEnabled: omniaConnectEnabled ?? this.omniaConnectEnabled,
+      allowRemoteControl: allowRemoteControl ?? this.allowRemoteControl,
+      allowRemoteStreaming: allowRemoteStreaming ?? this.allowRemoteStreaming,
+      wirelessMode: wirelessMode ?? this.wirelessMode,
+      autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
+      updateChannel: updateChannel ?? this.updateChannel,
     );
   }
 
@@ -334,6 +362,12 @@ class AppPreferences {
         'inAppOpenTarget': inAppOpenTarget.name,
         'rememberPlaybackState': rememberPlaybackState,
         'historyRetentionDays': historyRetentionDays,
+        'omniaConnectEnabled': omniaConnectEnabled,
+        'allowRemoteControl': allowRemoteControl,
+        'allowRemoteStreaming': allowRemoteStreaming,
+        'wirelessMode': wirelessMode,
+        'autoCheckUpdates': autoCheckUpdates,
+        'updateChannel': updateChannel,
       };
 
   /// Relecture tolérante : une valeur absente, d'un mauvais type ou hors bornes
@@ -389,6 +423,12 @@ class AppPreferences {
       historyRetentionDays: (json['historyRetentionDays'] is num)
           ? (json['historyRetentionDays']! as num).round()
           : d.historyRetentionDays,
+      omniaConnectEnabled: bool0('omniaConnectEnabled', d.omniaConnectEnabled),
+      allowRemoteControl: bool0('allowRemoteControl', d.allowRemoteControl),
+      allowRemoteStreaming: bool0('allowRemoteStreaming', d.allowRemoteStreaming),
+      wirelessMode: json['wirelessMode'] is String ? json['wirelessMode']! as String : d.wirelessMode,
+      autoCheckUpdates: bool0('autoCheckUpdates', d.autoCheckUpdates),
+      updateChannel: json['updateChannel'] is String ? json['updateChannel']! as String : d.updateChannel,
     );
   }
 

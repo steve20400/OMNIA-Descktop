@@ -252,6 +252,41 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('section Connexions sans fil permet de basculer OMNIA Connect et afficher le QR code', (tester) async {
+      final harness = await _pump(tester, section: SettingsSection.connect);
+
+      expect(find.text('OMNIA Connect local'), findsOneWidget);
+      expect(find.text('Mode de liaison'), findsOneWidget);
+      expect(find.text('Contrôle à distance'), findsOneWidget);
+      expect(find.text('Diffusion locale (Streaming)'), findsOneWidget);
+
+      // Basculer l'affichage du QR code d'appairage
+      expect(find.text('Afficher l\'appairage'), findsOneWidget);
+      await _tap(tester, find.text('Afficher l\'appairage'));
+      expect(find.text('Clé d\'association'), findsOneWidget);
+      expect(find.text('849 - 217'), findsOneWidget);
+
+      await _tap(tester, find.text('Masquer'));
+      expect(find.text('849 - 217'), findsNothing);
+    });
+
+    testWidgets('section Réseau & Mises à jour permet de lancer la vérification et le téléchargement', (tester) async {
+      final harness = await _pump(tester, section: SettingsSection.network);
+
+      expect(find.text('Version de l\'application'), findsOneWidget);
+      expect(find.text('Canal de mise à jour'), findsOneWidget);
+      expect(find.text('Vérification automatique'), findsOneWidget);
+
+      // Télécharger la dernière version en direct
+      final dlBtn = find.text('Télécharger la dernière version');
+      expect(dlBtn, findsOneWidget);
+      await _tap(tester, dlBtn);
+      await tester.pumpAndSettle();
+
+      // Vérifie que l'état passe à prêt pour installation en place
+      expect(find.text('Installer et redémarrer'), findsOneWidget);
+    });
+
     testWidgets('chaque section tient à 360 × 240, et à 320 × 240', (tester) async {
       final harness = await _pump(tester, size: const Size(360, 240));
       for (final size in const [Size(360, 240), Size(320, 240)]) {

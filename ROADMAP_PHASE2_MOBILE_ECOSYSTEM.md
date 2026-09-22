@@ -86,7 +86,7 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
   - Interrupteur dédié : « Mémoriser l'état de lecture » (`rememberPlaybackState`) permettant d'activer ou désactiver la reprise automatique.
   - Durée de conservation de l'historique configurable (`historyRetentionDays` : 7 jours, 30 jours, 90 jours ou Toujours) purgeant automatiquement la progression des fichiers anciens.
 
-### 1.8 Mises à Niveau Transparentes en Place (Zero-Uninstall Upgrade)
+### 1.8 Mises à Niveau Transparentes en Place (Zero-Uninstall Upgrade & In-App Updater)
 - **Installateur Windows Inno Setup** :
   - Directives `UsePreviousAppDir=yes`, `UsePreviousGroup=yes`, `UsePreviousTasks=yes` et `UsePreviousPrivileges=yes` assurant une mise à jour directe par-dessus l'ancienne version.
   - Détection automatique et fermeture propre des processus actifs (`CloseApplications=yes`, `CloseApplicationsFilter=omnia.exe`) avant le remplacement des binaires.
@@ -94,8 +94,19 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
 - **Installateur Linux (`install.sh` & `linux/install.sh`)** :
   - Détection d'une installation existante dans `/opt/omnia`, fermeture propre de l'instance en cours (`pkill -x omnia`), et mise à niveau atomique en place.
   - Conservation totale des configurations et données utilisateur sous `~/.local/share/omnia` et `~/.config/omnia`.
-- **Interface Réglages « Version & Mises à jour »** :
-  - Affichage de la version actuelle et confirmation du fonctionnement des mises à jour transparentes sans désinstallation.
+- **Moteur de Mise à Jour Directe In-App (`UpdateService`) & Section « Réseau & Mises à jour »** :
+  - Détection instantanée des versions publiées via l'API GitHub Releases et artéfacts CI GitHub Actions / miroirs open-source.
+  - Téléchargement autonome en tâche de fond avec jauge de progression temps réel (Mo téléchargés, total, pourcentage).
+  - Bouton d'installation et de redémarrage direct exécutant la mise à niveau sans nécessiter de désinstallation manuelle ni de téléchargement web externe.
+  - Paramétrage du canal de mise à jour (Stable Releases vs Aperçu CI) et interrupteur de vérification automatique au démarrage.
+
+### 1.9 Section « Connexions sans fil » & Écosystème Local Dédié
+- **Contrôle et pilotage du service OMNIA Connect local** :
+  - Interrupteur d'activation globale du service d'écoute réseau Zero-Internet.
+  - Sélecteur de mode de liaison : Wi-Fi local, point d'accès direct (Hotspot), ou Bluetooth.
+  - Gestion fine des autorisations : télécommande à distance (navigation, volume, lecture) et diffusion en continu (streaming vidéo/audio/document).
+  - Appairage rapide avec affichage du QR code et clé d'association sécurisée à 6 chiffres.
+  - Liste interactive des appareils associés et de confiance avec état de connexion et révocation.
 
 ---
 

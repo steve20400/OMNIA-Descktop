@@ -22,6 +22,7 @@ import 'services/screen_wake.dart';
 import 'services/screenshot_service.dart';
 import 'services/settings_store.dart';
 import 'services/system_integration.dart';
+import 'services/update_service.dart';
 import 'services/window_service.dart';
 
 /// Câblage Riverpod du core. L'interface ne lit que ces providers.
@@ -68,6 +69,13 @@ final screenshotServiceProvider = Provider<ScreenshotService>(
 /// Service de communication locale Zero-Internet OMNIA Connect.
 final omniaConnectServiceProvider = Provider<OmniaConnectService>((ref) {
   final service = OmniaConnectService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// Service de mise à jour transparente in-app (GitHub Releases / CI).
+final updateServiceProvider = Provider<UpdateService>((ref) {
+  final service = UpdateService();
   ref.onDispose(service.dispose);
   return service;
 });
