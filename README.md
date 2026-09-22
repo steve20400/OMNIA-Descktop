@@ -3,15 +3,16 @@
 **Lecteur personnel de médias, avec manipulation grâce au mobile.**
 
 Lecteur universel desktop : vidéo, audio, PDF et texte dans une seule application.
-Flutter + media_kit (libmpv), architecture « bus de commandes » prête pour la future télécommande mobile
-([OMNIA-Mobile](https://github.com/steve20400/OMNIA-Mobile)).
+Architecture « bus de commandes » avec télécommande mobile et synchronisation locale Zero-Internet OMNIA Connect
+([OMNIA-Mobile](https://github.com/steve20400/OMNIA-MOBILE)).
 
-> État : **les six phases du plan sont en place.**
+> État : **les six phases du plan et le protocole OMNIA Connect sont en place.**
 > Fondations et thème ; playlist automatique du dossier ; confort de lecture (OSD, récents, menu
 > contextuel, instance unique, aide) ; documents (PDF, texte, Markdown) ; fonctions avancées
-> (sous-titres, pistes audio, capture, boucle A-B, image, égaliseur, vue audio, mini-lecteur) ;
-> finitions (paramètres, éditeur de raccourcis, installateurs).
-> Voir `DESIGN.md` pour le plan design.
+> (sous-titres, pistes audio, capture, boucle A-B, retouche d'image, égaliseur, vue audio, mini-lecteur universel) ;
+> synchronisation réseau local Zero-Internet OMNIA Connect (QR code, WebSocket, streaming HTTP Range) ;
+> finitions (paramètres, éditeur de raccourcis, installateurs Windows et Linux).
+> Voir `DESIGN.md` pour le plan design et `ROADMAP_PHASE2_MOBILE_ECOSYSTEM.md` pour la feuille de route multiplateforme.
 
 ## Plateformes
 
