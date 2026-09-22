@@ -1327,6 +1327,16 @@ class _ConnectSectionState extends ConsumerState<_ConnectSection> {
             ],
           ),
         ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Suggérer l\'application Mobile',
+          hint: 'Rappel hebdomadaire pour installer OMNIA sur votre smartphone et activer la télécommande.',
+          control: OmniaSwitch(
+            label: 'Suggérer OMNIA Mobile',
+            value: !p.mobilePromoDismissed,
+            onChanged: (v) => ref.change((prefs) => prefs.copyWith(mobilePromoDismissed: !v)),
+          ),
+        ),
         const SizedBox(height: OmniaMetrics.space3),
       ],
     );

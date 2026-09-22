@@ -17,6 +17,7 @@ import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'audio_stage.dart';
 import 'image_stage.dart';
+import 'mobile_promo_banner.dart';
 import 'omnia_button.dart';
 
 import 'pdf_stage.dart';
@@ -241,6 +242,11 @@ class _EmptyStage extends ConsumerWidget {
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: const RecentFilesList(),
+            ),
+            const SizedBox(height: OmniaMetrics.space5),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: const MobilePromoBanner(),
             ),
           ],
         ),

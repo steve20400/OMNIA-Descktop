@@ -259,6 +259,7 @@ void main() {
       expect(find.text('Mode de liaison'), findsOneWidget);
       expect(find.text('Contrôle à distance'), findsOneWidget);
       expect(find.text('Diffusion locale (Streaming)'), findsOneWidget);
+      expect(find.text('Suggérer l\'application Mobile'), findsOneWidget);
 
       // Basculer l'affichage du QR code d'appairage
       expect(find.text('Afficher l\'appairage'), findsOneWidget);

@@ -119,6 +119,8 @@ class AppPreferences {
     this.wirelessMode = 'wifi',
     this.autoCheckUpdates = true,
     this.updateChannel = 'stable',
+    this.mobilePromoDismissed = false,
+    this.mobilePromoSnoozeUntil,
   });
 
   static const AppPreferences defaults = AppPreferences();
@@ -218,6 +220,10 @@ class AppPreferences {
   final bool autoCheckUpdates;
   final String updateChannel;
 
+  /// Promotion de la version mobile (désactivée ou mise en veille hebdomadaire).
+  final bool mobilePromoDismissed;
+  final DateTime? mobilePromoSnoozeUntil;
+
   /// Vrai si les ouvertures depuis l'application doivent créer une nouvelle fenêtre.
   bool get inAppOpenNewWindow => inAppOpenTarget == InAppOpenTarget.newWindow;
 
@@ -256,6 +262,8 @@ class AppPreferences {
     String? wirelessMode,
     bool? autoCheckUpdates,
     String? updateChannel,
+    bool? mobilePromoDismissed,
+    DateTime? mobilePromoSnoozeUntil,
   }) {
     return AppPreferences(
       language: language ?? this.language,
@@ -293,6 +301,8 @@ class AppPreferences {
       wirelessMode: wirelessMode ?? this.wirelessMode,
       autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
       updateChannel: updateChannel ?? this.updateChannel,
+      mobilePromoDismissed: mobilePromoDismissed ?? this.mobilePromoDismissed,
+      mobilePromoSnoozeUntil: mobilePromoSnoozeUntil ?? this.mobilePromoSnoozeUntil,
     );
   }
 
@@ -368,6 +378,8 @@ class AppPreferences {
         'wirelessMode': wirelessMode,
         'autoCheckUpdates': autoCheckUpdates,
         'updateChannel': updateChannel,
+        'mobilePromoDismissed': mobilePromoDismissed,
+        'mobilePromoSnoozeUntil': mobilePromoSnoozeUntil?.toIso8601String(),
       };
 
   /// Relecture tolérante : une valeur absente, d'un mauvais type ou hors bornes
@@ -429,6 +441,10 @@ class AppPreferences {
       wirelessMode: json['wirelessMode'] is String ? json['wirelessMode']! as String : d.wirelessMode,
       autoCheckUpdates: bool0('autoCheckUpdates', d.autoCheckUpdates),
       updateChannel: json['updateChannel'] is String ? json['updateChannel']! as String : d.updateChannel,
+      mobilePromoDismissed: bool0('mobilePromoDismissed', d.mobilePromoDismissed),
+      mobilePromoSnoozeUntil: json['mobilePromoSnoozeUntil'] is String
+          ? DateTime.tryParse(json['mobilePromoSnoozeUntil']! as String)
+          : null,
     );
   }
 

@@ -32,6 +32,8 @@ void main() {
       expect(p.wirelessMode, 'wifi');
       expect(p.autoCheckUpdates, isTrue);
       expect(p.updateChannel, 'stable');
+      expect(p.mobilePromoDismissed, isFalse);
+      expect(p.mobilePromoSnoozeUntil, isNull);
     });
   });
 
@@ -69,6 +71,7 @@ void main() {
         wirelessMode: 'hotspot',
         autoCheckUpdates: false,
         updateChannel: 'preview',
+        mobilePromoDismissed: true,
       );
 
       final restored = AppPreferences.fromJson(p.toJson());
