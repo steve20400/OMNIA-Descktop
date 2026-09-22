@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
@@ -408,6 +409,18 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: colors.seam),
+              ),
+              suffixIcon: IconButton(
+                icon: Icon(Icons.content_paste_rounded, color: colors.projector, size: 20),
+                tooltip: 'Coller depuis le presse-papier',
+                onPressed: () async {
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  if (data?.text != null && data!.text!.isNotEmpty) {
+                    setState(() {
+                      _ipController.text = data.text!;
+                    });
+                  }
+                },
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
