@@ -85,6 +85,17 @@ Avant toute distribution sur l'Ubuntu App Center et avant d'entamer la version m
   - Interrupteur dédié : « Mémoriser l'état de lecture » (`rememberPlaybackState`) permettant d'activer ou désactiver la reprise automatique.
   - Durée de conservation de l'historique configurable (`historyRetentionDays` : 7 jours, 30 jours, 90 jours ou Toujours) purgeant automatiquement la progression des fichiers anciens.
 
+### 1.8 Mises à Niveau Transparentes en Place (Zero-Uninstall Upgrade)
+- **Installateur Windows Inno Setup** :
+  - Directives `UsePreviousAppDir=yes`, `UsePreviousGroup=yes`, `UsePreviousTasks=yes` et `UsePreviousPrivileges=yes` assurant une mise à jour directe par-dessus l'ancienne version.
+  - Détection automatique et fermeture propre des processus actifs (`CloseApplications=yes`, `CloseApplicationsFilter=omnia.exe`) avant le remplacement des binaires.
+  - Préservation absolue des réglages et de l'historique situés dans `%APPDATA%\OMNIA` et `%LOCALAPPDATA%\OMNIA` sans désinstallation préalable.
+- **Installateur Linux (`install.sh` & `linux/install.sh`)** :
+  - Détection d'une installation existante dans `/opt/omnia`, fermeture propre de l'instance en cours (`pkill -x omnia`), et mise à niveau atomique en place.
+  - Conservation totale des configurations et données utilisateur sous `~/.local/share/omnia` et `~/.config/omnia`.
+- **Interface Réglages « Version & Mises à jour »** :
+  - Affichage de la version actuelle et confirmation du fonctionnement des mises à jour transparentes sans désinstallation.
+
 ---
 
 ## 2. Phase 2 : Application OMNIA Mobile Autonome (Android / iOS)
@@ -111,6 +122,9 @@ L'application mobile sera développée sous Flutter dans un environnement dédi�
   - Glissement horizontal : Recherche temporelle précise (*scrubbing*).
   - Double-tap gauche/droit : Saut rapide de ±10 secondes.
   - Pincement pour zoomer (*pinch-to-zoom*) sur les vidéos et les images.
+  - **Maintien prolongé pour vitesse 2x (*Hold-to-2x*)** : Appui continu n'importe où sur la vidéo accélérant instantanément à 2.0x avec retour fluide à la vitesse normale au relâchement.
+  - **Verrouillage tactile de l'écran (*Screen Lock*)** : Bouton de verrouillage évitant les touches accidentelles en lecture mobile, avec pastille de déverrouillage sécurisée.
+  - **Sélecteur rapide de vitesse** : Accès direct par pastille temporelle aux paliers 0.5x, 0.75x, 1.0x, 1.25x, 1.5x, 1.75x, 2.0x.
 
 ### 2.3 Préservation de Session & Cycle de Vie Mobile
 - **Persistance en cas d'interruption OS (*Background Kill*)** :
@@ -118,6 +132,8 @@ L'application mobile sera développée sous Flutter dans un environnement dédi�
   - Restauration automatique sans friction lors de la réouverture de l'application mobile, permettant à l'utilisateur de retrouver sa vidéo, son audio ou son document exactement là où il s'était arrêté même si le système a libéré la mémoire entre-temps.
 - **Continuité de lecture en mode PiP (Picture-in-Picture)** :
   - Alignement instantané de la position de lecture lors des transitions vers et depuis le mode Picture-in-Picture natif sans saccade ni saut temporel.
+- **Mises à jour transparentes sous Android (In-Place APK Upgrades)** :
+  - Mise à niveau directe sans désinstallation préalable préservant l'ensemble de l'historique et des préférences stockées dans `/data/data/dev.omnia.omnia/`.
 
 ---
 
