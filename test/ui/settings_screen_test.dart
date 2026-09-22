@@ -57,9 +57,6 @@ class _Harness {
   late final ProviderContainer container;
 
   Future<void> dispose() async {
-    try {
-      await container.read(omniaConnectServiceProvider).stop();
-    } catch (_) {}
     container.dispose();
     await service.dispose();
     await playlist.dispose();
@@ -256,7 +253,7 @@ void main() {
     });
 
     testWidgets('section Connexions sans fil permet de basculer OMNIA Connect et afficher le QR code', (tester) async {
-      final harness = await _pump(tester, section: SettingsSection.connect);
+      await _pump(tester, section: SettingsSection.connect);
 
       expect(find.text('OMNIA Connect local'), findsOneWidget);
       expect(find.text('Mode de liaison'), findsOneWidget);
@@ -273,8 +270,6 @@ void main() {
 
       await _tap(tester, find.text('Masquer'));
       expect(find.text('Scannez avec OMNIA Mobile'), findsNothing);
-
-      await harness.container.read(omniaConnectServiceProvider).stop();
     });
 
     testWidgets('section Réseau & Mises à jour permet de lancer la vérification et le téléchargement', (tester) async {

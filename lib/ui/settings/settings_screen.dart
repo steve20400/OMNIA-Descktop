@@ -1173,40 +1173,6 @@ class _ConnectSection extends ConsumerStatefulWidget {
 
 class _ConnectSectionState extends ConsumerState<_ConnectSection> {
   bool _showQrCode = false;
-  String? _pairingData;
-  String? _localIp;
-  OmniaConnectService? _connectService;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _connectService = ref.read(omniaConnectServiceProvider);
-  }
-
-  Future<void> _toggleQrCode() async {
-    final next = !_showQrCode;
-    setState(() => _showQrCode = next);
-    if (next && _pairingData == null) {
-      final service = ref.read(omniaConnectServiceProvider);
-      try {
-        await service.start();
-        final ip = await service.getLocalIpAddress();
-        final payload = await service.getPairingPayload('OMNIA Desktop');
-        if (mounted) {
-          setState(() {
-            _localIp = ip;
-            _pairingData = payload;
-          });
-        }
-      } catch (_) {}
-    }
-  }
-
-  @override
-  void dispose() {
-    _connectService?.stop();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1269,7 +1235,7 @@ class _ConnectSectionState extends ConsumerState<_ConnectSection> {
           control: _FittingButton(
             label: _showQrCode ? 'Masquer' : 'Afficher l\'appairage',
             icon: Icons.qr_code_2_rounded,
-            onPressed: _toggleQrCode,
+            onPressed: () => setState(() => _showQrCode = !_showQrCode),
           ),
         ),
         if (_showQrCode) ...[
@@ -1285,7 +1251,7 @@ class _ConnectSectionState extends ConsumerState<_ConnectSection> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 OmniaQrCode(
-                  data: _pairingData ?? '{"protocol":"omnia-connect","name":"OMNIA Desktop","port":${connectService.port}}',
+                  data: '{"protocol":"omnia-connect","name":"OMNIA Desktop","port":${connectService.port}}',
                   size: 130,
                   color: colors.velvet,
                   backgroundColor: Colors.white,
@@ -1298,12 +1264,12 @@ class _ConnectSectionState extends ConsumerState<_ConnectSection> {
                       Text('Scannez avec OMNIA Mobile', style: type.bodyStrong),
                       const SizedBox(height: OmniaMetrics.space1),
                       Text(
-                        'IP Locale : ${_localIp ?? "127.0.0.1"} · Port : ${connectService.port}',
+                        'Port local : ${connectService.port} · Protocole v1.0',
                         style: type.secondary,
                       ),
                       const SizedBox(height: OmniaMetrics.space1),
                       Text(
-                        'Clé : ${connectService.sessionToken != null && connectService.sessionToken!.length >= 8 ? connectService.sessionToken!.substring(0, 8) : (connectService.sessionToken ?? "En cours...")}',
+                        'Chiffrement local Zero-Internet',
                         style: type.timecode.copyWith(color: colors.projector),
                       ),
                       const SizedBox(height: OmniaMetrics.space2),
@@ -1331,75 +1297,68 @@ class _ConnectSectionState extends ConsumerState<_ConnectSection> {
           ),
         ),
         const SizedBox(height: OmniaMetrics.space1),
-        StreamBuilder<bool>(
-          stream: connectService.isConnectedStream,
-          initialData: connectService.hasConnectedClients,
-          builder: (context, snapshot) {
-            final hasClients = snapshot.data ?? connectService.hasConnectedClients;
-            if (hasClients) {
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: OmniaMetrics.space3,
-                  vertical: OmniaMetrics.space2,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.velvet.withValues(alpha: 0.25),
-                  borderRadius: OmniaMetrics.controlRadius,
-                  border: Border.all(color: colors.seam.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.phone_android_rounded, size: OmniaMetrics.iconSize, color: Colors.greenAccent),
-                    const SizedBox(width: OmniaMetrics.space3),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('OMNIA Mobile (Connecté en direct)', style: type.bodyStrong),
-                          Text('Réseau local · Télécommande et projection actives', style: type.secondary),
-                        ],
-                      ),
-                    ),
-                    OmniaIconButton(
-                      icon: Icons.link_off_rounded,
-                      tooltip: 'Déconnecter',
-                      onPressed: () {
-                        connectService.stop();
-                        setState(() {});
-                      },
-                    ),
-                  ],
-                ),
-              );
-            }
-            return Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: OmniaMetrics.space3,
-                vertical: OmniaMetrics.space3,
-              ),
-              decoration: BoxDecoration(
-                color: colors.velvet.withValues(alpha: 0.25),
-                borderRadius: OmniaMetrics.controlRadius,
-                border: Border.all(color: colors.seam.withValues(alpha: 0.5)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.phonelink_erase_rounded, size: OmniaMetrics.iconSize, color: colors.dust),
-                  const SizedBox(width: OmniaMetrics.space3),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Aucun appareil associé pour le moment', style: type.bodyStrong),
-                        Text('Scannez le QR code ci-dessus ou ouvrez OMNIA Connect pour lier votre smartphone.', style: type.secondary),
-                      ],
-                    ),
+        if (connectService.hasConnectedClients)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: OmniaMetrics.space3,
+              vertical: OmniaMetrics.space2,
+            ),
+            decoration: BoxDecoration(
+              color: colors.velvet.withValues(alpha: 0.25),
+              borderRadius: OmniaMetrics.controlRadius,
+              border: Border.all(color: colors.seam.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.phone_android_rounded, size: OmniaMetrics.iconSize, color: Colors.greenAccent),
+                const SizedBox(width: OmniaMetrics.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('OMNIA Mobile (Connecté en direct)', style: type.bodyStrong),
+                      Text('Réseau local · Télécommande et projection actives', style: type.secondary),
+                    ],
                   ),
-                ],
-              ),
-            );
-          },
-        ),
+                ),
+                OmniaIconButton(
+                  icon: Icons.link_off_rounded,
+                  tooltip: 'Déconnecter',
+                  onPressed: () {
+                    connectService.stop();
+                    setState(() {});
+                  },
+                ),
+              ],
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: OmniaMetrics.space3,
+              vertical: OmniaMetrics.space3,
+            ),
+            decoration: BoxDecoration(
+              color: colors.velvet.withValues(alpha: 0.25),
+              borderRadius: OmniaMetrics.controlRadius,
+              border: Border.all(color: colors.seam.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.phonelink_erase_rounded, size: OmniaMetrics.iconSize, color: colors.dust),
+                const SizedBox(width: OmniaMetrics.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Aucun appareil associé pour le moment', style: type.bodyStrong),
+                      Text('Scannez le QR code ci-dessus ou ouvrez OMNIA Connect pour lier votre smartphone.', style: type.secondary),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         const SettingDivider(),
         SettingRow(
           title: 'Suggérer l\'application Mobile',
