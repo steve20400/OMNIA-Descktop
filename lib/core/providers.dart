@@ -15,6 +15,7 @@ import 'models/playlist_state.dart';
 import 'services/audio_metadata_service.dart';
 import 'services/folder_scanner.dart';
 import 'services/history_store.dart';
+import 'services/omnia_connect_service.dart';
 import 'services/playback_service.dart';
 import 'services/playlist_service.dart';
 import 'services/screen_wake.dart';
@@ -63,6 +64,13 @@ final screenWakeProvider = Provider<ScreenWake>((_) => const WakelockScreenWake(
 final screenshotServiceProvider = Provider<ScreenshotService>(
   (ref) => ScreenshotService(settings: ref.watch(settingsStoreProvider)),
 );
+
+/// Service de communication locale Zero-Internet OMNIA Connect.
+final omniaConnectServiceProvider = Provider<OmniaConnectService>((ref) {
+  final service = OmniaConnectService();
+  ref.onDispose(service.dispose);
+  return service;
+});
 
 /// Tags et pochettes des fichiers audio.
 final audioMetadataServiceProvider =

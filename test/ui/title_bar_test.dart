@@ -69,6 +69,7 @@ void main() {
       expectWithin(tester, settings, bar, reason: '$where : paramètres');
       expectWithin(tester, byTooltipPrefix('Ouvrir un fichier'), bar, reason: '$where : ouvrir');
       expectWithin(tester, byTooltipPrefix('Toujours au premier plan'), bar, reason: '$where : premier plan');
+      expectWithin(tester, byTooltipPrefix('OMNIA Connect'), bar, reason: '$where : connect');
       expect(
 
         find.text('OMNIA'),
