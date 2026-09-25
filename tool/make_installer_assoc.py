@@ -33,12 +33,17 @@ def main():
     with io.open(ROUTER, encoding='utf-8') as f:
         source = f.read()
 
+    # OpenWithProgids attend une VALEUR nommee d'apres le type de fichier.
+    # Avec « ValueType: none », Inno Setup ne cree que la cle et n'ecrit
+    # jamais la valeur : Windows ne propose alors pas OMNIA dans la liste
+    # « Ouvrir avec ». Une chaine vide est ce qu'attend le systeme.
     lines = ['; BEGIN EXTENSIONS', '; Généré par tool/make_installer_assoc.py — ne pas modifier à la main.']
     for name, progid in FAMILIES:
         for ext in extensions(source, name):
             lines.append(
                 f'Root: HKA; Subkey: "Software\\Classes\\.{ext}\\OpenWithProgids"; '
-                f'ValueType: none; ValueName: "{progid}"; Flags: uninsdeletevalue; Tasks: associate'
+                f'ValueType: string; ValueName: "{progid}"; ValueData: ""; '
+                f'Flags: uninsdeletevalue; Tasks: associate'
             )
             lines.append(
                 f'Root: HKA; Subkey: "Software\\Classes\\Applications\\{{#AppExe}}\\SupportedTypes"; '

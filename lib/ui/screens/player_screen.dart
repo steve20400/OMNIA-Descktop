@@ -32,6 +32,7 @@ import '../widgets/mini_player.dart';
 import '../widgets/osd_overlay.dart';
 import '../widgets/recording_indicator.dart';
 import '../widgets/resume_prompt.dart';
+import '../widgets/screenshot_flash.dart';
 import '../widgets/side_panel.dart';
 import '../widgets/stage.dart';
 import '../widgets/stage_context_menu.dart';
@@ -300,6 +301,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                         child: const Stage(),
                                       ),
                                     ),
+                                    // Éclair de capture, sous le message :
+                                    // on voit le déclic, on lit le chemin.
+                                    const ScreenshotFlash(),
                                     const OsdOverlay(),
                                     // Témoin « REC » : visible même contrôles
                                     // masqués, tant qu'un extrait s'écrit.

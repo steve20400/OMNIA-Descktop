@@ -36,6 +36,7 @@ import 'package:omnia/ui/widgets/find_bar.dart';
 import 'package:omnia/ui/widgets/mini_player.dart';
 import 'package:omnia/ui/widgets/resume_prompt.dart';
 import 'package:omnia/ui/widgets/stage.dart';
+import 'package:omnia/ui/widgets/window_drag_area.dart';
 import 'package:path/path.dart' as p;
 
 /// Lecteur audio factice : quatre minutes, sans son.

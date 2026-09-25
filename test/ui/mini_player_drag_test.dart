@@ -15,6 +15,7 @@ import 'package:omnia/core/services/audio_metadata_service.dart';
 import 'package:omnia/ui/audio_tags_provider.dart';
 import 'package:omnia/ui/widgets/mini_player.dart';
 import 'package:omnia/ui/widgets/stage.dart';
+import 'package:omnia/ui/widgets/window_drag_area.dart';
 
 import 'narrow_harness.dart';
 

@@ -11,8 +11,8 @@ import '../shortcuts/default_keymap.dart';
 import '../shortcuts/shortcut_labels.dart';
 import '../theme/omnia_theme.dart';
 import 'omnia_icon_button.dart';
-import 'window_drag_area.dart';
 import 'recent_files_menu.dart';
+import 'window_drag_area.dart';
 
 /// Barre de titre personnalisée (fenêtre sans cadre).
 ///

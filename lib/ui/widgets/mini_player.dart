@@ -481,23 +481,26 @@ class _MiniOverlay extends ConsumerWidget {
 
   /// Voile dégradé sous les commandes.
   ///
-  /// Un [DecoratedBox] sans enfant ne prend aucune pression (il n'a rien à
-  /// tester, et ne se teste pas lui-même) : c'est essentiel, c'est là que se
-  /// trouve le pointeur quand les commandes sont affichées, et la pression
-  /// doit traverser jusqu'à la zone de déplacement posée sous l'image. Y
-  /// mettre un `ColoredBox` ou un enfant condamnerait le déplacement.
+  /// Sourd au pointeur, et il faut l'écrire : c'est là que se trouve le
+  /// curseur quand les commandes viennent d'apparaître, et la pression doit
+  /// traverser jusqu'à la zone de déplacement posée sous l'image. Sans
+  /// [IgnorePointer], le voile happe le geste — la pile s'arrête au premier
+  /// enfant touché — et la fenêtre ne se déplace plus par le haut ni par le
+  /// bas, mesuré sur le chemin de pression réel.
   Widget _shade(OmniaColors colors, {required bool top}) => Positioned(
         left: 0,
         right: 0,
         top: top ? 0 : null,
         bottom: top ? null : 0,
         height: _shadeHeight,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-              end: top ? Alignment.bottomCenter : Alignment.topCenter,
-              colors: [colors.velvet.withValues(alpha: 0.55), Colors.transparent],
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: top ? Alignment.topCenter : Alignment.bottomCenter,
+                end: top ? Alignment.bottomCenter : Alignment.topCenter,
+                colors: [colors.velvet.withValues(alpha: 0.55), Colors.transparent],
+              ),
             ),
           ),
         ),
