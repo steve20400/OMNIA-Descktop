@@ -91,12 +91,12 @@ jobs:
           # compare segment par segment — ne l'aurait jamais proposée.
           version="0.1.${{ github.run_number }}"
           echo "OMNIA_VERSION=$version" >> "$GITHUB_ENV"
-          # La même version est écrite dans pubspec.yaml, donc compilée dans
-          # l'application et reprise dans le nom des fichiers : tag, installeurs
-          # et version installée concordent, si bien qu'une mise à jour déjà
-          # installée n'est pas reproposée en boucle.
-          sed -i -E "s/^version:[[:space:]]*.*/version: ${version}+${{ github.run_number }}/" pubspec.yaml
-          grep '^version:' pubspec.yaml
+          # pubspec.yaml n'est PAS réécrit : test/packaging_test.dart exige que
+          # le repli « #define AppVersion » de l'installateur Windows reste égal
+          # à la version du pubspec. Ce repli ne sert qu'hors CI — ici ISCC
+          # reçoit /DAppVersion=$OMNIA_VERSION, et la même valeur est compilée
+          # dans l'application (--dart-define plus bas). Tag, installateur et
+          # version installée concordent donc sans modifier le dépôt.
 
       - name: Dépendances
         id: deps
@@ -266,8 +266,6 @@ jobs:
           # publiée croît à chaque exécution et est compilée dans l'application.
           version="0.1.${{ github.run_number }}"
           echo "OMNIA_VERSION=$version" >> "$GITHUB_ENV"
-          sed -i -E "s/^version:[[:space:]]*.*/version: ${version}+${{ github.run_number }}/" pubspec.yaml
-          grep '^version:' pubspec.yaml
 
       - name: Dépendances
         id: deps
