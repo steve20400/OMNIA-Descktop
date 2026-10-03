@@ -17,6 +17,7 @@ import '../../core/services/update_service.dart';
 import '../../core/utils/screenshot_naming.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
+import '../app_close.dart';
 import '../player_focus.dart';
 import '../recent_files.dart';
 import '../theme/omnia_theme.dart';
@@ -1451,7 +1452,17 @@ class _NetworkSectionState extends ConsumerState<_NetworkSection> {
 
   Future<void> _applyInstall() async {
     final service = ref.read(updateServiceProvider);
-    await service.applyUpdate();
+    final applied = await service.applyUpdate();
+    final message = service.errorMessage;
+    if (!mounted) return;
+    setState(() => _error = applied ? message : message ?? 'Installation impossible.');
+
+    // Windows : l'installateur relance lui-même l'application. Linux : le
+    // service vient de démarrer la nouvelle version, il reste à quitter
+    // l'ancienne proprement — modifications non enregistrées d'abord, puis
+    // arrêt des flux, ce que fait closeApplication.
+    if (!applied || !service.requiresRestart) return;
+    await closeApplication(ref, context);
   }
 
   @override

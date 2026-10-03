@@ -63,6 +63,22 @@ class UpdateService {
   String? _downloadedFilePath;
   String? get downloadedFilePath => _downloadedFilePath;
 
+  /// Vrai quand c'est à l'appelant de relancer l'application : sous Windows,
+  /// l'installateur Inno la relance lui-même (`/RESTARTAPPLICATIONS`), sous
+  /// Linux le script d'installation ne touche pas au processus en cours.
+  bool _requiresRestart = false;
+  bool get requiresRestart => _requiresRestart;
+
+  /// Lanceur posé par la dernière installation réussie (Linux) : `null` tant
+  /// qu'aucune installation n'a abouti.
+  String? _installedLauncher;
+  String? get installedLauncher => _installedLauncher;
+
+  /// Une installation a déjà abouti : y revenir ne doit ni réinstaller ni
+  /// relancer une seconde instance, seulement retenter la fermeture de
+  /// l'ancienne si l'utilisateur l'avait annulée.
+  bool _applied = false;
+
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -205,21 +221,125 @@ class UpdateService {
     }
   }
 
-  Future<void> applyUpdate() async {
+  /// Applique la mise à jour téléchargée. Retourne `true` une fois installée ;
+  /// sinon [errorMessage] dit pourquoi.
+  Future<bool> applyUpdate() async {
+    if (_applied) return true;
+    _errorMessage = null;
+
     final path = _downloadedFilePath;
-    if (path == null || !File(path).existsSync()) return;
+    if (path == null || !File(path).existsSync()) {
+      _fail('Paquet téléchargé introuvable : relancez le téléchargement.');
+      return false;
+    }
 
     if (Platform.isWindows) {
-      // Inno Setup : installation en place sans désinstallation préalable
+      // Inno Setup : installation en place sans désinstallation préalable, puis
+      // relance de l'application une fois terminée.
       await Process.start(
         path,
         ['/SILENT', '/SP-', '/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS'],
         mode: ProcessStartMode.detached,
       );
-    } else if (Platform.isLinux) {
-      await Process.start('chmod', ['+x', path]);
-      await Process.start(path, [], mode: ProcessStartMode.detached);
+      _requiresRestart = false;
+      _applied = true;
+      return true;
     }
+
+    if (Platform.isLinux) return _applyLinuxArchive(path);
+
+    _fail('Installation automatique indisponible sur cette plateforme.');
+    return false;
+  }
+
+  /// Linux : l'actif publié est une archive tar.gz, pas un exécutable. Rendre
+  /// le fichier exécutable puis le lancer — ce que faisait cette méthode — ne
+  /// produisait donc rien : la mise à jour se téléchargeait sans jamais
+  /// s'installer. On décompresse, puis on lance l'installateur sans droits
+  /// d'administrateur que l'archive contient (déposé là par la CI), qui copie
+  /// l'application, pose le lanceur et l'icône, et met à jour les associations.
+  Future<bool> _applyLinuxArchive(String archivePath) async {
+    try {
+      final target = await Directory.systemTemp.createTemp('omnia-update-');
+      final extracted =
+          await Process.run('tar', ['-xzf', archivePath, '-C', target.path]);
+      if (extracted.exitCode != 0) {
+        _fail('Extraction impossible : ${_stderr(extracted)}');
+        return false;
+      }
+
+      // L'archive contient un unique dossier, nommé d'après la version.
+      final folders = target.listSync().whereType<Directory>().toList();
+      final root = folders.isEmpty ? target.path : folders.first.path;
+
+      File? installer;
+      for (final name in const ['installer-omnia.sh', 'install.sh']) {
+        final candidate = File('$root/$name');
+        if (candidate.existsSync()) {
+          installer = candidate;
+          break;
+        }
+      }
+      if (installer == null) {
+        _fail("Aucun installateur dans l'archive téléchargée.");
+        return false;
+      }
+
+      await Process.run('chmod', ['+x', installer.path]);
+      final installed = await Process.run(
+        installer.path,
+        const <String>[],
+        workingDirectory: root,
+      );
+      if (installed.exitCode != 0) {
+        // Le script dit pourquoi : libmpv absent, binaire manquant à côté de
+        // lui… autant le montrer plutôt que laisser croire à un succès.
+        _fail('Installation refusée : ${_stderr(installed)}');
+        return false;
+      }
+
+      // Le script pose un lanceur dans ~/.local/bin ; à défaut, le binaire
+      // extrait reste utilisable pour redémarrer sur la nouvelle version.
+      final home = Platform.environment['HOME'];
+      final userLauncher = home == null ? null : File('$home/.local/bin/omnia');
+      final extractedLauncher = File('$root/omnia');
+      if (userLauncher != null && userLauncher.existsSync()) {
+        _installedLauncher = userLauncher.path;
+      } else if (extractedLauncher.existsSync()) {
+        _installedLauncher = extractedLauncher.path;
+      }
+      _applied = true;
+
+      final launcher = _installedLauncher;
+      if (launcher == null) {
+        // Installé, mais rien à démarrer : à l'utilisateur de relancer.
+        _errorMessage =
+            'Installé. Relancez OMNIA depuis le menu des applications.';
+        _requiresRestart = false;
+        return true;
+      }
+
+      // La nouvelle version démarre tout de suite ; l'ancienne se ferme ensuite
+      // (c'est le rôle de requiresRestart, côté interface).
+      await Process.start(launcher, const <String>[],
+          mode: ProcessStartMode.detached);
+      _requiresRestart = true;
+      return true;
+    } catch (e) {
+      _fail("Échec de l'installation : $e");
+      return false;
+    }
+  }
+
+  static String _stderr(ProcessResult result) {
+    final err = '${result.stderr}'.trim();
+    return err.isEmpty ? '${result.stdout}'.trim() : err;
+  }
+
+  void _fail(String message) {
+    _errorMessage = message;
+    _status = UpdateStatus.error;
+    _statusController.add(_status);
   }
 
   static int _compareVersions(String vA, String vB) {
