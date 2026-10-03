@@ -69,6 +69,9 @@ jobs:
     name: Windows (application, installateur, lancement réel)
     runs-on: windows-2025
     timeout-minutes: 45
+    # Publier une version demande le droit d'écriture sur le dépôt.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 
@@ -143,6 +146,14 @@ jobs:
           path: build/windows/x64/runner/Release/
           if-no-files-found: error
 
+      # La version portable est un dossier : le zip en fait un fichier unique à
+      # télécharger, décompresser et lancer, sans installation ni droits
+      # d'administrateur.
+      - name: Empaqueter la version portable (zip)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: pwsh
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "build/installer/OMNIA-$env:OMNIA_VERSION-Windows-portable.zip" -Force
+
       - name: Lancement réel
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         shell: pwsh
@@ -190,10 +201,35 @@ jobs:
             flutter test --reporter expanded \
             test/core/controllers/av_controller_recording_test.dart
 
+      # Version publiée plutôt qu'archivée : un artefact périme au bout de
+      # 90 jours et n'est pas téléchargeable par l'application, alors qu'une
+      # « release » reste en ligne indéfiniment sur la page Releases — c'est là
+      # que va chercher la mise à jour intégrée, comme sur mobile.
+      # Les deux jobs (Windows et Linux) publient le même tag : le second
+      # dépose simplement ses fichiers sur la version déjà créée.
+      - name: Publier la version téléchargeable
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v${OMNIA_VERSION}-build${{ github.run_number }}"
+          fichiers=("build/installer/OMNIA-Setup-${OMNIA_VERSION}.exe" "build/installer/OMNIA-${OMNIA_VERSION}-Windows-portable.zip")
+          gh release create "$tag" "${fichiers[@]}" \
+            --title "OMNIA Desktop ${OMNIA_VERSION} (build ${{ github.run_number }})" \
+            --notes "Application complète de bureau.
+
+          - **OMNIA-Setup-${OMNIA_VERSION}.exe** : installateur Windows, à préférer.
+          - **OMNIA-${OMNIA_VERSION}-Windows-portable.zip** : Windows sans installation, à décompresser puis lancer \`omnia.exe\`.
+          - **omnia-${OMNIA_VERSION}-linux-x64.tar.gz** : Linux x64, décompresser puis \`./install.sh\` (ou \`./installer-omnia.sh\` sans droits d'administrateur)." \
+          || { sleep 20; gh release upload "$tag" "${fichiers[@]}" --clobber; }
+
   linux:
     name: Linux (application, lancement réel)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    # Publier une version demande le droit d'écriture sur le dépôt.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 
@@ -287,3 +323,22 @@ jobs:
           name: OMNIA-${{ env.OMNIA_VERSION }}-Linux-captures
           path: build/lancement/
           if-no-files-found: warn
+
+      # Même publication que le job Windows, sur le même tag : si la version
+      # existe déjà, l'archive Linux s'y ajoute simplement.
+      - name: Publier la version téléchargeable
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v${OMNIA_VERSION}-build${{ github.run_number }}"
+          archive="build/paquet/omnia-${OMNIA_VERSION}-linux-x64.tar.gz"
+          gh release create "$tag" "$archive" \
+            --title "OMNIA Desktop ${OMNIA_VERSION} (build ${{ github.run_number }})" \
+            --notes "Application complète de bureau.
+
+          - **OMNIA-Setup-${OMNIA_VERSION}.exe** : installateur Windows, à préférer.
+          - **OMNIA-${OMNIA_VERSION}-Windows-portable.zip** : Windows sans installation, à décompresser puis lancer \`omnia.exe\`.
+          - **omnia-${OMNIA_VERSION}-linux-x64.tar.gz** : Linux x64, décompresser puis \`./install.sh\` (ou \`./installer-omnia.sh\` sans droits d'administrateur)." \
+          || { sleep 20; gh release upload "$tag" "$archive" --clobber; }
+
