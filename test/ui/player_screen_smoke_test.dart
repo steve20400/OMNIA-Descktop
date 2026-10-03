@@ -32,6 +32,7 @@ import 'package:omnia/ui/app.dart';
 import 'package:omnia/ui/document_ui_controller.dart';
 import 'package:omnia/ui/help_overlay_controller.dart';
 import 'package:omnia/ui/settings/settings_controller.dart';
+import 'package:omnia/ui/widgets/beam_progress_bar.dart';
 import 'package:omnia/ui/widgets/find_bar.dart';
 import 'package:omnia/ui/widgets/mini_player.dart';
 import 'package:omnia/ui/widgets/resume_prompt.dart';
@@ -186,12 +187,20 @@ void main() {
     );
     await tester.pumpAndSettle();
     _expectWellFormed(tester, 'accueil');
+    // Sans média ouvert, l'accueil n'a rien à piloter : la barre de
+    // progression y restait affichée, vide. L'accueil garde ses propres
+    // boutons d'ouverture, la barre du bas n'a donc pas à y paraître.
+    expect(find.byType(BeamProgressBar), findsNothing,
+        reason: "accueil : aucune barre de progression sans média");
 
     // Lecture dans un dossier : panneau de playlist (menus de tri et de
     // filtre), barre de contrôle, vue audio.
     bus.dispatch(OpenFile(tracks[0]));
     await _drain(tester);
     expect(container.read(playbackStateProvider).file?.path, tracks[0]);
+    // Un média ouvert, au contraire, doit retrouver sa progression.
+    expect(find.byType(BeamProgressBar), findsOneWidget,
+        reason: 'lecture audio : la barre de progression doit revenir');
     _expectWellFormed(tester, 'lecture audio');
 
     // Menu du clic droit : un clic gauche sur la scène le ferme, sans lancer

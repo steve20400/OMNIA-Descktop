@@ -390,11 +390,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                               duration: OmniaMotion.reveal,
                                               curve: OmniaMotion.revealCurve,
                                               child: RepaintBoundary(
-                                                child: isDocument
-                                                    ? const DocumentBar()
-                                                    : (isImage
-                                                        ? const ImageBar()
-                                                        : const ControlBar()),
+                                                // Sans fichier ouvert, l'écran
+                                                // d'accueil n'a rien à piloter :
+                                                // la barre de progression restait
+                                                // affichée, vide, alors qu'aucun
+                                                // média n'est chargé. L'accueil
+                                                // garde ses propres boutons
+                                                // d'ouverture.
+                                                child: !hasFile
+                                                    ? const SizedBox.shrink()
+                                                    : (isDocument
+                                                        ? const DocumentBar()
+                                                        : (isImage
+                                                            ? const ImageBar()
+                                                            : const ControlBar())),
                                               ),
                                             ),
                                           ),
