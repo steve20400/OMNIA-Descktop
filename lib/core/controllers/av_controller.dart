@@ -112,6 +112,10 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     await _setProperty('scale', 'spline36');
     await _setProperty('dscale', 'mitchell');
     await _setProperty('correct-downscaling', 'yes');
+    // mpv borne `volume` à `volume-max`, 130 par défaut : au-delà de 100 % il
+    // refuse de monter. On l'aligne sur la borne de l'application pour que le
+    // curseur amplifie vraiment jusqu'à 200 %, au lieu de plafonner en silence.
+    await _setProperty('volume-max', '${PlaybackState.maxVolume.round()}');
     await _applyCacheProperties();
   }
 

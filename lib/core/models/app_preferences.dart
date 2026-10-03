@@ -1,5 +1,6 @@
 import 'document_layout.dart';
 import 'equalizer.dart';
+import 'playback_state.dart';
 
 /// Langue de l'interface.
 enum AppLanguage {
@@ -274,7 +275,8 @@ class AppPreferences {
       seekStepSeconds: _step(seekStepSeconds ?? this.seekStepSeconds),
       defaultSpeed: _speed(defaultSpeed ?? this.defaultSpeed),
       startupVolume: startupVolume ?? this.startupVolume,
-      fixedVolume: (fixedVolume ?? this.fixedVolume).clamp(0.0, 100.0),
+      fixedVolume: (fixedVolume ?? this.fixedVolume)
+          .clamp(PlaybackState.minVolume, PlaybackState.maxVolume),
       subtitleScale: (subtitleScale ?? this.subtitleScale).clamp(0.5, 2.5),
       subtitleAutoLoad: subtitleAutoLoad ?? this.subtitleAutoLoad,
       subtitleDelay: (subtitleDelay ?? this.subtitleDelay).clamp(-30.0, 30.0),

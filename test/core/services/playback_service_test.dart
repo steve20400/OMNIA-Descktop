@@ -725,17 +725,37 @@ void main() {
       expect(service.state.volume, 40);
     });
 
-    test('VolumeRelative est borné à 0–100', () async {
+    test('VolumeRelative est borné aux limites de volume', () async {
+      // Le volume part de 100 : deux hausses de 50 atteignent le plafond.
       bus.dispatch(const VolumeRelative(50));
       bus.dispatch(const VolumeRelative(50));
       await settle();
-      expect(service.state.volume, 100);
+      expect(service.state.volume, PlaybackState.maxVolume);
 
-      for (var i = 0; i < 30; i++) {
+      // Encore deux hausses : le plafond tient, le son ne s'envole pas.
+      bus.dispatch(const VolumeRelative(50));
+      bus.dispatch(const VolumeRelative(50));
+      await settle();
+      expect(service.state.volume, PlaybackState.maxVolume);
+
+      // Assez de baisses pour vider la réserve, quel que soit le plafond.
+      for (var i = 0; i < PlaybackState.maxVolume ~/ 5; i++) {
         bus.dispatch(const VolumeRelative(-5));
       }
       await settle();
       expect(service.state.volume, 0);
+    });
+
+    test('le volume peut dépasser 100 pour amplifier', () async {
+      // Demande expresse : à fond, OMNIA doit aller aussi haut que VLC.
+      bus.dispatch(const SetVolume(200));
+      await settle();
+      expect(service.state.volume, 200);
+
+      // Un abus reste borné.
+      bus.dispatch(const SetVolume(500));
+      await settle();
+      expect(service.state.volume, PlaybackState.maxVolume);
     });
 
     test('ToggleMute fonctionne aussi sans fichier', () async {

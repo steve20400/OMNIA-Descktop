@@ -67,9 +67,16 @@ class PlaybackState {
   }) : recordingFailure = recordingFailure ??
             (recordingFailed ? RecordingFailure.nothingRecorded : RecordingFailure.none);
 
-  /// Bornes de volume (échelle mpv : 0–100).
+  /// Bornes de volume.
+  ///
+  /// Au-delà de 100 %, mpv amplifie réellement le signal : c'est ce qui rend
+  /// un 200 % franc, comme sur VLC — et non un plafond déguisé. Encore faut-il
+  /// que le moteur l'autorise : mpv borne `volume` à `volume-max` (130 par
+  /// défaut), qu'AvController porte à cette même valeur. Sans quoi hausser le
+  /// curseur au-delà de 100 ne changeait rien, et le son restait faible même à
+  /// fond.
   static const double minVolume = 0;
-  static const double maxVolume = 100;
+  static const double maxVolume = 200;
 
   /// Bornes et pas de vitesse.
   static const double minSpeed = 0.25;
