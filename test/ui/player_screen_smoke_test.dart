@@ -191,7 +191,7 @@ void main() {
     // progression y restait affichée, vide. L'accueil garde ses propres
     // boutons d'ouverture, la barre du bas n'a donc pas à y paraître.
     expect(find.byType(BeamProgressBar), findsNothing,
-        reason: "accueil : aucune barre de progression sans média");
+        reason: 'accueil : aucune barre de progression sans média');
 
     // Lecture dans un dossier : panneau de playlist (menus de tri et de
     // filtre), barre de contrôle, vue audio.
