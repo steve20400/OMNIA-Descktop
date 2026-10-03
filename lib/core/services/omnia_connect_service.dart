@@ -179,7 +179,23 @@ class OmniaConnectService {
 
     if (path == '/api/ws') {
       final token = request.uri.queryParameters['token'];
-      if (token != _sessionToken) {
+
+      // Mêmes règles que l'hôte mobile. Sans cet alignement, l'appairage
+      // changeait de comportement selon l'appareil qui sert d'hôte : un
+      // client qui saisit l'adresse à la main — jeton vide, OMNIA Mobile
+      // part de `String token = ''` — était accepté par le téléphone et
+      // refusé ici en 401. Le jeton reste exigé de tout client qui n'est pas
+      // sur la boucle locale ou le réseau local (RFC 1918).
+      final address = request.connectionInfo?.remoteAddress;
+      final isLocalClient = address?.isLoopback == true ||
+          (address?.address.startsWith('192.168.') ?? false) ||
+          (address?.address.startsWith('10.') ?? false) ||
+          (address?.address.startsWith('172.') ?? false);
+      final tokenMatches = token == _sessionToken;
+      final allowedManual =
+          isLocalClient && (token == null || token.isEmpty || token == 'omnia');
+
+      if (!tokenMatches && !allowedManual) {
         request.response.statusCode = HttpStatus.unauthorized;
         await request.response.close();
         return;

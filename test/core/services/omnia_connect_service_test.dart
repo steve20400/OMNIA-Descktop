@@ -64,6 +64,34 @@ void main() {
       client.close();
     });
 
+    test('accepte un appairage manuel sans jeton depuis la machine même',
+        () async {
+      // Cas du téléphone où l'on saisit l'adresse à la main au lieu de
+      // scanner le QR code : OMNIA Mobile part alors d'un jeton vide
+      // (`String token = ''`). L'hôte mobile l'acceptait, le bureau le
+      // refusait en 401 : l'appairage échouait donc selon l'appareil qui
+      // servait d'hôte. Le jeton reste exigé de tout client non local.
+      final port = await service.start(address: InternetAddress.loopbackIPv4);
+      final client = OmniaConnectClient();
+      addTearDown(client.dispose);
+
+      final ok = await client.connect(
+        host: '127.0.0.1',
+        port: port,
+        token: '',
+      );
+
+      expect(ok, isTrue, reason: "l'appairage manuel doit être accepté");
+      expect(client.connected, isTrue);
+
+      final cmdFuture = service.remoteCommands.first;
+      client.sendCommand(const TogglePlay());
+      expect(await cmdFuture, isA<TogglePlay>(),
+          reason: 'un client appairé à la main doit pouvoir télécommander');
+
+      await client.disconnect();
+    });
+
     test('accepte WebSocket valide et relaie les commandes distantes', () async {
       final port = await service.start(address: InternetAddress.loopbackIPv4);
       final connectedFuture = service.isConnectedStream.firstWhere((c) => c);
