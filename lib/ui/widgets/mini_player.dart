@@ -5,7 +5,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/models/document_layout.dart';
@@ -38,6 +37,7 @@ import 'playlist_tile.dart';
 import 'stage.dart';
 import 'stage_context_menu.dart';
 import 'text_view.dart';
+import 'window_drag_area.dart';
 
 /// Mini-lecteur : la fenêtre compacte au premier plan.
 ///
@@ -49,7 +49,11 @@ import 'text_view.dart';
 /// l'appui sur `Tab` ou sur le bouton dédié.
 ///
 /// Toute la surface déplace la fenêtre ; le double-clic revient à la fenêtre
-/// entière (et n'agrandit surtout pas, contrairement à `DragToMoveArea`).
+/// entière. Le déplacement est confié au système dès trois pixels parcourus, et
+/// non à un détecteur de glissement : celui-ci maximise au double-clic, et son
+/// état reste « accepté » quand le relâchement se perd (sous Windows, la boucle
+/// de déplacement du système avale le bouton relâché) — la fenêtre ne se
+/// déplace alors plus jamais.
 class MiniPlayer extends ConsumerStatefulWidget {
   const MiniPlayer({super.key});
 
@@ -73,6 +77,13 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   /// Molette au-dessus du mini-lecteur : crans de volume regroupés, comme sur
   /// la scène de l'écran principal.
   final WheelSteps _volumeWheel = WheelSteps();
+
+  /// Vrai pour la pression en cours qui a déclenché le déplacement de la
+  /// fenêtre : un déplacement n'est pas un clic, et son relâchement ne doit ni
+  /// basculer la lecture ni revenir à la fenêtre entière.
+  bool _windowDragged = false;
+
+  void _markWindowDragged() => _windowDragged = true;
 
   late final ChromeController _chrome = ref.read(chromeProvider.notifier);
   StreamSubscription<PlayerCommand>? _commandSub;
@@ -205,8 +216,14 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     });
   }
 
-  /// Glissement : la fenêtre suit. Clic : lecture/pause si média AV.
-  /// Double-clic : retour à la fenêtre entière.
+  /// Glissement : la fenêtre suit, dès trois pixels. Clic : lecture/pause si
+  /// média AV. Double-clic : retour à la fenêtre entière.
+  ///
+  /// [allowWindowDrag] à faux retire la zone de déplacement de la scène : soit
+  /// le voile de commandes est visible, et c'est son fond — placé SOUS les
+  /// commandes — qui déplace la fenêtre (une seule zone par pression, sinon le
+  /// même glissement partirait deux fois), soit l'édition d'un document a la
+  /// main sur les gestes.
   Widget _windowGestures({
     required Widget child,
     required bool hasMedia,
@@ -217,12 +234,20 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       behavior: HitTestBehavior.translucent,
       onTap: hasMedia
           ? () {
+              if (_windowDragged) return;
               _focus.requestFocus();
               ref.dispatch(const TogglePlay());
             }
-          : _focus.requestFocus,
-      onDoubleTap: () => ref.dispatch(const ToggleMiniPlayer()),
-      child: DragToMoveArea(
+          : () {
+              if (_windowDragged) return;
+              _focus.requestFocus();
+            },
+      onDoubleTap: () {
+        if (_windowDragged) return;
+        ref.dispatch(const ToggleMiniPlayer());
+      },
+      child: WindowDragArea(
+        onDragStart: _markWindowDragged,
         child: child,
       ),
     );
@@ -270,7 +295,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         onHover: (_) => _chrome.activity(),
         onExit: (_) => _chrome.pointerLeft(),
         child: Listener(
-          onPointerDown: (_) => _chrome.activity(),
+          onPointerDown: (_) {
+            // Chaque pression repart de zéro : le drapeau de déplacement ne vaut
+            // que pour la pression en cours.
+            _windowDragged = false;
+            _chrome.activity();
+          },
           onPointerMove: (_) => _chrome.activity(),
           child: ColoredBox(
             color: colors.velvet,
@@ -362,6 +392,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   Widget _video(PlaybackState state) {
     final surface = ref.watch(videoSurfaceProvider);
     final hasMedia = state.hasFile && state.mediaType.isAv;
+    final chromeVisible = ref.watch(chromeProvider);
 
     return Stack(
       fit: StackFit.expand,
@@ -369,10 +400,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         StageContextMenu(
           child: _windowGestures(
             hasMedia: hasMedia,
+            allowWindowDrag: !chromeVisible,
             child: surface(context, fit: BoxFit.contain, aspectRatio: null),
           ),
         ),
-        _MiniOverlay(state: state),
+        _MiniOverlay(state: state, onWindowDragStart: _markWindowDragged),
       ],
     );
   }
@@ -380,12 +412,15 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   // --- Image : affichage compact avec zoom et rotation --------------------
 
   Widget _image(PlaybackState state) {
+    final chromeVisible = ref.watch(chromeProvider);
+
     return Stack(
       fit: StackFit.expand,
       children: [
         StageContextMenu(
           child: _windowGestures(
             hasMedia: false,
+            allowWindowDrag: !chromeVisible,
             child: IgnorePointer(
               child: ImageStage(
                 key: ValueKey('mini-image:${state.file!.path}'),
@@ -394,7 +429,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             ),
           ),
         ),
-        _MiniImageOverlay(state: state),
+        _MiniImageOverlay(state: state, onWindowDragStart: _markWindowDragged),
       ],
     );
   }
@@ -427,6 +462,8 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       docWidget = const SizedBox.shrink();
     }
 
+    final chromeVisible = ref.watch(chromeProvider);
+
     return Listener(
       onPointerDown: (_) => ref.read(documentUiProvider.notifier).setDocumentFocused(true),
       behavior: HitTestBehavior.translucent,
@@ -436,11 +473,14 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
           StageContextMenu(
             child: _windowGestures(
               hasMedia: false,
-              allowWindowDrag: !isEditing,
+              allowWindowDrag: !chromeVisible && !isEditing,
               child: docWidget,
             ),
           ),
-          _MiniDocumentOverlay(state: state),
+          _MiniDocumentOverlay(
+            state: state,
+            onWindowDragStart: _markWindowDragged,
+          ),
         ],
       ),
     );
@@ -646,9 +686,13 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
 
 /// Les commandes posées sur l'image vidéo du mini-lecteur.
 class _MiniOverlay extends ConsumerWidget {
-  const _MiniOverlay({required this.state});
+  const _MiniOverlay({required this.state, this.onWindowDragStart});
 
   final PlaybackState state;
+
+  /// Prévenu quand le fond du voile déplace la fenêtre : le mini-lecteur oublie
+  /// alors le clic en cours.
+  final VoidCallback? onWindowDragStart;
 
   static const double _shadeHeight = 64;
 
@@ -678,8 +722,11 @@ class _MiniOverlay extends ConsumerWidget {
             return Stack(
               fit: StackFit.expand,
               children: [
-                const Positioned.fill(
-                  child: DragToMoveArea(child: SizedBox.expand()),
+                Positioned.fill(
+                  child: WindowDragArea(
+                    onDragStart: onWindowDragStart,
+                    child: const SizedBox.expand(),
+                  ),
                 ),
                 _shade(colors, top: true),
                 _shade(colors, top: false),
@@ -836,9 +883,13 @@ class _MiniOverlay extends ConsumerWidget {
 
 /// Commandes superposées pour le mode image en mini-lecteur.
 class _MiniImageOverlay extends ConsumerWidget {
-  const _MiniImageOverlay({required this.state});
+  const _MiniImageOverlay({required this.state, this.onWindowDragStart});
 
   final PlaybackState state;
+
+  /// Prévenu quand le fond du voile déplace la fenêtre : le mini-lecteur oublie
+  /// alors le clic en cours.
+  final VoidCallback? onWindowDragStart;
   static const double _shadeHeight = 64;
 
   @override
@@ -859,8 +910,11 @@ class _MiniImageOverlay extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const Positioned.fill(
-              child: DragToMoveArea(child: SizedBox.expand()),
+            Positioned.fill(
+              child: WindowDragArea(
+                onDragStart: onWindowDragStart,
+                child: const SizedBox.expand(),
+              ),
             ),
             _shade(colors, top: true),
             _shade(colors, top: false),
@@ -871,13 +925,14 @@ class _MiniImageOverlay extends ConsumerWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: DragToMoveArea(
-                      child: Text(
-                        fileName,
-                        style: type.caption.copyWith(color: colors.screen),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    // Le nom du fichier n'est pas une commande : la pression
+                    // traverse le texte et atteint le fond du voile, qui déplace
+                    // la fenêtre.
+                    child: Text(
+                      fileName,
+                      style: type.caption.copyWith(color: colors.screen),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   _plate(
@@ -1103,9 +1158,13 @@ class _MiniImageOverlay extends ConsumerWidget {
 
 /// Commandes superposées pour le mode document (PDF/texte/code) en mini-lecteur.
 class _MiniDocumentOverlay extends ConsumerWidget {
-  const _MiniDocumentOverlay({required this.state});
+  const _MiniDocumentOverlay({required this.state, this.onWindowDragStart});
 
   final PlaybackState state;
+
+  /// Prévenu quand le fond du voile déplace la fenêtre : le mini-lecteur oublie
+  /// alors le clic en cours.
+  final VoidCallback? onWindowDragStart;
   static const double _shadeHeight = 64;
 
   @override
@@ -1116,6 +1175,9 @@ class _MiniDocumentOverlay extends ConsumerWidget {
     final visible = ref.watch(chromeProvider);
     final fileName = state.file?.baseName ?? '';
     final isPdf = state.mediaType == MediaType.pdf;
+    // En édition, les gestes appartiennent à l'éditeur : le fond ne déplace plus
+    // la fenêtre, même règle que la scène (voir _document).
+    final isEditing = ref.watch(documentUiProvider.select((u) => u.isEditing));
 
     return IgnorePointer(
       ignoring: !visible,
@@ -1126,8 +1188,13 @@ class _MiniDocumentOverlay extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const Positioned.fill(
-              child: DragToMoveArea(child: SizedBox.expand()),
+            Positioned.fill(
+              child: isEditing
+                  ? const SizedBox.expand()
+                  : WindowDragArea(
+                      onDragStart: onWindowDragStart,
+                      child: const SizedBox.expand(),
+                    ),
             ),
             _shade(colors, top: true),
             _shade(colors, top: false),
@@ -1138,13 +1205,14 @@ class _MiniDocumentOverlay extends ConsumerWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: DragToMoveArea(
-                      child: Text(
-                        fileName,
-                        style: type.caption.copyWith(color: colors.screen),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    // Le nom du fichier n'est pas une commande : la pression
+                    // traverse le texte et atteint le fond du voile, qui déplace
+                    // la fenêtre.
+                    child: Text(
+                      fileName,
+                      style: type.caption.copyWith(color: colors.screen),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   _plate(

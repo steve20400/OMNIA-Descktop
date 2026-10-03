@@ -282,16 +282,18 @@ void main() {
     await tester.pump();
     await windowDrag.moveBy(const Offset(24, 0));
     await tester.pump();
-    // Le mini-lecteur doit offrir une zone de déplacement à la souris. Le
-    // mécanisme varie selon le design de la scène : WindowDragArea passe par
-    // le provider (observable ici via windowDrags), DragToMoveArea passe par
-    // window_manager (inobservable en test widget, sans fenêtre native). On
-    // vérifie donc la présence d'une zone de déplacement, et qu'au plus un
-    // glissement ne soit parti par le provider.
+    // Le mini-lecteur doit offrir une zone de déplacement à la souris. Les deux
+    // mécanismes sont acceptés : WindowDragArea passe par le provider
+    // (observable ici via windowDrags), DragToMoveArea passe par window_manager
+    // (inobservable en test widget, sans fenêtre native). Au plus UN
+    // glissement doit partir par pression : le fond du voile et la scène ne
+    // déplacent pas la fenêtre ensemble.
     expect(
       find.descendant(
         of: find.byType(MiniPlayer),
-        matching: find.byType(DragToMoveArea),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is WindowDragArea || widget is DragToMoveArea,
+        ),
       ),
       findsWidgets,
       reason: 'mini-lecteur déplaçable à la souris',
