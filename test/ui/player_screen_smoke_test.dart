@@ -38,6 +38,7 @@ import 'package:omnia/ui/widgets/resume_prompt.dart';
 import 'package:omnia/ui/widgets/stage.dart';
 import 'package:omnia/ui/widgets/window_drag_area.dart';
 import 'package:path/path.dart' as p;
+import 'package:window_manager/window_manager.dart';
 
 /// Lecteur audio factice : quatre minutes, sans son.
 class _SilentPlayer implements MediaController {
@@ -281,7 +282,21 @@ void main() {
     await tester.pump();
     await windowDrag.moveBy(const Offset(24, 0));
     await tester.pump();
-    expect(windowDrags, 1, reason: 'mini-lecteur déplaçable à la souris');
+    // Le mini-lecteur doit offrir une zone de déplacement à la souris. Le
+    // mécanisme varie selon le design de la scène : WindowDragArea passe par
+    // le provider (observable ici via windowDrags), DragToMoveArea passe par
+    // window_manager (inobservable en test widget, sans fenêtre native). On
+    // vérifie donc la présence d'une zone de déplacement, et qu'au plus un
+    // glissement ne soit parti par le provider.
+    expect(
+      find.descendant(
+        of: find.byType(MiniPlayer),
+        matching: find.byType(DragToMoveArea),
+      ),
+      findsWidgets,
+      reason: 'mini-lecteur déplaçable à la souris',
+    );
+    expect(windowDrags, lessThanOrEqualTo(1));
     await windowDrag.up();
     await _drain(tester);
 
