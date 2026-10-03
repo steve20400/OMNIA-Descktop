@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/models/app_preferences.dart';
 import 'package:omnia/core/models/document_layout.dart';
 import 'package:omnia/core/models/equalizer.dart';
+import 'package:omnia/core/models/playback_state.dart';
 
 void main() {
   group('AppPreferences — valeurs par défaut', () {
@@ -109,7 +110,8 @@ void main() {
       });
       expect(p.seekStepSeconds, 5, reason: 'pas le plus proche de 7');
       expect(p.defaultSpeed, 4.0);
-      expect(p.fixedVolume, 100);
+      // Le volume fixe suit la borne de lecture, qui permet d'amplifier.
+      expect(p.fixedVolume, PlaybackState.maxVolume);
       expect(p.subtitleScale, 2.5);
       expect(p.subtitleDelay, -30);
       expect(p.textScale, 0.6);
@@ -160,7 +162,8 @@ void main() {
     });
 
     test('merge borne les valeurs comme la relecture', () {
-      expect(AppPreferences.defaults.merge(const {'fixedVolume': 500}).fixedVolume, 100);
+      expect(AppPreferences.defaults.merge(const {'fixedVolume': 500}).fixedVolume,
+          PlaybackState.maxVolume);
     });
 
     test('diff puis merge redonne l’état visé', () {
