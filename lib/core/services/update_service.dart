@@ -35,7 +35,14 @@ enum UpdateStatus {
 class UpdateService {
   UpdateService({
     this.repo = 'steve20400/OMNIA-Descktop',
-    this.currentVersion = '0.1.0',
+    // Version compilée dans l'application : la CI la transmet en --dart-define
+    // (voir .github/workflows/ci.yml), si bien que la version installée et le
+    // tag de la version publiée concordent — une mise à jour déjà installée
+    // n'est donc pas reproposée en boucle. Hors CI, c'est la version du dépôt.
+    this.currentVersion = const String.fromEnvironment(
+      'OMNIA_VERSION',
+      defaultValue: '0.1.0',
+    ),
   });
 
   final String repo;

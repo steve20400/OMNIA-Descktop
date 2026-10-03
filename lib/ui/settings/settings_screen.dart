@@ -477,6 +477,9 @@ class _GeneralSection extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final p = ref.watch(preferencesProvider);
     final endMode = ref.watch(playbackStateProvider.select((s) => s.endMode));
+    // Version réellement compilée, lue une fois ici : le dialogue ouvert au
+    // clic ne peut pas interroger les providers hors de la construction.
+    final version = ref.watch(updateServiceProvider).currentVersion;
 
     return Column(
       children: [
@@ -594,9 +597,9 @@ class _GeneralSection extends ConsumerWidget {
         const SettingDivider(),
         SettingRow(
           title: 'Version & Mises à jour en place',
-          hint: 'OMNIA v0.1.0 • Les mises à jour s’installent directement sans désinstallation préalable (vos réglages et documents restent intacts)',
+          hint: 'OMNIA v$version • Les mises à jour s’installent directement sans désinstallation préalable (vos réglages et documents restent intacts)',
           control: OmniaButton(
-            label: 'À jour (v0.1.0)',
+            label: 'À jour (v$version)',
             icon: Icons.check_circle_outline_rounded,
             onPressed: () {
               showDialog<void>(
@@ -608,7 +611,7 @@ class _GeneralSection extends ConsumerWidget {
                     children: [
                       Icon(Icons.system_update_alt_rounded, color: context.colors.projector),
                       const SizedBox(width: 10),
-                      Text('OMNIA v0.1.0', style: TextStyle(color: context.colors.screen)),
+                      Text('OMNIA v$version', style: TextStyle(color: context.colors.screen)),
                     ],
                   ),
                   content: Text(
@@ -1456,13 +1459,15 @@ class _NetworkSectionState extends ConsumerState<_NetworkSection> {
     final colors = context.colors;
     final type = context.type;
     final p = ref.watch(preferencesProvider);
+    // Version réellement compilée (voir _GeneralSection).
+    final version = ref.watch(updateServiceProvider).currentVersion;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SettingRow(
           title: 'Version de l\'application',
-          hint: 'OMNIA Desktop v0.1.0 (Production open-source)',
+          hint: 'OMNIA Desktop v$version (Production open-source)',
           control: _status == UpdateStatus.checking
               ? const SizedBox(
                   width: 24,

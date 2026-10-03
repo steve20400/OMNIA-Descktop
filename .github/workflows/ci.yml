@@ -82,7 +82,21 @@ jobs:
           cache: true
 
       - name: Version
-        run: echo "OMNIA_VERSION=$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml)" >> "$GITHUB_ENV"
+        run: |
+          # Chaque exécution publie une version, et le numéro d'exécution croît
+          # toujours : la version publiée est donc toujours plus récente que la
+          # précédente. Un suffixe du type « 0.1.0-build154 » n'aurait pas
+          # convenu : en semver c'est une PRÉ-version de 0.1.0, donc plus
+          # ANCIENNE, et le service de mise à jour de l'application — qui
+          # compare segment par segment — ne l'aurait jamais proposée.
+          version="0.1.${{ github.run_number }}"
+          echo "OMNIA_VERSION=$version" >> "$GITHUB_ENV"
+          # La même version est écrite dans pubspec.yaml, donc compilée dans
+          # l'application et reprise dans le nom des fichiers : tag, installeurs
+          # et version installée concordent, si bien qu'une mise à jour déjà
+          # installée n'est pas reproposée en boucle.
+          sed -i -E "s/^version:[[:space:]]*.*/version: ${version}+${{ github.run_number }}/" pubspec.yaml
+          grep '^version:' pubspec.yaml
 
       - name: Dépendances
         id: deps
@@ -103,7 +117,7 @@ jobs:
       - name: Compilation
         id: build
         if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
-        run: bash tool/ci/run.sh "Compilation Windows" flutter build windows --release
+        run: bash tool/ci/run.sh "Compilation Windows" flutter build windows --release "--dart-define=OMNIA_VERSION=$OMNIA_VERSION"
 
       - name: Installateur
         id: installer
@@ -212,7 +226,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="v${OMNIA_VERSION}-build${{ github.run_number }}"
+          tag="v${OMNIA_VERSION}"
           fichiers=("build/installer/OMNIA-Setup-${OMNIA_VERSION}.exe" "build/installer/OMNIA-${OMNIA_VERSION}-Windows-portable.zip")
           gh release create "$tag" "${fichiers[@]}" \
             --title "OMNIA Desktop ${OMNIA_VERSION} (build ${{ github.run_number }})" \
@@ -247,7 +261,13 @@ jobs:
           cache: true
 
       - name: Version
-        run: echo "OMNIA_VERSION=$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml)" >> "$GITHUB_ENV"
+        run: |
+          # Même schéma que le job Windows (voir son commentaire) : la version
+          # publiée croît à chaque exécution et est compilée dans l'application.
+          version="0.1.${{ github.run_number }}"
+          echo "OMNIA_VERSION=$version" >> "$GITHUB_ENV"
+          sed -i -E "s/^version:[[:space:]]*.*/version: ${version}+${{ github.run_number }}/" pubspec.yaml
+          grep '^version:' pubspec.yaml
 
       - name: Dépendances
         id: deps
@@ -284,7 +304,7 @@ jobs:
       - name: Compilation
         id: build
         if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
-        run: bash tool/ci/run.sh "Compilation Linux" flutter build linux --release
+        run: bash tool/ci/run.sh "Compilation Linux" flutter build linux --release "--dart-define=OMNIA_VERSION=$OMNIA_VERSION"
 
       # Archive tar : l'artefact zip de GitHub ne garde pas le droit
       # d'exécution du binaire. Le .desktop et l'icône suivent le README.
@@ -331,7 +351,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="v${OMNIA_VERSION}-build${{ github.run_number }}"
+          tag="v${OMNIA_VERSION}"
           archive="build/paquet/omnia-${OMNIA_VERSION}-linux-x64.tar.gz"
           gh release create "$tag" "$archive" \
             --title "OMNIA Desktop ${OMNIA_VERSION} (build ${{ github.run_number }})" \
