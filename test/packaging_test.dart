@@ -30,6 +30,16 @@ void main() {
       expect(supported, MediaRouter.allExtensions);
     });
 
+    test('« Ouvrir avec » reçoit une valeur nommée, pas une clé vide', () {
+      // Avec « ValueType: none », Inno Setup crée la clé et n'écrit jamais la
+      // valeur : Windows ne propose alors pas OMNIA pour ces fichiers.
+      expect(iss, isNot(contains('OpenWithProgids"; ValueType: none')));
+      final named = RegExp(
+        r'OpenWithProgids"; ValueType: string; ValueName: "(OMNIA\.\w+)"; ValueData: ""',
+      ).allMatches(iss).length;
+      expect(named, MediaRouter.allExtensions.length);
+    });
+
     test('l’icône de l’installateur existe', () {
       expect(File('windows/runner/resources/app_icon.ico').existsSync(), isTrue);
     });
@@ -41,6 +51,18 @@ void main() {
       expect(iss, contains('#ifndef AppVersion'));
       expect(RegExp(r'#define AppVersion "([^"]+)"').firstMatch(iss)?.group(1), pubspec);
     });
+  });
+
+  test('l’archive Linux embarque le script d’installation', () {
+    // Sans lanceur installé, le bureau ignore qu'OMNIA existe : ni menu des
+    // applications, ni « Ouvrir avec ».
+    final script = File('linux/installer-omnia.sh').readAsStringSync();
+    expect(script, contains('update-desktop-database'));
+    expect(script, contains('dev.omnia.omnia.desktop'));
+    expect(
+      File('.github/workflows/ci.yml').readAsStringSync(),
+      contains('installer-omnia.sh'),
+    );
   });
 
   test('le manifeste Windows accepte les chemins longs', () {

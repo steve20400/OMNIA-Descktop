@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Fichiers d'essai du lancement réel en CI : un son et un PDF d'une page.
+"""Fichiers d'essai du lancement réel en CI : un son, une vidéo, un PDF.
 
 Usage : python tool/ci/make_samples.py <dossier>
 
-Produit <dossier>/Musique/essai.wav et <dossier>/Documents/essai.pdf. Les deux
-fichiers sont dans des dossiers distincts : OMNIA enchaîne automatiquement le
-fichier suivant du dossier, et le son ne doit pas céder la place au PDF avant
-que la seconde instance ne l'envoie.
+Produit <dossier>/Musique/essai.wav, <dossier>/Vidéos/essai.y4m et
+<dossier>/Documents/essai.pdf. Chaque fichier est dans son propre dossier :
+OMNIA enchaîne automatiquement le fichier suivant du dossier, et le son ne doit
+pas céder la place au PDF avant que la seconde instance ne l'envoie.
 
-Sans dépendance : le WAV est écrit par le module `wave`, le PDF à la main
+Sans dépendance : le WAV est écrit par le module `wave`, la vidéo au format
+YUV4MPEG2 (des images brutes, que libavformat lit tel quel), le PDF à la main
 (objets et table xref avec leurs vrais décalages, pour que pdfium n'ait rien
 à réparer).
 """
@@ -30,6 +31,30 @@ def write_wav(path, seconds=30, rate=22050, frequency=440.0):
         out.setsampwidth(2)
         out.setframerate(rate)
         out.writeframes(bytes(frames))
+
+
+def write_y4m(path, width=160, height=120, fps=10, seconds=12):
+    """Des images YUV 4:2:0 brutes, dans l'enveloppe YUV4MPEG2.
+
+    Aucun encodeur n'est disponible sur les machines de la CI : ce format-ci
+    n'en demande aucun, et libavformat le lit sans rien installer. Douze
+    secondes en 160x120 pèsent moins de trois mégaoctets.
+    """
+    luma = width * height
+    chroma = (width // 2) * (height // 2)
+    gris = bytes([128]) * chroma
+    with open(path, 'wb') as out:
+        out.write(b'YUV4MPEG2 W%d H%d F%d:1 Ip A1:1 C420mpeg2\n' % (width, height, fps))
+        for frame in range(fps * seconds):
+            # Un dégradé qui se déplace : de vraies différences d'une image à
+            # l'autre, pour que la lecture ne puisse pas être « optimisée ».
+            plan = bytes(
+                (i // width + i % width + frame * 3) & 0xFF for i in range(luma)
+            )
+            out.write(b'FRAME\n')
+            out.write(plan)
+            out.write(gris)
+            out.write(gris)
 
 
 def write_pdf(path):
@@ -65,10 +90,12 @@ def main():
         sys.exit('Usage : python tool/ci/make_samples.py <dossier>')
     root = sys.argv[1]
     music = os.path.join(root, 'Musique')
+    videos = os.path.join(root, 'Vidéos')
     documents = os.path.join(root, 'Documents')
-    os.makedirs(music, exist_ok=True)
-    os.makedirs(documents, exist_ok=True)
+    for folder in (music, videos, documents):
+        os.makedirs(folder, exist_ok=True)
     write_wav(os.path.join(music, 'essai.wav'))
+    write_y4m(os.path.join(videos, 'essai.y4m'))
     write_pdf(os.path.join(documents, 'essai.pdf'))
     print('Fichiers d\'essai écrits dans', root)
 
