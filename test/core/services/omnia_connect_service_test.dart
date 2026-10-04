@@ -172,4 +172,87 @@ void main() {
       client.dispose();
     });
   });
+
+  group('Choix de l’adresse annoncée', () {
+    test('ignore la carte hôte de VirtualBox', () {
+      // Cas courant sur un poste de développement : la carte hôte vient avant
+      // le Wi-Fi dans la liste, et le téléphone ne peut pas la joindre.
+      final choisie = OmniaConnectService.pickAdvertisedAddress([
+        _carte('VirtualBox Host-Only Network', ['192.168.56.1']),
+        _carte('Wi-Fi', ['192.168.1.42']),
+      ]);
+      expect(choisie, '192.168.1.42');
+    });
+
+    test('ignore le pont Docker et le lien VPN', () {
+      final choisie = OmniaConnectService.pickAdvertisedAddress([
+        _carte('docker0', ['172.17.0.1']),
+        _carte('tun0', ['10.8.0.6']),
+        _carte('en0', ['192.168.1.7']),
+      ]);
+      expect(choisie, '192.168.1.7');
+    });
+
+    test('ignore WSL et Hyper-V', () {
+      final choisie = OmniaConnectService.pickAdvertisedAddress([
+        _carte('vEthernet (WSL)', ['172.24.16.1']),
+        _carte('Ethernet', ['10.0.0.5']),
+      ]);
+      expect(choisie, '10.0.0.5');
+    });
+
+    test('sans carte virtuelle, prend le réseau local', () {
+      final choisie = OmniaConnectService.pickAdvertisedAddress([
+        _carte('eth0', ['192.168.0.10']),
+        _carte('eth1', ['10.1.2.3']),
+      ]);
+      expect(choisie, '192.168.0.10');
+    });
+
+    test('172.32.x est public et reste un simple repli', () {
+      // 172.16–31 seulement est privé : au-delà, l’adresse n’est pas
+      // joignable depuis le téléphone.
+      final choisie = OmniaConnectService.pickAdvertisedAddress([
+        _carte('eth0', ['172.32.5.5']),
+        _carte('wlan0', ['192.168.1.9']),
+      ]);
+      expect(choisie, '192.168.1.9');
+    });
+
+    test('cartes virtuelles seules : on annonce ce qu’on a', () {
+      final choisie = OmniaConnectService.pickAdvertisedAddress([
+        _carte('docker0', ['172.17.0.1']),
+      ]);
+      expect(choisie, '172.17.0.1',
+          reason: 'mieux vaut une adresse incertaine que la boucle locale');
+    });
+
+    test('aucune carte : la boucle locale', () {
+      expect(OmniaConnectService.pickAdvertisedAddress([]), '127.0.0.1');
+    });
+
+    test('la boucle locale n’est jamais annoncée comme réseau', () {
+      final choisie = OmniaConnectService.pickAdvertisedAddress([
+        _carte('lo', ['127.0.0.1']),
+        _carte('wlan0', ['192.168.1.20']),
+      ]);
+      expect(choisie, '192.168.1.20');
+    });
+  });
+}
+
+/// Fausse carte réseau : `NetworkInterface` est une interface, et l’on veut
+/// rejouer des postes réels (VirtualBox, Docker, VPN) sans matériel.
+class _carte implements NetworkInterface {
+  _carte(this.name, List<String> ips)
+      : addresses = [for (final ip in ips) InternetAddress(ip)];
+
+  @override
+  final String name;
+
+  @override
+  final List<InternetAddress> addresses;
+
+  @override
+  int get index => 0;
 }

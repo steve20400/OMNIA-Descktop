@@ -102,15 +102,68 @@ class OmniaConnectService {
         type: InternetAddressType.IPv4,
         includeLinkLocal: false,
       );
-      for (final iface in interfaces) {
-        for (final addr in iface.addresses) {
-          if (!addr.isLoopback) {
-            return addr.address;
-          }
-        }
+      return pickAdvertisedAddress(interfaces);
+    } catch (_) {
+      return '127.0.0.1';
+    }
+  }
+
+  /// Adresse à annoncer pour l'appairage, choisie parmi les cartes réseau.
+  ///
+  /// Retenir la première adresse non bouclée — ce que faisait cette méthode —
+  /// annonçait souvent une carte que le téléphone ne peut joindre : l'hôte des
+  /// machines virtuelles (192.168.56.1), les ponts de conteneurs (172.17.0.1),
+  /// Hyper-V ou un lien VPN. L'appairage échouait alors sans rien dire, le
+  /// téléphone n'atteignant jamais l'adresse inscrite dans le QR code.
+  ///
+  /// Séparée de l'appel système pour être vérifiable avec de fausses cartes.
+  static String pickAdvertisedAddress(List<NetworkInterface> interfaces) {
+    String? repli;
+
+    for (final iface in interfaces) {
+      final virtuelle = _isVirtualInterface(iface.name);
+      for (final addr in iface.addresses) {
+        final ip = addr.address;
+        if (addr.isLoopback || ip.startsWith('127.')) continue;
+        // Le seul cas qui intéresse l'appairage : une adresse de réseau local
+        // sur une carte qui joint vraiment le poste de l'utilisateur.
+        if (!virtuelle && _isPrivateAddress(ip)) return ip;
+        repli ??= ip;
       }
-    } catch (_) {}
-    return '127.0.0.1';
+    }
+    // Aucun réseau local hors cartes virtuelles : on annonce ce qu'on a
+    // trouvé, à défaut la boucle locale (PC et téléphone sur le même poste).
+    return repli ?? '127.0.0.1';
+  }
+
+  /// Cartes qui ne joignent pas le réseau de l'utilisateur : hôte des machines
+  /// virtuelles, ponts de conteneurs, liens VPN.
+  static bool _isVirtualInterface(String name) {
+    final n = name.toLowerCase();
+    const marques = [
+      'vboxnet', 'virtualbox', 'vmware', 'vmnet', 'docker', 'br-', 'virbr',
+      'veth', 'lxc', 'lxd', 'tun', 'tap', 'wsl', 'vethernet', 'hyper-v',
+      'hamachi', 'zerotier', 'tailscale', 'wg', 'cni', 'flannel', 'kube',
+      'podman', 'rndis', 'nordlynx', 'proton', 'ppp', 'utun',
+    ];
+    for (final marque in marques) {
+      if (n.contains(marque)) return true;
+    }
+    return false;
+  }
+
+  /// Adresse d'un réseau local au sens RFC 1918 : c'est de là que le téléphone
+  /// joindra le poste.
+  static bool _isPrivateAddress(String ip) {
+    if (ip.startsWith('192.168.') || ip.startsWith('10.')) return true;
+    // 172.16.0.0 – 172.31.255.255 seulement : le reste de 172.x est public,
+    // et une adresse publique n'est pas joignable depuis le téléphone.
+    final parts = ip.split('.');
+    if (parts.length == 4 && parts[0] == '172') {
+      final second = int.tryParse(parts[1]);
+      return second != null && second >= 16 && second <= 31;
+    }
+    return false;
   }
 
   /// Génère le payload d'appairage QR Code.
