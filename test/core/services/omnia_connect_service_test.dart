@@ -315,7 +315,9 @@ void main() {
         '${Directory.systemTemp.path}${Platform.pathSeparator}omnia_projection_pc.mkv',
       );
       await fichier.writeAsBytes(<int>[9, 8, 7, 6]);
-      addTearDown(() => fichier.deleteSync());
+      addTearDown(() async {
+        await fichier.delete();
+      });
 
       final url = OmniaConnectService.buildStreamUrl(
         host: '127.0.0.1',
