@@ -46,6 +46,7 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
   final TextEditingController _ipController = TextEditingController();
   bool _isConnectingClient = false;
   String? _clientError;
+  String? _projectionMessage;
 
   @override
   void initState() {
@@ -74,6 +75,21 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
         _isLoading = false;
       });
     }
+  }
+
+  /// Demande au mobile appairé de lire le média ouvert sur ce poste.
+  ///
+  /// Le PC sert lui-même le fichier en HTTP : l'adresse annoncée est celle que
+  /// le mobile peut joindre, telle que `pickAdvertisedAddress` la choisit.
+  Future<void> _projectCurrent(OmniaConnectService service, String path) async {
+    final url = await service.projectFile(path);
+    if (!mounted) return;
+    setState(() {
+      _projectionMessage = url == null
+          ? 'Projection impossible : vérifiez que le PC et le mobile sont sur '
+              'le même réseau, puis reconnectez la télécommande.'
+          : 'Projection lancée — le mobile lit le flux depuis le PC.';
+    });
   }
 
   Future<void> _connectToRemote() async {
@@ -476,6 +492,40 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                 fontWeight: FontWeight.bold,
                 color: colors.projector,
               ),
+            ),
+            const SizedBox(height: 12),
+            // Projection : le PC sert le fichier et demande au mobile de le
+            // lire. Sans ce bouton la fonction restait morte : le service
+            // savait projeter, aucune interface ne l'appelait.
+            Builder(
+              builder: (context) {
+                final local = ref.watch(playbackStateProvider).file;
+                return Column(
+                  children: [
+                    OmniaButton(
+                      label: local == null
+                          ? 'Ouvrez un média pour le projeter'
+                          : 'Projeter « ${local.name} » sur le mobile',
+                      icon: Icons.cast_rounded,
+                      onPressed: local == null
+                          ? null
+                          : () => _projectCurrent(service, local.path),
+                    ),
+                    if (_projectionMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _projectionMessage!,
+                        style: TextStyle(
+                          fontFamily: OmniaFonts.ui,
+                          fontSize: 12,
+                          color: colors.dust,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             Row(

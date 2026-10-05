@@ -239,6 +239,122 @@ void main() {
       expect(choisie, '192.168.1.20');
     });
   });
+
+  group('Projection du PC vers le mobile', () {
+    test('buildStreamUrl encode le chemin et le jeton', () {
+      final url = OmniaConnectService.buildStreamUrl(
+        host: '192.168.1.20',
+        port: 41530,
+        token: 'ab/c+=',
+        path: 'C:\\Films\\ete 2024.mkv',
+      );
+
+      expect(url, startsWith('http://192.168.1.20:41530/api/stream?'));
+      // Un chemin non encode casserait la requete des le premier espace :
+      // c'est le decode qui doit redonner le chemin d'origine, tel quel.
+      final uri = Uri.parse(url);
+      expect(uri.queryParameters['path'], 'C:\\Films\\ete 2024.mkv');
+      expect(uri.queryParameters['token'], 'ab/c+=');
+      expect(url, isNot(contains(' ')));
+      expect(url, contains('%5C'));
+    });
+
+    test('isProjectableHost ecarte les adresses injoignables', () {
+      expect(OmniaConnectService.isProjectableHost('192.168.1.20'), isTrue);
+      expect(OmniaConnectService.isProjectableHost('10.0.0.5'), isTrue);
+      expect(OmniaConnectService.isProjectableHost('127.0.0.1'), isFalse);
+      expect(OmniaConnectService.isProjectableHost('0.0.0.0'), isFalse);
+      expect(OmniaConnectService.isProjectableHost(''), isFalse);
+      expect(OmniaConnectService.isProjectableHost(null), isFalse);
+    });
+
+    test('projectFile fait ouvrir le flux par l appareil appaire', () async {
+      final mobile = OmniaConnectService(port: 0);
+      final pc = OmniaConnectService(port: 0);
+      addTearDown(() async {
+        await pc.stop();
+        pc.dispose();
+        await mobile.stop();
+        mobile.dispose();
+      });
+
+      final mobilePort = await mobile.start(address: InternetAddress.loopbackIPv4);
+      final ok = await pc.client.connect(
+        host: '127.0.0.1',
+        port: mobilePort,
+        token: mobile.sessionToken!,
+        name: 'OMNIA Desktop',
+      );
+      expect(ok, isTrue);
+      await pc.start(address: InternetAddress.loopbackIPv4);
+
+      final ouverture = mobile.remoteCommands.first;
+      final url = await pc.projectFile('C:\\Films\\film.mkv');
+      final commande = await ouverture.timeout(const Duration(seconds: 5));
+
+      expect(url, isNotNull);
+      expect(url, contains('/api/stream'));
+      // Le jeton est encode dans l'URL : le comparer brut echouerait des
+      // qu'il contient un caractere reserve (= du base64).
+      expect(url, contains(Uri.encodeComponent(pc.sessionToken!)));
+      expect(commande, isA<OpenFile>());
+      expect((commande as OpenFile).path, url);
+    });
+
+    test('le flux projete est servi avec le bon jeton, refuse sinon', () async {
+      final pc = OmniaConnectService(port: 0);
+      final http = HttpClient();
+      addTearDown(() async {
+        http.close();
+        await pc.stop();
+        pc.dispose();
+      });
+
+      final port = await pc.start(address: InternetAddress.loopbackIPv4);
+      final fichier = File(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}omnia_projection_pc.mkv',
+      );
+      await fichier.writeAsBytes(<int>[9, 8, 7, 6]);
+      addTearDown(() => fichier.deleteSync());
+
+      final url = OmniaConnectService.buildStreamUrl(
+        host: '127.0.0.1',
+        port: port,
+        token: pc.sessionToken!,
+        path: fichier.path,
+      );
+
+      final demande = await http.getUrl(Uri.parse(url));
+      final reponse = await demande.close();
+      expect(reponse.statusCode, 200);
+      final octets = await reponse.expand((morceau) => morceau).toList();
+      expect(octets.length, 4);
+
+      // Sans le jeton du serveur, le fichier reste prive : le mobile
+      // recevrait une erreur 401 au lieu de la video.
+      final mauvaise = await http.getUrl(
+        Uri.parse(OmniaConnectService.buildStreamUrl(
+          host: '127.0.0.1',
+          port: port,
+          token: 'mauvais-jeton',
+          path: fichier.path,
+        )),
+      );
+      final refus = await mauvaise.close();
+      expect(refus.statusCode, 401);
+    });
+
+    test('projectFile reste sans effet sans appairage actif', () async {
+      final pc = OmniaConnectService(port: 0);
+      addTearDown(() async {
+        await pc.stop();
+        pc.dispose();
+      });
+
+      expect(await pc.projectFile('C:\\Films\\film.mkv'), isNull);
+      expect(await pc.projectFile(''), isNull);
+    });
+  });
 }
 
 /// Fausse carte réseau : `NetworkInterface` est une interface, et l’on veut
