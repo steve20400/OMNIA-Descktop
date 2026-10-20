@@ -1129,6 +1129,20 @@ class PlaybackService implements PlaybackStateSink {
     }
   }
 
+  /// Écrit tout ce dont la perte serait visible, et rien de plus.
+  ///
+  /// Appelée sur le chemin de fermeture, où chaque milliseconde retient la
+  /// fenêtre à l'écran : on n'y touche pas au moteur, dont l'arrêt peut
+  /// prendre plusieurs secondes, et qui mourra de toute façon avec le
+  /// processus. Seules les écritures restent.
+  Future<void> saveStateForExit() async {
+    // L'extrait en cours est finalisé d'abord : son fichier resterait sinon
+    // illisible, et c'est la seule perte irréparable d'une fermeture.
+    await _stopRecording();
+    await _savePositionOfCurrentFile();
+    if (_preferencesSave != null) await _savePreferencesNow();
+  }
+
   /// Libère ce service. Les contrôleurs de média ne sont pas libérés ici :
   /// leur cycle de vie appartient au provider qui les a créés.
   Future<void> dispose() async {

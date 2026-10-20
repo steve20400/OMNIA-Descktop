@@ -72,8 +72,21 @@ const String historySnapshotName = 'history.json';
 Future<void> writeHistorySnapshot(Directory dir, Map<String, dynamic> entriesJson) async {
   try {
     await dir.create(recursive: true);
-    await File(p.join(dir.path, historySnapshotName))
-        .writeAsString(jsonEncode(entriesJson), flush: true);
+    final target = File(p.join(dir.path, historySnapshotName));
+    // En deux temps : un fichier voisin, puis un renommage, qui est atomique
+    // sur un même volume. Écrire droit sur la destination laisserait un
+    // instantané tronqué si le processus s'en allait au mauvais moment — et la
+    // fermeture, désormais prompte, est justement le moment où cette écriture
+    // est la plus probable.
+    final temp = File('${target.path}.tmp');
+    await temp.writeAsString(jsonEncode(entriesJson), flush: true);
+    try {
+      await temp.rename(target.path);
+    } on FileSystemException {
+      // Windows refuse de renommer par-dessus un fichier existant.
+      if (await target.exists()) await target.delete();
+      await temp.rename(target.path);
+    }
   } on Object {
     // Écriture de secours.
   }

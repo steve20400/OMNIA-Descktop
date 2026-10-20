@@ -60,12 +60,12 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
           return AppExitResponse.cancel; // Interrompt la fermeture système !
         }
 
-        try {
-          await ref.read(avControllerProvider).player.stop();
-        } catch (_) {}
-        try {
-          await ref.read(playbackServiceProvider).stopImmediately();
-        } catch (_) {}
+        // La même séquence bornée que la fermeture par la croix : le son, puis
+        // l'état, chacun avec son délai maximal. Ici c'est le système qui
+        // ferme la fenêtre, OMNIA n'a donc pas à la détruire lui-même — et
+        // surtout il n'attend plus l'arrêt de libmpv, qui retenait la fenêtre
+        // jusqu'à ce que Windows la déclare « ne répond pas ».
+        await runExitSequence(exitStepsFor(ref, closeWindow: () async {}));
         await widget.onExit?.call();
         return AppExitResponse.exit;
       },
