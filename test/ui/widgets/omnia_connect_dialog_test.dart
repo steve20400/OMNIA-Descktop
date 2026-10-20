@@ -55,4 +55,68 @@ void main() {
     // Vérifie le bouton de fermeture
     expect(find.text('Fermer'), findsOneWidget);
   });
+
+  testWidgets('le code à recopier est affiché à côté du QR code',
+      (tester) async {
+    // Le dialogue n'affichait que le QR code : quand la caméra ne décodait
+    // rien, l'utilisateur n'avait rien à taper sur le téléphone. Le repli
+    // n'existait donc pas de bout en bout.
+    tester.view.physicalSize = const Size(1024, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          playbackStateProvider.overrideWith(_StaticPlaybackNotifier.new),
+        ],
+        child: MaterialApp(
+          theme: buildOmniaTheme(Brightness.dark),
+          home: const Scaffold(
+            body: OmniaConnectDialog(
+              initialPairingData: '{"protocol":"omnia-connect",'
+                  '"name":"Test","host":"192.168.1.24","port":41530,'
+                  '"token":"q4Zx7Jb1kLmN0pQrStUvWw=="}',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Si le scan ne prend pas, saisissez ce code sur le téléphone'),
+      findsOneWidget,
+    );
+    expect(find.text('192.168.1.24:41530'), findsOneWidget);
+  });
+
+  testWidgets('une adresse injoignable ne propose aucun code à recopier',
+      (tester) async {
+    // La boucle locale ne joint que la machine qui l'annonce : proposer de la
+    // taper sur le téléphone enverrait l'utilisateur dans le mur.
+    tester.view.physicalSize = const Size(1024, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          playbackStateProvider.overrideWith(_StaticPlaybackNotifier.new),
+        ],
+        child: MaterialApp(
+          theme: buildOmniaTheme(Brightness.dark),
+          home: const Scaffold(
+            body: OmniaConnectDialog(
+              initialPairingData: '{"protocol":"omnia-connect",'
+                  '"name":"Test","host":"127.0.0.1","port":41530}',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('saisissez ce code'), findsNothing);
+  });
 }

@@ -8,6 +8,7 @@ import '../models/media_file.dart';
 import '../models/media_type.dart';
 import '../models/playback_state.dart';
 import '../models/playback_status.dart';
+import '../utils/connect_mode.dart';
 
 /// Message échangé sur le canal WebSocket d'OMNIA Connect.
 class ConnectMessage {
@@ -166,9 +167,49 @@ class OmniaConnectService {
     return false;
   }
 
+  /// Vérifie les prérequis réels du mode de liaison choisi.
+  ///
+  /// Les boutons de mode n'enregistraient qu'une préférence : rien ne
+  /// contrôlait que le Wi-Fi était actif, qu'un point d'accès tournait ou
+  /// qu'un lien PAN Bluetooth existait, et l'appairage échouait plus tard sans
+  /// rien dire. Le rapport rendu ici porte soit l'adresse à annoncer, soit ce
+  /// qui manque et la marche à suivre.
+  Future<ConnectModeReport> inspectMode(ConnectMode mode) async {
+    try {
+      // Borné dans le temps : un pilote en faute peut ne jamais répondre, et
+      // l'interface resterait alors en « vérification » indéfiniment.
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      ).timeout(ConnectModeInspector.probeTimeout);
+      return ConnectModeInspector.inspect(mode: mode, interfaces: interfaces);
+    } catch (_) {
+      return ConnectModeInspector.unavailable(mode);
+    }
+  }
+
+  /// Adresse à annoncer pour [mode], ou `null` quand il n'y en a aucune.
+  ///
+  /// En Bluetooth sans lien PAN il n'y a rien à annoncer : publier l'adresse
+  /// Wi-Fi ferait croire à un appairage possible et le téléphone n'atteindrait
+  /// jamais le poste.
+  Future<String?> addressForMode(ConnectMode mode) async {
+    final announced = (await inspectMode(mode)).announcedAddress;
+    if (announced != null) return announced;
+    // Le Wi-Fi garde son repli historique : la boucle locale permet encore
+    // d'appairer deux instances sur la même machine.
+    return mode == ConnectMode.wifi ? await getLocalIpAddress() : null;
+  }
+
   /// Génère le payload d'appairage QR Code.
-  Future<String> getPairingPayload(String deviceName) async {
-    final ip = await getLocalIpAddress();
+  ///
+  /// L'hôte publié suit le [mode] : annoncer l'adresse Wi-Fi alors que c'est
+  /// le point d'accès qui porte la liaison rend le code injoignable.
+  Future<String> getPairingPayload(
+    String deviceName, {
+    ConnectMode mode = ConnectMode.wifi,
+  }) async {
+    final ip = await addressForMode(mode) ?? '';
     final p = _server?.port ?? port;
     final map = {
       'protocol': 'omnia-connect',
@@ -212,15 +253,18 @@ class OmniaConnectService {
   /// Renvoie l'URL projetée, ou `null` quand la projection est impossible —
   /// pas d'appairage actif, chemin vide ou adresse injoignable — pour que
   /// l'interface puisse l'expliquer au lieu d'échouer en silence.
-  Future<String?> projectFile(String path) async {
+  Future<String?> projectFile(
+    String path, {
+    ConnectMode mode = ConnectMode.wifi,
+  }) async {
     if (path.isEmpty || !client.connected) return null;
 
     final serverPort = await start();
-    final host = await getLocalIpAddress();
+    final host = await addressForMode(mode);
     if (!isProjectableHost(host)) return null;
 
     final url = buildStreamUrl(
-      host: host,
+      host: host!,
       port: serverPort,
       token: _sessionToken ?? '',
       path: path,

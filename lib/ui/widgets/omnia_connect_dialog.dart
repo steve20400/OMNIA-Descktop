@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +10,10 @@ import '../../core/models/playback_state.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';
 import '../../core/services/omnia_connect_service.dart';
+import '../../core/utils/connect_mode.dart';
+import '../../core/utils/pairing_code.dart';
 import '../theme/omnia_theme.dart';
+import 'connect_mode_notice.dart';
 import 'omnia_button.dart';
 import 'omnia_icon_button.dart';
 import 'omnia_qr_code.dart';
@@ -48,6 +50,12 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
   String? _clientError;
   String? _projectionMessage;
 
+  /// Contrôle des prérequis du mode de liaison choisi dans les réglages.
+  ConnectModeReport? _modeReport;
+
+  /// Mode retenu pour le payload affiché, pour projeter sur la même liaison.
+  ConnectMode _mode = ConnectMode.wifi;
+
   @override
   void initState() {
     super.initState();
@@ -68,13 +76,37 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
       ref.read(commandBusProvider).dispatch(cmd, source: CommandSource.remote);
     });
 
-    final payload = await connectService.getPairingPayload('OMNIA Desktop');
+    // L'adresse annoncée suit le mode de liaison choisi, et ses prérequis sont
+    // contrôlés : sans cela, le code affichait parfois une adresse que le
+    // téléphone ne pouvait pas joindre, et l'échec restait inexpliqué.
+    final mode = connectModeFromPreference(
+      ref.read(preferencesProvider).wirelessMode,
+    );
+    final report = await connectService.inspectMode(mode);
+    final payload =
+        await connectService.getPairingPayload('OMNIA Desktop', mode: mode);
     if (mounted) {
       setState(() {
+        _mode = mode;
+        _modeReport = report;
         _pairingData = payload;
         _isLoading = false;
       });
     }
+  }
+
+  /// Code court que l'utilisateur recopie quand le scan échoue.
+  ///
+  /// Le dialogue n'affichait que le QR code : quand la caméra ne décodait
+  /// rien, l'utilisateur n'avait rien à taper sur le téléphone. Le repli
+  /// n'existait donc pas de bout en bout.
+  String? get _manualCode {
+    final data = _pairingData;
+    if (data == null) return null;
+    final target = PairingCode.parse(data);
+    if (target == null) return null;
+    if (!OmniaConnectService.isProjectableHost(target.host)) return null;
+    return PairingCode.format(host: target.host, port: target.port);
   }
 
   /// Demande au mobile appairé de lire le média ouvert sur ce poste.
@@ -82,7 +114,7 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
   /// Le PC sert lui-même le fichier en HTTP : l'adresse annoncée est celle que
   /// le mobile peut joindre, telle que `pickAdvertisedAddress` la choisit.
   Future<void> _projectCurrent(OmniaConnectService service, String path) async {
-    final url = await service.projectFile(path);
+    final url = await service.projectFile(path, mode: _mode);
     if (!mounted) return;
     setState(() {
       _projectionMessage = url == null
@@ -93,8 +125,23 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
   }
 
   Future<void> _connectToRemote() async {
-    final raw = _ipController.text.trim();
-    if (raw.isEmpty) return;
+    final raw = _ipController.text;
+
+    // Lecture tolérante : l'utilisateur recopie à l'œil ce que l'autre écran
+    // affiche. Le découpage naïf sur le premier deux-points laissait tomber
+    // le jeton, et toute saisie avec une espace en trop échouait en silence.
+    final target = PairingCode.parse(raw);
+    if (target == null) {
+      setState(() {
+        _clientError = raw.trim().isEmpty
+            ? 'Saisissez l\'adresse affichée sur l\'autre appareil, par '
+                'exemple 192.168.1.24:41530.'
+            : 'Cette saisie ne contient pas d\'adresse lisible. Recopiez le '
+                'code affiché sur l\'autre appareil, par exemple '
+                '192.168.1.24:41530.';
+      });
+      return;
+    }
 
     setState(() {
       _isConnectingClient = true;
@@ -102,27 +149,10 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
     });
 
     final service = ref.read(omniaConnectServiceProvider);
-    String host = raw;
-    int port = 41530;
-    String token = '';
-
-    try {
-      if (raw.startsWith('{')) {
-        final map = jsonDecode(raw) as Map<String, Object?>;
-        host = map['host'] as String? ?? '127.0.0.1';
-        port = (map['port'] as num?)?.toInt() ?? 41530;
-        token = map['token'] as String? ?? '';
-      } else if (raw.contains(':')) {
-        final parts = raw.split(':');
-        host = parts[0];
-        port = int.tryParse(parts[1]) ?? 41530;
-      }
-    } catch (_) {}
-
     final success = await service.client.connect(
-      host: host,
-      port: port,
-      token: token,
+      host: target.host,
+      port: target.port,
+      token: target.token,
       name: 'OMNIA Desktop Client',
     );
 
@@ -130,7 +160,10 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
       setState(() {
         _isConnectingClient = false;
         if (!success) {
-          _clientError = 'Impossible de joindre l\'appareil distant.';
+          _clientError =
+              'Impossible de joindre ${target.host}:${target.port}. '
+              'Vérifiez que les deux appareils sont sur le même réseau et que '
+              'OMNIA Connect est ouvert sur l\'autre appareil.';
         }
       });
     }
@@ -290,6 +323,11 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
               const SizedBox(height: 20),
 
               if (_activeTab == _ConnectTab.share) ...[
+                // Où en est le mode de liaison : soit l'adresse à annoncer,
+                // soit ce qui manque et quoi faire.
+                ConnectModeNotice(report: _modeReport, checking: _isLoading),
+                const SizedBox(height: 16),
+
                 // Contenu principal de partage
                 if (_isLoading)
                   Padding(
@@ -297,16 +335,29 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                     child: CircularProgressIndicator(color: colors.projector),
                   )
                 else if (_pairingData != null) ...[
-                  // Zone QR Code
+                  // Zone QR Code. La taille suit la densité de données du
+                  // payload au lieu d'être fixée : avec son jeton, le code
+                  // d'appairage demande une version élevée, donc beaucoup de
+                  // modules, et un code trop petit reste illisible même
+                  // parfaitement encodé.
                   Center(
                     child: OmniaQrCode(
                       data: _pairingData!,
-                      size: 210,
+                      size: OmniaQrCode.recommendedSize(
+                        _pairingData!,
+                        devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                      ),
                       color: colors.screen,
                       backgroundColor: colors.velvet,
                     ),
                   ),
                   const SizedBox(height: 16),
+
+                  // Code à recopier quand le scan échoue. Sans lui, le repli
+                  // n'existait pas : le dialogue n'affichait que le QR code et
+                  // l'utilisateur n'avait rien à taper sur le téléphone.
+                  if (_manualCode != null) _buildManualCode(colors, type),
+                  if (_manualCode != null) const SizedBox(height: 16),
 
                   // Statut de connexion
                   StreamBuilder<bool>(
@@ -394,6 +445,61 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Le code d'appairage en clair, à recopier sur le téléphone.
+  ///
+  /// Rien que des chiffres et deux séparateurs : aucune lettre, donc aucune
+  /// confusion possible entre O et 0 ou entre l et 1 au moment de le taper.
+  Widget _buildManualCode(OmniaColors colors, OmniaTypography type) {
+    final code = _manualCode!;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.velvet,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.seam),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Si le scan ne prend pas, saisissez ce code sur le téléphone',
+            style: type.secondary.copyWith(color: colors.dust, fontSize: 11),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: SelectableText(
+                  code,
+                  style: TextStyle(
+                    fontFamily: OmniaFonts.mono,
+                    fontSize: 20,
+                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.bold,
+                    color: colors.screen,
+                  ),
+                ),
+              ),
+              OmniaIconButton(
+                icon: Icons.content_copy_rounded,
+                tooltip: 'Copier le code',
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: code));
+                  if (!mounted) return;
+                  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                    const SnackBar(
+                      content: Text('Code d\'appairage copié.'),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
