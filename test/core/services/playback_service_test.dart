@@ -243,6 +243,14 @@ void expectSize(Size actual, double width, double height) {
   expect(actual.height, closeTo(height, 1e-6), reason: 'hauteur');
 }
 
+/// Horodatage d'une entrée d'historique, toujours dans la fenêtre de rétention.
+///
+/// Surtout pas une date absolue : la règle d'expiration de `_offerFrom` compare
+/// `lastOpened` à l'horloge réelle, et la rétention vaut 30 jours par défaut.
+/// Six tests de reprise sont ainsi passés au rouge tout seuls, le calendrier
+/// ayant dépassé les dates écrites en dur, sans qu'une ligne de code ait changé.
+DateTime withinRetention() => DateTime.now().subtract(const Duration(days: 1));
+
 void main() {
   late PlayerCommandBus bus;
   late FakeAvController av;
@@ -541,7 +549,7 @@ void main() {
         '/serie/ep1.mkv',
         position: const Duration(minutes: 4),
         duration: const Duration(minutes: 10),
-        now: DateTime(2026, 9, 6),
+        now: withinRetention(),
       );
 
       bus.dispatch(const OpenFile('/serie/ep1.mkv'));
@@ -557,7 +565,7 @@ void main() {
         '/serie/ep2.mkv',
         position: const Duration(minutes: 4),
         duration: const Duration(minutes: 10),
-        now: DateTime(2026, 9, 6),
+        now: withinRetention(),
       );
 
       bus.dispatch(const OpenFile('/serie/ep1.mkv'));
@@ -583,7 +591,7 @@ void main() {
         '/serie/ep2.mkv',
         position: const Duration(minutes: 4),
         duration: const Duration(minutes: 10),
-        now: DateTime(2026, 9, 6),
+        now: withinRetention(),
       );
       bus.dispatch(const OpenFile('/serie/ep1.mkv'));
       await settle();
@@ -1262,6 +1270,10 @@ void main() {
   group('Mini-lecteur', () {
     test('entrer : fenêtre compacte, premier plan ; sortir : tout est rendu', () async {
       window.bounds = const Rect.fromLTWH(100, 80, 1200, 760);
+      // Un fichier ouvert : la fenêtre compacte ne s'ouvre qu'avec quelque
+      // chose à y montrer. Le contrôleur factice n'annonce pas d'image, d'où
+      // le bandeau attendu plus bas.
+      await service.openPath('/serie/ep1.mkv');
       bus.dispatch(const ToggleMiniPlayer());
       await settle();
 
@@ -1285,6 +1297,7 @@ void main() {
     });
 
     test('le premier plan choisi avant est conservé à la sortie', () async {
+      await service.openPath('/serie/ep1.mkv');
       bus.dispatch(const ToggleAlwaysOnTop());
       bus.dispatch(const ToggleMiniPlayer());
       bus.dispatch(const ToggleMiniPlayer());
@@ -1294,6 +1307,7 @@ void main() {
     });
 
     test('quitter le plein écran avant d’entrer en mini-lecteur', () async {
+      await service.openPath('/serie/ep1.mkv');
       bus.dispatch(const ToggleFullscreen());
       bus.dispatch(const ToggleMiniPlayer());
       await settle();
@@ -1801,7 +1815,7 @@ void main() {
         '/serie/ep1.mkv',
         position: const Duration(minutes: 4),
         duration: const Duration(minutes: 10),
-        now: DateTime(2026, 9, 14),
+        now: withinRetention(),
       );
 
       ownBus.dispatch(const ClearRecentFiles());
@@ -1819,7 +1833,7 @@ void main() {
             '/serie/ep1.mkv',
             position: const Duration(minutes: 4),
             duration: const Duration(minutes: 10),
-            now: DateTime(2026, 9, 14),
+            now: withinRetention(),
           );
 
       test('« demander » : une offre est publiée, rien n’est appliqué', () async {
@@ -1890,7 +1904,7 @@ void main() {
           '/docs/manuel.pdf',
           page: 12,
           pageCount: 40,
-          now: DateTime(2026, 9, 14),
+          now: withinRetention(),
         );
         await s.openPath('/docs/manuel.pdf');
         await settle();

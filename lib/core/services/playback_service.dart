@@ -577,7 +577,12 @@ class PlaybackService implements PlaybackStateSink {
       case ToggleRecording():
         await (_state.recording ? _stopRecording() : _startRecording());
       case ToggleMiniPlayer():
-        await _setMiniPlayer(!_state.miniPlayer);
+        // Rien à y montrer, rien à réduire : le raccourci clavier ne doit pas
+        // ramener OMNIA à un bandeau vide au premier plan ([canMiniPlayer]).
+        // En sortir reste toujours possible, quel que soit le fichier.
+        if (_state.miniPlayer || _state.canMiniPlayer) {
+          await _setMiniPlayer(!_state.miniPlayer);
+        }
       case SetVolume() || VolumeRelative() || ToggleMute() when _active == null:
         if (!_state.hasFile || _state.mediaType.isAv) {
           _applyVolumeWithoutController(command);

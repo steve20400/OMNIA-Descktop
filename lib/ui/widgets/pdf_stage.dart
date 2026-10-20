@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../core/commands/player_command.dart';
+import '../../core/commands/player_command_bus.dart';
 import '../../core/controllers/pdf_controller.dart';
 import '../../core/models/document_layout.dart';
 import '../../core/models/playback_state.dart';
@@ -140,6 +141,20 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
   Timer? _scrollDebounce;
   Timer? _resizeDebounce;
 
+  /// Page à retrouver, relevée une seule fois au montage de la vue.
+  ///
+  /// Pas à chaque construction : pendant que pdfrx se place, il annonce
+  /// brièvement sa page 1, et une cible relue à ce moment-là ramènerait la vue
+  /// au début du document au lieu de la page quittée.
+  late final int _initialPage;
+
+  @override
+  void initState() {
+    super.initState();
+    final page = ref.read(playbackStateProvider).currentPage;
+    _initialPage = page > 0 ? page.clamp(1, widget.session.pageCount) : 1;
+  }
+
   @override
   void dispose() {
     _scrollDebounce?.cancel();
@@ -148,36 +163,31 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
   }
 
   void _fitToWidth() {
-    final viewer = widget.session.viewer;
-    if (!viewer.isReady) return;
-    final cover = viewer.coverScale;
-    if (cover > 0) {
-      viewer.setZoom(viewer.visibleRect.center, cover);
-    }
+    if (!widget.session.viewer.isReady) return;
+    ref.dispatch(const FitZoom(FitMode.width), source: CommandSource.system);
   }
 
+  /// Molette au-dessus du document : un cran de défilement par événement,
+  /// regroupés sur une image d'écran.
+  ///
+  /// Les crans s'additionnent avant d'être émis : une molette qui tourne vite
+  /// envoie une douzaine d'événements par seconde, et autant de commandes
+  /// déclencheraient autant d'animations de recentrage qui se marcheraient sur
+  /// les pieds — le document avançait alors par saccades.
   void _onPointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
     if (HardwareKeyboard.instance.isControlPressed) return; // Ctrl gère le zoom
     final dy = event.scrollDelta.dy;
     if (dy.abs() < 0.5) return;
     GestureBinding.instance.pointerSignalResolver.register(event, (_) {
-      final viewer = widget.session.viewer;
-      if (!viewer.isReady) return;
+      if (!widget.session.viewer.isReady) return;
       _accumulatedScroll += (dy > 0 ? 150.0 : -150.0);
       _scrollDebounce ??= Timer(const Duration(milliseconds: 16), () {
-        if (!mounted || !widget.session.viewer.isReady) {
-          _accumulatedScroll = 0;
-          _scrollDebounce = null;
-          return;
-        }
         final delta = _accumulatedScroll;
         _accumulatedScroll = 0;
         _scrollDebounce = null;
-        final center = widget.session.viewer.visibleRect.center;
-        final targetY = center.dy + delta;
-        final safeY = targetY < 0 ? 0.0 : targetY;
-        widget.session.viewer.setZoom(Offset(center.dx, safeY), widget.session.viewer.currentZoom);
+        if (!mounted || delta == 0) return;
+        ref.dispatch(ScrollDocument(delta));
       });
     });
   }
@@ -186,8 +196,7 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isMini = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
-    final currentPage = ref.watch(playbackStateProvider.select((s) => s.currentPage));
-    final initialPage = currentPage > 0 ? currentPage.clamp(1, widget.session.pageCount) : 1;
+    final initialPage = _initialPage;
 
     return Listener(
       onPointerSignal: _onPointerSignal,
@@ -226,15 +235,13 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
               onViewerReady: (_, controller) {
                 widget.onReady(controller);
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && controller.isReady) {
-                    final cover = controller.coverScale;
-                    if (cover > 0) {
-                      controller.setZoom(controller.visibleRect.center, cover);
-                    }
-                    if (initialPage > 1) {
-                      unawaited(controller.goToPage(pageNumber: initialPage, anchor: PdfPageAnchor.top));
-                    }
-                  }
+                  if (!mounted || !controller.isReady) return;
+                  // Par le bus, et non en pilotant pdfrx d'ici : c'est le
+                  // contrôleur du core qui tient la page courante, et la
+                  // navigation qu'il enregistre protège la page de
+                  // l'utilisateur tant que la vue neuve ne l'a pas rejointe.
+                  ref.dispatch(const FitZoom(FitMode.width), source: CommandSource.system);
+                  ref.dispatch(GoToPage(initialPage), source: CommandSource.system);
                 });
               },
               onDocumentChanged: (document) {

@@ -276,7 +276,10 @@ OsdMessage? osdFor(PlayerCommand command, PlaybackState after) {
         enabled: after.equalizerEnabled,
         preset: after.equalizerPreset,
       ),
-    ToggleMiniPlayer() => OsdMiniPlayer(enabled: after.miniPlayer),
+    // Sans fichier à montrer, le core refuse la commande : annoncer
+    // « Quitter le mini-lecteur » dirait le contraire de ce qui vient de se
+    // passer.
+    ToggleMiniPlayer() when after.canMiniPlayer => OsdMiniPlayer(enabled: after.miniPlayer),
     _ => null,
   };
 }

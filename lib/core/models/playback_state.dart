@@ -235,6 +235,15 @@ class PlaybackState {
   /// Un document (PDF ou texte) est affiché.
   bool get isDocument => mediaType.isDocument;
 
+  /// Ce que le mini-lecteur a à montrer : un fichier ouvert et lisible.
+  ///
+  /// Sans fichier, ou sur une erreur, sa fenêtre compacte n'aurait ni image à
+  /// afficher ni transport à piloter — juste un bandeau vide, au premier plan
+  /// par-dessus le marché, et la fenêtre entière réduite au passage. C'est la
+  /// règle qu'appliquent déjà les boutons des barres : le mini-lecteur sait
+  /// montrer un son, une image et un document, mais pas le néant.
+  bool get canMiniPlayer => hasFile && status != PlaybackStatus.error;
+
   /// Ratio largeur / hauteur de l'image, `null` sans image ou tant que ses
   /// dimensions ne sont pas connues. Le mini-lecteur prend cette forme.
   double? get videoAspect =>

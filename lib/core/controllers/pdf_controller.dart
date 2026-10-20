@@ -31,6 +31,21 @@ class PdfSession {
   int get pageCount => document.pages.length;
 }
 
+/// Ouvre un document pdfium. Injectable : pdfium est une bibliothèque native
+/// que les tests n'ont pas, et toute la logique de page et de zoom se vérifie
+/// sans lui.
+typedef PdfDocumentOpener = Future<PdfDocument> Function(String path);
+
+/// L'ouverture réelle, par pdfium.
+///
+/// Sans fournisseur de mot de passe, un document protégé lève
+/// [PdfPasswordException] : c'est le comportement voulu, OMNIA ne demande pas
+/// de mot de passe (lecture seule, pas de saisie de secret).
+Future<PdfDocument> _openWithPdfium(String path) async {
+  await pdfrxFlutterInitialize();
+  return PdfDocument.openFile(path, firstAttemptByEmptyPassword: true);
+}
+
 /// Contrôleur des documents PDF (pdfium via pdfrx).
 ///
 /// Il ouvre le document une seule fois (nombre de pages, sommaire, détection
@@ -38,19 +53,35 @@ class PdfSession {
 /// passent par le [PdfViewerController] quand la vue continue est montée ;
 /// en mode page par page, seul l'état change et la vue le suit.
 class PdfController implements MediaController {
-  PdfController() {
-    viewer.addListener(_onViewerChanged);
+  PdfController({PdfViewerController? viewer, PdfDocumentOpener? openDocument})
+      : viewer = viewer ?? PdfViewerController(),
+        _openDocument = openDocument ?? _openWithPdfium {
+    this.viewer.addListener(_onViewerChanged);
   }
 
   /// Contrôleur pdfrx, unique pour toute la vie de l'application : la vue le
   /// prend en charge quand elle est montée.
-  final PdfViewerController viewer = PdfViewerController();
+  final PdfViewerController viewer;
+
+  final PdfDocumentOpener _openDocument;
 
   final StreamController<PdfSession?> _sessions = StreamController<PdfSession?>.broadcast();
 
   PdfSession? _session;
   PlaybackStateSink? _sink;
   int? _targetPage;
+
+  /// Dernière page annoncée par pdfrx, `null` tant qu'une vue neuve n'en a
+  /// annoncé aucune. Voir [_onViewerChanged].
+  int? _lastSeenPage;
+
+  /// Relances de navigation déjà tentées vers [_targetPage].
+  int _restoreAttempts = 0;
+
+  /// Chaque relance fait bouger la vue, donc repasse par [_onViewerChanged] :
+  /// sans borne, une page cible que la vue n'atteint jamais ferait tourner
+  /// OMNIA en rond au lieu d'afficher le document.
+  static const int _maxRestoreAttempts = 8;
 
   PdfSession? get session => _session;
   Stream<PdfSession?> get sessions => _sessions.stream;
@@ -67,6 +98,8 @@ class PdfController implements MediaController {
   Future<void> open(MediaFile file, PlaybackStateSink sink) async {
     _sink = sink;
     _targetPage = null;
+    _lastSeenPage = null;
+    _restoreAttempts = 0;
     final pendingPage = sink.state.currentPage > 0 ? sink.state.currentPage : 1;
     sink.update(
       (st) => st.copyWith(
@@ -96,11 +129,7 @@ class PdfController implements MediaController {
     }
 
     try {
-      await pdfrxFlutterInitialize();
-      // Sans fournisseur de mot de passe, un document protégé lève
-      // PdfPasswordException : c'est le comportement voulu, OMNIA ne demande
-      // pas de mot de passe (lecture seule, pas de saisie de secret).
-      final document = await PdfDocument.openFile(file.path, firstAttemptByEmptyPassword: true);
+      final document = await _openDocument(file.path);
       final nodes = await document.loadOutline();
       final outline = flattenOutline<PdfOutlineNode>(
         nodes,
@@ -144,22 +173,46 @@ class PdfController implements MediaController {
   /// La vue a bougé (défilement, zoom) : on reflète page et zoom dans l'état.
   void _onViewerChanged() {
     final sink = _sink;
-    if (sink == null || _session == null || !viewer.isReady) return;
+    if (sink == null || _session == null) return;
+    if (!viewer.isReady) {
+      // Vue démontée ou pas encore prête : la prochaine page annoncée sera la
+      // première de cette vue-là. Voir le garde de l'artéfact plus bas.
+      _lastSeenPage = null;
+      return;
+    }
     final page = viewer.pageNumber;
-    if (_targetPage != null) {
-      if (page == _targetPage) {
+    final previous = _lastSeenPage;
+    _lastSeenPage = page;
+    final target = _targetPage;
+    if (target != null) {
+      if (page == target) {
         _targetPage = null;
+        _restoreAttempts = 0;
       } else {
         // En transition vers la page cible : s'assurer que le visualiseur est bien
-        // en train d'y naviguer.
-        if (viewer.isReady && page != _targetPage) {
-          unawaited(viewer.goToPage(pageNumber: _targetPage!, anchor: PdfPageAnchor.top));
+        // en train d'y naviguer, sans y revenir indéfiniment ([_maxRestoreAttempts]).
+        if (_restoreAttempts < _maxRestoreAttempts) {
+          _restoreAttempts++;
+          unawaited(viewer.goToPage(pageNumber: target, anchor: PdfPageAnchor.top));
+        } else {
+          _targetPage = null;
+          _restoreAttempts = 0;
         }
         return;
       }
-    } else if (page == 1 && sink.state.currentPage > 1) {
+    } else if (page == 1 && previous == null && sink.state.currentPage > 1) {
       // Artéfact d'initialisation de pdfrx (montage d'une nouvelle vue lors de la
-      // bascule mini-lecteur ⬌ fenêtre normale) : ne jamais écraser la page courante.
+      // bascule mini-lecteur ⬌ fenêtre normale) : la vue annonce la page 1 avant
+      // d'avoir appliqué celle qu'on lui demande. On la remet où l'utilisateur en
+      // était, sans écraser la page courante.
+      //
+      // `previous == null` est ce qui empêche ce garde de se retourner contre
+      // l'utilisateur : une page 1 annoncée APRÈS une autre page, c'est quelqu'un
+      // qui vient de remonter en haut du document. Sans cette condition, chaque
+      // remontée vers la première page était renvoyée vers le bas — le défilement
+      // ne « descendait » plus que, et la première page devenait inatteignable.
+      _targetPage = sink.state.currentPage;
+      _restoreAttempts = 0;
       unawaited(viewer.goToPage(pageNumber: sink.state.currentPage, anchor: PdfPageAnchor.top));
       return;
     }
@@ -221,6 +274,7 @@ class PdfController implements MediaController {
     if (total <= 0) return;
     final target = page.clamp(1, total);
     _targetPage = target;
+    _restoreAttempts = 0;
     if (viewer.isReady) {
       await viewer.goToPage(pageNumber: target, anchor: PdfPageAnchor.top);
     }
@@ -258,6 +312,8 @@ class PdfController implements MediaController {
 
   Future<void> _closeSession() async {
     _targetPage = null;
+    _lastSeenPage = null;
+    _restoreAttempts = 0;
     final current = _session;
     if (current == null) return;
     _publish(null);

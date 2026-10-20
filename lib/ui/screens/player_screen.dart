@@ -5,7 +5,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
@@ -15,7 +14,6 @@ import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';
 import '../../core/services/screen_wake.dart';
 import '../../core/utils/launch_arguments.dart';
-import '../../core/utils/platform_session.dart';
 import '../../l10n/app_localizations.dart';
 import '../chrome_controller.dart';
 import '../document_search_provider.dart';
@@ -42,6 +40,7 @@ import '../widgets/stage.dart';
 import '../widgets/stage_context_menu.dart';
 import '../widgets/title_bar.dart';
 import '../widgets/tool_panels.dart';
+import '../widgets/window_resize_edges.dart';
 
 /// Écran unique d'OMNIA : barre de titre, panneau de dossier, scène,
 /// contrôles flottants.
@@ -230,6 +229,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       playbackStateProvider.select((s) => s.resumeOffer != null),
       (_, offered) => offered ? _chrome.hold(_resumeHold) : _chrome.release(_resumeHold),
     );
+    // La barre s'en va avec le fichier : sa retenue doit partir avec elle. Le
+    // pointeur posé dessus au moment où elle disparaît la retiendrait sinon
+    // pour de bon — `onExit` ne se déclenche pas sur un MouseRegion démonté —
+    // et plus rien ne se masquerait au fichier suivant, pas même en plein
+    // écran.
+    ref.listen<bool>(
+      playbackStateProvider.select((s) => s.hasFile),
+      (_, open) {
+        if (!open) _chrome.release(_barHold);
+      },
+    );
     // L'écran reste allumé tant qu'une vidéo joue, et seulement là.
     ref.listen<bool>(
       playbackStateProvider.select(
@@ -366,50 +376,53 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                       bottom: OmniaMetrics.resumePromptBottomFor(stageHeight),
                                       child: const Center(child: ResumePrompt()),
                                     ),
-                                    Positioned(
-                                      left: 0,
-                                      right: 0,
-                                      bottom: 0,
-                                      child: IgnorePointer(
-                                        ignoring: !chromeVisible,
-                                        // Pointeur sur la barre : elle reste
-                                        // affichée tant qu'on s'en sert.
-                                        child: MouseRegion(
-                                          onEnter: (_) => _chrome.hold(_barHold),
-                                          onExit: (_) => _chrome.release(_barHold),
-                                          child: AnimatedOpacity(
-                                            opacity: chromeVisible ? 1 : 0,
-                                            duration: OmniaMotion.reveal,
-                                            curve: chromeVisible
-                                                ? OmniaMotion.revealCurve
-                                                : OmniaMotion.concealCurve,
-                                            child: AnimatedSlide(
-                                              offset: chromeVisible
-                                                  ? Offset.zero
-                                                  : const Offset(0, 0.12),
+                                    // Pas de fichier, pas de barre : sur
+                                    // l'accueil elle n'aurait rien à piloter —
+                                    // ni lecture, ni progression, ni piste — et
+                                    // un volume qu'on règle devant un écran vide
+                                    // laisse croire qu'il se passe quelque
+                                    // chose. Il reste réglable au clavier
+                                    // (↑ ↓ M), et l'OSD l'affiche. Le garde est
+                                    // ici, et non sur le seul contenu : une
+                                    // barre réduite à rien laissait derrière
+                                    // elle un MouseRegion et un IgnorePointer
+                                    // sans objet au ras de la scène.
+                                    if (hasFile)
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        child: IgnorePointer(
+                                          ignoring: !chromeVisible,
+                                          // Pointeur sur la barre : elle reste
+                                          // affichée tant qu'on s'en sert.
+                                          child: MouseRegion(
+                                            onEnter: (_) => _chrome.hold(_barHold),
+                                            onExit: (_) => _chrome.release(_barHold),
+                                            child: AnimatedOpacity(
+                                              opacity: chromeVisible ? 1 : 0,
                                               duration: OmniaMotion.reveal,
-                                              curve: OmniaMotion.revealCurve,
-                                              child: RepaintBoundary(
-                                                // Sans fichier ouvert, l'écran
-                                                // d'accueil n'a rien à piloter :
-                                                // la barre de progression restait
-                                                // affichée, vide, alors qu'aucun
-                                                // média n'est chargé. L'accueil
-                                                // garde ses propres boutons
-                                                // d'ouverture.
-                                                child: !hasFile
-                                                    ? const SizedBox.shrink()
-                                                    : (isDocument
-                                                        ? const DocumentBar()
-                                                        : (isImage
-                                                            ? const ImageBar()
-                                                            : const ControlBar())),
+                                              curve: chromeVisible
+                                                  ? OmniaMotion.revealCurve
+                                                  : OmniaMotion.concealCurve,
+                                              child: AnimatedSlide(
+                                                offset: chromeVisible
+                                                    ? Offset.zero
+                                                    : const Offset(0, 0.12),
+                                                duration: OmniaMotion.reveal,
+                                                curve: OmniaMotion.revealCurve,
+                                                child: RepaintBoundary(
+                                                  child: isDocument
+                                                      ? const DocumentBar()
+                                                      : (isImage
+                                                          ? const ImageBar()
+                                                          : const ControlBar()),
+                                                ),
                                               ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
                                     // Le tiroir et son voile par-dessus tout le
                                     // reste : c'est lui qu'on manipule.
                                     if (showDrawer) ...[
@@ -467,13 +480,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   ///
   /// Toujours le même widget, plein écran ou non (bords simplement
   /// désactivés) : changer de type démonterait tout l'écran, vidéo comprise.
-  Widget _resizable(Widget child, {required bool enabled}) {
-    if (!needsCustomResizeEdges) return child;
-    return DragToResizeArea(
-      resizeEdgeSize: 8,
-      enableResizeEdges: enabled ? null : const [],
-      child: child,
-    );
-  }
+  Widget _resizable(Widget child, {required bool enabled}) =>
+      WindowResizeEdges(enabled: enabled, child: child);
 
 }
