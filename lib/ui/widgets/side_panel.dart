@@ -765,7 +765,17 @@ class _PanelEdgeTabState extends ConsumerState<PanelEdgeTab> {
   /// elle ne doit pas s'effacer sous le pointeur.
   static const _hold = 'chrome:panel-tab';
 
-  late final ChromeController _chrome = ref.read(chromeProvider.notifier);
+  late final ChromeController _chrome;
+
+  @override
+  void initState() {
+    super.initState();
+    // Capturé ici, et non à la première utilisation : une languette jamais
+    // survolée ne lirait `ref` que dans dispose(), où Riverpod l'interdit.
+    // La destruction de l'écran échouait alors sur « Cannot use ref after
+    // the widget was disposed ».
+    _chrome = ref.read(chromeProvider.notifier);
+  }
 
   @override
   void dispose() {
