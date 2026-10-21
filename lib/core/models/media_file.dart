@@ -26,15 +26,28 @@ class MediaFile {
   /// Date de dernière modification, si connue.
   final DateTime? modifiedAt;
 
+  /// Le chemin qui porte le vrai nom du fichier.
+  ///
+  /// Un média projeté par OMNIA Connect arrive comme une adresse réseau, le
+  /// nom du fichier voyageant dans le paramètre `path`. Sans cela le titre
+  /// affiché était « stream?path=… » et l'extension restait introuvable.
+  String get _namedPath {
+    if (!path.startsWith('http://') && !path.startsWith('https://')) {
+      return path;
+    }
+    final carried = Uri.tryParse(path)?.queryParameters['path'];
+    return (carried == null || carried.isEmpty) ? path : carried;
+  }
+
   /// Nom de fichier avec extension (ex. `episode-02.mkv`).
-  String get name => p.basename(path);
+  String get name => p.basename(_namedPath);
 
   /// Nom de fichier sans extension.
-  String get baseName => p.basenameWithoutExtension(path);
+  String get baseName => p.basenameWithoutExtension(_namedPath);
 
   /// Extension en minuscules, sans le point (ex. `mkv`).
   String get extension =>
-      p.extension(path).toLowerCase().replaceFirst('.', '');
+      p.extension(_namedPath).toLowerCase().replaceFirst('.', '');
 
   /// Dossier parent.
   String get directory => p.dirname(path);
