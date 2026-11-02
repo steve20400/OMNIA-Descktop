@@ -299,6 +299,15 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             // Chaque pression repart de zéro : le drapeau de déplacement ne vaut
             // que pour la pression en cours.
             _windowDragged = false;
+            // Le focus revient à chaque pression, et pas seulement sur un clic
+            // propre. Il n'était redemandé que dans les gestionnaires de clic,
+            // tous deux abandonnés dès qu'un déplacement de fenêtre a eu lieu :
+            // après un glissement, ou après la fermeture d'un menu, plus rien
+            // ne le récupérait. Les raccourcis du mini-lecteur mouraient alors
+            // tous — dont Tab, qui ouvre le panneau — pendant que la molette,
+            // qui ne demande aucun focus, continuait de défiler. D'où une
+            // fenêtre qui semblait figée sans l'être.
+            if (!_focus.hasFocus) _focus.requestFocus();
             _chrome.activity();
           },
           onPointerMove: (_) => _chrome.activity(),
