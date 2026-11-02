@@ -137,6 +137,11 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
 
   @override
   Widget build(BuildContext context) {
+    // La liaison OMNIA Connect vit ici, à la racine : les commandes reçues et
+    // l'état envoyé ne dépendent plus de la fenêtre OMNIA Connect, qu'on ferme
+    // précisément pour regarder.
+    ref.watch(connectLinkProvider);
+
     // Titre natif de la fenêtre : « fichier — OMNIA ».
     ref.listen(playbackStateProvider.select((s) => s.file?.name), (_, name) {
       final title = name == null ? 'OMNIA' : '$name — OMNIA';

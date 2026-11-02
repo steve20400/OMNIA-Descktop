@@ -118,6 +118,7 @@ class AppPreferences {
     this.allowRemoteControl = true,
     this.allowRemoteStreaming = true,
     this.wirelessMode = 'wifi',
+    this.projectionMode = 'file',
     this.autoCheckUpdates = true,
     this.updateChannel = 'stable',
     this.mobilePromoDismissed = false,
@@ -217,6 +218,16 @@ class AppPreferences {
   final bool allowRemoteStreaming;
   final String wirelessMode;
 
+  /// Ce que la projection envoie à l'autre appareil.
+  ///
+  /// `file` : il reçoit le fichier et le lit à son rythme, en qualité
+  /// d'origine, chacun se déplaçant librement dans le média.
+  /// `mirror` : il lit la même chose et suit ce qu'on fait ici — pause,
+  /// avance, volume, page, défilement.
+  ///
+  /// Le choix appartient à l'appareil qui projette, jamais à celui qui reçoit.
+  final String projectionMode;
+
   // Réseau & Mises à jour
   final bool autoCheckUpdates;
   final String updateChannel;
@@ -261,6 +272,7 @@ class AppPreferences {
     bool? allowRemoteControl,
     bool? allowRemoteStreaming,
     String? wirelessMode,
+    String? projectionMode,
     bool? autoCheckUpdates,
     String? updateChannel,
     bool? mobilePromoDismissed,
@@ -301,6 +313,7 @@ class AppPreferences {
       allowRemoteControl: allowRemoteControl ?? this.allowRemoteControl,
       allowRemoteStreaming: allowRemoteStreaming ?? this.allowRemoteStreaming,
       wirelessMode: wirelessMode ?? this.wirelessMode,
+      projectionMode: projectionMode ?? this.projectionMode,
       autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
       updateChannel: updateChannel ?? this.updateChannel,
       mobilePromoDismissed: mobilePromoDismissed ?? this.mobilePromoDismissed,
@@ -378,6 +391,7 @@ class AppPreferences {
         'allowRemoteControl': allowRemoteControl,
         'allowRemoteStreaming': allowRemoteStreaming,
         'wirelessMode': wirelessMode,
+        'projectionMode': projectionMode,
         'autoCheckUpdates': autoCheckUpdates,
         'updateChannel': updateChannel,
         'mobilePromoDismissed': mobilePromoDismissed,
@@ -441,6 +455,9 @@ class AppPreferences {
       allowRemoteControl: bool0('allowRemoteControl', d.allowRemoteControl),
       allowRemoteStreaming: bool0('allowRemoteStreaming', d.allowRemoteStreaming),
       wirelessMode: json['wirelessMode'] is String ? json['wirelessMode']! as String : d.wirelessMode,
+      projectionMode: json['projectionMode'] is String
+          ? json['projectionMode']! as String
+          : d.projectionMode,
       autoCheckUpdates: bool0('autoCheckUpdates', d.autoCheckUpdates),
       updateChannel: json['updateChannel'] is String ? json['updateChannel']! as String : d.updateChannel,
       mobilePromoDismissed: bool0('mobilePromoDismissed', d.mobilePromoDismissed),

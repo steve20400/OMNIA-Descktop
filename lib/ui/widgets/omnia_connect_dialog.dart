@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
-import '../../core/commands/player_command_bus.dart';
 import '../../core/models/playback_state.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';
@@ -71,10 +70,8 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
     final connectService = ref.read(omniaConnectServiceProvider);
     await connectService.start();
 
-    // Abonnement aux commandes distantes arrivant du mobile
-    _cmdSubscription = connectService.remoteCommands.listen((cmd) {
-      ref.read(commandBusProvider).dispatch(cmd, source: CommandSource.remote);
-    });
+    // Les commandes distantes sont écoutées par le fournisseur du service,
+    // pour que la télécommande continue de répondre fenêtre fermée.
 
     // L'adresse annoncée suit le mode de liaison choisi, et ses prérequis sont
     // contrôlés : sans cela, le code affichait parfois une adresse que le
@@ -114,7 +111,13 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
   /// Le PC sert lui-même le fichier en HTTP : l'adresse annoncée est celle que
   /// le mobile peut joindre, telle que `pickAdvertisedAddress` la choisit.
   Future<void> _projectCurrent(OmniaConnectService service, String path) async {
-    final url = await service.projectFile(path, mode: _mode);
+    // Le mode appartient à l'appareil qui projette : c'est lui qui décide si
+    // l'autre lit à son rythme ou suit ce qu'on fait ici.
+    final url = await service.projectFile(
+      path,
+      mode: _mode,
+      mirror: ref.read(preferencesProvider).projectionMode == 'mirror',
+    );
     if (!mounted) return;
     setState(() {
       _projectionMessage = url == null
@@ -181,12 +184,6 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
     final colors = context.colors;
     final type = context.type;
     final connectService = ref.watch(omniaConnectServiceProvider);
-    final playbackState = ref.watch(playbackStateProvider);
-
-    // Synchronisation d'état continue vers le mobile connecté
-    if (connectService.hasConnectedClients) {
-      connectService.broadcastState(playbackState);
-    }
 
     return Dialog(
       backgroundColor: colors.curtain,
