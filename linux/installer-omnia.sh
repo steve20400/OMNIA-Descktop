@@ -15,11 +15,13 @@ app_dir="$HOME/.local/share/omnia"
 bin_dir="$HOME/.local/bin"
 desktop_dir="$HOME/.local/share/applications"
 icon_dir="$HOME/.local/share/icons/hicolor/scalable/apps"
+icon_base="$HOME/.local/share/icons/hicolor"
 desktop_file="$desktop_dir/dev.omnia.omnia.desktop"
 
 retirer() {
   rm -rf "$app_dir"
   rm -f "$bin_dir/omnia" "$desktop_file" "$icon_dir/dev.omnia.omnia.svg"
+  rm -f "$icon_base"/*/apps/dev.omnia.omnia.png
   command -v update-desktop-database >/dev/null 2>&1 &&
     update-desktop-database "$desktop_dir" || true
   echo "OMNIA retiré. Vos réglages et votre historique restent dans ~/.local/share/dev.omnia.omnia."
@@ -54,6 +56,17 @@ ln -sf "$app_dir/omnia" "$bin_dir/omnia"
 sed "s|^Exec=omnia %F$|Exec=$app_dir/omnia %F|" \
   "$source_dir/dev.omnia.omnia.desktop" > "$desktop_file"
 cp "$source_dir/dev.omnia.omnia.svg" "$icon_dir/"
+# Les tailles en PNG en plus du vectoriel. Seul le SVG était installé, et
+# certains sélecteurs de fenêtres ne savent pas le charger : l'application y
+# apparaissait alors sans icône, alors qu'elle en avait une partout ailleurs.
+if [ -d "$source_dir/icons/hicolor" ]; then
+  for png in "$source_dir"/icons/hicolor/*/apps/dev.omnia.omnia.png; do
+    [ -e "$png" ] || continue
+    taille=$(basename "$(dirname "$(dirname "$png")")")
+    mkdir -p "$icon_base/$taille/apps"
+    cp "$png" "$icon_base/$taille/apps/"
+  done
+fi
 
 command -v update-desktop-database >/dev/null 2>&1 &&
   update-desktop-database "$desktop_dir" || true

@@ -266,7 +266,11 @@ def small_layers(size):
     ]
 
 
-BACKGROUND = RoundRect(0, 0, 256, 256, 56)
+# Plus de carré de fond : l'icône est le dessin seul, posé sur rien. Un fond
+# coloré se voit partout où le système pose l'icône sur autre chose que du
+# sombre — barre des tâches claire, sélecteur de fenêtres, écran d'accueil du
+# téléphone. Seuls les écrans de l'ordinateur et du téléphone restent sombres,
+# parce que ce sont des écrans.
 
 
 def layers_for(size):
@@ -275,19 +279,24 @@ def layers_for(size):
 
 
 def shade(u, v, layers):
-    """Couleur au point (u, v) du dessin 256×256 (coordonnées SVG).
+    """Couleur et opacité au point (u, v) du dessin 256×256 (coordonnées SVG).
 
-    None hors du carré arrondi du fond (transparent) ; dedans, le dégradé du
-    fond puis chaque couche touchée, dans l'ordre.
+    `None` là où rien n'est peint : sans fond, c'est le cas de tout ce qui
+    entoure le dessin. Les couches se composent entre elles, et une couche
+    partiellement transparente posée sur rien garde son opacité — c'est ce qui
+    laisse la seconde onde s'estomper sans carré derrière elle.
     """
-    if not BACKGROUND.hit(u, v):
-        return None
-    color = blend(VELVET_TOP, VELVET, v / 256)
+    color = None
+    opacity = 0.0
     for shape, paint in layers:
         if shape.hit(u, v):
             rgb, alpha = paint(u, v) if callable(paint) else paint
-            color = rgb if alpha >= 1 else blend(color, rgb, alpha)
-    return color
+            if color is None:
+                color, opacity = rgb, alpha
+            else:
+                color = rgb if alpha >= 1 else blend(color, rgb, alpha)
+                opacity += alpha * (1 - opacity)
+    return None if color is None else (color, opacity)
 
 
 def render(size, layers=None):
@@ -300,7 +309,7 @@ def render(size, layers=None):
         row = bytearray()
         for x in range(size):
             acc = [0.0, 0.0, 0.0]
-            covered = 0
+            covered = 0.0
             for sy in range(SAMPLES):
                 for sx in range(SAMPLES):
                     u = (x + (sx + 0.5) / SAMPLES) * scale
@@ -308,11 +317,14 @@ def render(size, layers=None):
                     s = shade(u, v, layers)
                     if s is None:
                         continue
-                    covered += 1
+                    rgb, alpha = s
+                    # L'opacité pèse autant que la couverture : un bord lissé
+                    # et une couche translucide s'additionnent de la même façon.
+                    covered += alpha
                     for i in range(3):
-                        acc[i] += s[i]
+                        acc[i] += rgb[i] * alpha
             n = SAMPLES * SAMPLES
-            if covered == 0:
+            if covered <= 0:
                 row += bytes((0, 0, 0, 0))
             else:
                 rgb = [round(c / covered) for c in acc]

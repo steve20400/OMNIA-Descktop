@@ -22,7 +22,8 @@ void main() {
     test('chaque dégradé utilisé est défini dans le fichier', () {
       final used = RegExp(r'url\(#([\w-]+)\)').allMatches(svg).map((m) => m.group(1)!).toSet();
       final defined = RegExp(r'\bid="([\w-]+)"').allMatches(svg).map((m) => m.group(1)!).toSet();
-      expect(used, {'g-bg', 'g-beam'});
+      // Plus de dégradé de fond : l'icône n'a plus de carré derrière elle.
+      expect(used, {'g-beam'});
       expect(defined, containsAll(used));
     });
 
@@ -58,11 +59,21 @@ void main() {
       }
     });
 
-    test('coins arrondis transparents, centre opaque, à chaque taille', () {
+    test('aucun fond : seul le dessin est opaque, à chaque taille', () {
       for (final MapEntry(key: size, value: image) in images.entries) {
-        expect(image.alpha(0, 0), 0, reason: '$size px');
-        expect(image.alpha(size ~/ 2, size ~/ 2), 255, reason: '$size px');
+        expect(image.alpha(0, 0), 0, reason: 'coin, \$size px');
+        expect(image.alpha(size ~/ 2, size ~/ 2), 255, reason: 'centre, \$size px');
       }
+    });
+
+    test("là où était le fond, plus rien n'est peint", () {
+      // Le carré de fond couvrait toute l'icône : ce point, hors du moniteur
+      // et du téléphone, était opaque. Il doit être transparent désormais,
+      // sans quoi un fond se verrait sur une barre des tâches claire ou dans
+      // un sélecteur de fenêtres.
+      final icon = images[256]!;
+      expect(icon.alpha(20, 20), 0);
+      expect(icon.alpha(236, 240), 0);
     });
 
     test('en grand, le dessin complet du SVG', () {
@@ -81,8 +92,12 @@ void main() {
       }
       // Le faisceau pâlit en s'éloignant de la lampe.
       expect(icon.red(80, 110), greaterThan(icon.red(150, 110) + 100));
-      // La seconde onde, à 55 %, reste plus discrète que la première.
-      expect(icon.red(202, 50), inExclusiveRange(100, 200));
+      // La seconde onde, à 55 %, reste plus discrète que la première. Sans
+      // fond derrière elle, sa discrétion tient désormais à son opacité et
+      // non à un mélange avec le velours : sa couleur est pleine, sa
+      // transparence la retient.
+      expect(icon.alpha(202, 50), inExclusiveRange(100, 200));
+      expect(icon.alpha(197, 64), 255, reason: 'la première onde reste pleine');
     });
 
     test('en petit, contours d’un pixel plein et écran du téléphone net', () {

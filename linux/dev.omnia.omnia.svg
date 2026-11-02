@@ -8,12 +8,12 @@
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <defs>
-    <linearGradient id="g-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#211A26"/><stop offset="1" stop-color="#120F14"/></linearGradient>
     <linearGradient id="g-beam" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#F2B441" stop-opacity=".95"/><stop offset="1" stop-color="#F2B441" stop-opacity=".08"/></linearGradient>
   </defs>
 
-  <!-- Le fond : carré aux coins doux, velours qui s'éclaircit vers le haut. -->
-  <rect width="256" height="256" rx="56" fill="url(#g-bg)"/>
+  <!-- Pas de fond : l'icône est le dessin seul, posé sur rien. Un fond coloré
+       se verrait partout où le système pose l'icône sur autre chose que du
+       sombre. Seuls les écrans restent sombres, parce que ce sont des écrans. -->
 
   <!-- L'ordinateur : moniteur, pied et socle. -->
   <rect x="28" y="50" width="172" height="118" rx="16" fill="#1C1720" stroke="#F3EFE6" stroke-width="9"/>
