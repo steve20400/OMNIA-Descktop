@@ -33,10 +33,11 @@ import struct
 import sys
 import zlib
 
-VELVET = (0x12, 0x0F, 0x14)      # Velours : fond, contour et écran du téléphone
+VELVET = (0x12, 0x0F, 0x14)      # Velours : écran du téléphone
 VELVET_TOP = (0x21, 0x1A, 0x26)  # velours éclairci, en haut du fond
 CURTAIN = (0x1C, 0x17, 0x20)     # Rideau : écran du moniteur
 AMBER = (0xF2, 0xB4, 0x41)       # Projecteur : téléphone, faisceau, ondes
+AMBER_EDGE = (0x8A, 0x5E, 0x15)  # ambre brûlé : contour et détails du téléphone
 WHITE = (0xF3, 0xEF, 0xE6)       # Écran : blanc chaud du moniteur et de la lampe
 
 SIZES = [16, 24, 32, 48, 64, 128, 256]
@@ -199,11 +200,13 @@ FULL = [
     # À l'écran, le faisceau qui s'ouvre depuis la lampe.
     (Polygon((62, 110), (158, 76), (158, 144)), fade(AMBER, 62, 158, 0.95, 0.08)),
     (Circle(62, 110, 10), (WHITE, 1.0)),
-    # Le téléphone ambre ; son contour velours le détache du moniteur.
-    *rect(160, 100, 66, 116, 16, fill=AMBER, stroke=VELVET, width=9),
+    # Le téléphone ambre ; son contour d'ambre brûlé le détache du moniteur.
+    # Ce contour était velours : sans fond derrière l'icône, il se lisait comme
+    # un halo noir autour du téléphone, partout où le système pose l'icône.
+    *rect(160, 100, 66, 116, 16, fill=AMBER, stroke=AMBER_EDGE, width=7),
     *rect(171, 116, 44, 70, 6, fill=VELVET),
     (Polygon((186, 137), (204, 151), (186, 165)), (AMBER, 1.0)),
-    *rect(186, 195, 14, 5, 2.5, fill=VELVET),
+    *rect(186, 195, 14, 5, 2.5, fill=AMBER_EDGE),
     # Les ondes : le téléphone pilote l'ordinateur.
     (Arc(210, 76, -30, -12, 24, 0, 0, 7), (AMBER, 1.0)),
     (Arc(221, 70, -46, -22, 38, 0, 0, 7), (AMBER, 0.55)),
@@ -238,8 +241,8 @@ def small_layers(size):
     base_left, base_right = centred(38)
     base_top = snap(194)
 
-    # Téléphone : l'ambre visible (dans le contour velours), puis un pixel
-    # de velours autour pour le détacher du moniteur.
+    # Téléphone : l'ambre visible (dans son contour), puis un pixel d'ambre
+    # brûlé autour pour le détacher du moniteur.
     p_left, p_top, p_right, p_bottom = snap(164.5), snap(104.5), snap(221.5), snap(211.5)
     phone = box(p_left, p_top, p_right, p_bottom, 11.5)
     # Écran du téléphone : au moins un pixel d'ambre sur chaque bord.
@@ -260,7 +263,7 @@ def small_layers(size):
         (box(base_left, base_top, base_right, base_top + px, px / 2), (WHITE, 1.0)),
         (Polygon((lamp_x, lamp_y), (158, 76), (158, 144)), fade(AMBER, lamp_x, 158, 0.95, 0.08)),
         (lamp, (WHITE, 1.0)),
-        (box(p_left, p_top, p_right, p_bottom, 11.5, px), (VELVET, 1.0)),
+        (box(p_left, p_top, p_right, p_bottom, 11.5, px), (AMBER_EDGE, 1.0)),
         (phone, (AMBER, 1.0)),
         (box(s_left, s_top, s_right, s_bottom, 0), (VELVET, 1.0)),
     ]
@@ -359,14 +362,68 @@ def ico(images):
     return header + entries + data
 
 
+# Densités d'Android, en pixels pour une icône de 48 dp.
+ANDROID_MIPMAPS = (
+    ('mdpi', 48), ('hdpi', 72), ('xhdpi', 96), ('xxhdpi', 144), ('xxxhdpi', 192),
+)
+
+# L'avant-plan d'une icône adaptative : 108 dp de toile pour 72 dp de zone
+# sûre. Tout ce qui déborde de ce centre peut être rogné par le masque du
+# lanceur, qui n'est pas le même d'un téléphone à l'autre.
+ADAPTIVE_CANVAS = 432
+ADAPTIVE_SAFE = 288
+
+
+def centred(inner_size, canvas_size):
+    """Le dessin rendu à [inner_size], centré dans une toile transparente."""
+    inner = render(inner_size)
+    pad = (canvas_size - inner_size) // 2
+    right = canvas_size - pad - inner_size
+    rows = []
+    for y in range(canvas_size):
+        if y < pad or y >= pad + inner_size:
+            rows.append(bytearray(canvas_size * 4))
+            continue
+        row = bytearray(pad * 4)
+        row += inner[y - pad]
+        row += bytearray(right * 4)
+        rows.append(row)
+    return rows
+
+
+def write_android(out):
+    """Écrit les ressources d'icône d'Android sous [out] (le dossier res).
+
+    Les cinq densités pour les lanceurs d'avant Android 8, et l'avant-plan de
+    l'icône adaptative pour les suivants. Le fond adaptatif, lui, est une
+    couleur déclarée dans les ressources : il reste transparent.
+    """
+    for name, size in ANDROID_MIPMAPS:
+        folder = os.path.join(out, 'mipmap-' + name)
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, 'ic_launcher.png'), 'wb') as f:
+            f.write(png(size, render(size)))
+        print('  mipmap-%s : %d px' % (name, size))
+    folder = os.path.join(out, 'drawable')
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, 'ic_launcher_foreground.png'), 'wb') as f:
+        f.write(png(ADAPTIVE_CANVAS, centred(ADAPTIVE_SAFE, ADAPTIVE_CANVAS)))
+    print('  avant-plan adaptatif : %d px (dessin à %d)'
+          % (ADAPTIVE_CANVAS, ADAPTIVE_SAFE))
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     previews = '--previews' in sys.argv
     for_linux = '--linux' in sys.argv
+    for_android = '--android' in sys.argv
     only = [a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--sizes=')]
     sizes = [int(s) for s in only[0].split(',')] if only else SIZES
     out = args[0] if args else '.'
     os.makedirs(out, exist_ok=True)
+    if for_android:
+        write_android(out)
+        return
     images = []
     for size in sizes:
         blob = png(size, render(size))

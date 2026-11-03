@@ -36,7 +36,7 @@ void main() {
       expect(
         svg,
         contains('<rect x="160" y="100" width="66" height="116" rx="16" '
-            'fill="#F2B441" stroke="#120F14" stroke-width="9"/>'),
+            'fill="#F2B441" stroke="#8A5E15" stroke-width="7"/>'),
       );
     });
   });
@@ -82,7 +82,7 @@ void main() {
         (27, 110, '#F3EFE6FF', 'contour du moniteur'),
         (40, 150, '#1C1720FF', 'écran du moniteur'),
         (61, 109, '#F3EFE6FF', 'lampe'),
-        (159, 150, '#120F14FF', 'contour du téléphone'),
+        (159, 150, '#8A5E15FF', 'contour du téléphone'),
         (175, 190, '#F2B441FF', 'corps du téléphone'),
         (180, 170, '#120F14FF', 'écran du téléphone'),
         (192, 150, '#F2B441FF', 'bouton lecture'),
