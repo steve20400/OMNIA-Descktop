@@ -10,6 +10,7 @@ import 'core/commands/player_command_bus.dart';
 import 'core/models/app_preferences.dart';
 import 'core/models/window_sizes.dart';
 import 'core/providers.dart';
+import 'core/utils/remote_media.dart';
 import 'core/services/history_store.dart';
 import 'core/services/local_storage.dart';
 import 'core/services/settings_store.dart';
@@ -45,6 +46,10 @@ Future<void> main(List<String> args) async {
     runApp(StartupFailureApp(detail: error.toString()));
     return;
   }
+
+  // Les copies de médias projetés d'une session précédente n'ont plus lieu
+  // d'être : personne ne les effaçait jusqu'ici, et elles s'accumulaient.
+  unawaited(purgeReceivedMedia());
 
   // Le stockage local peut échouer (dossier de données inaccessible, disque
   // plein). Plutôt que de mourir sans fenêtre, OMNIA affiche l'erreur.
