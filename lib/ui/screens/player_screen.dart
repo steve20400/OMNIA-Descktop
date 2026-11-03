@@ -79,7 +79,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           }
         }
       }
-      _chrome.setAutoHide(_autoHideFor(ref.read(playbackStateProvider)));
+      _applyAutoHide(_autoHideMode(ref.read(playbackStateProvider)));
     });
   }
 
@@ -101,10 +101,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// un document en fenêtre également, on y navigue de page en page.
   static bool _autoHideFor(PlaybackState s) {
     if (!s.hasFile || s.status == PlaybackStatus.error) return false;
-    if (s.isDocument || s.mediaType == MediaType.image) return s.fullscreen;
+    // Un document s'efface aussi en fenêtre : on le lit longtemps sans rien
+    // toucher, et la barre y restait en permanence. Une image non : on la
+    // regarde d'un coup, et ses commandes servent tout de suite.
+    if (s.isDocument) return true;
+    if (s.mediaType == MediaType.image) return s.fullscreen;
     if (!s.mediaType.isAv || s.status != PlaybackStatus.playing) return false;
     return s.hasVideo || s.fullscreen;
   }
+
+  /// Délai d'effacement de la barre sur un document.
+  ///
+  /// Plus long que sur une vidéo : on lit sans rien toucher, et s'effacer en
+  /// deux secondes serait aussi gênant que ne jamais s'effacer.
+  static const _documentHide = Duration(seconds: 5);
+
+  /// Règle le masquage automatique selon le média.
+  void _applyAutoHide(({bool enabled, bool document}) mode) {
+    _chrome.setAutoHide(
+      mode.enabled,
+      // Sur un document, bouger le pointeur ou faire défiler ne réveille rien :
+      // seul un clic rappelle la barre.
+      pointerWakes: !mode.document,
+      delay: mode.document ? _documentHide : null,
+    );
+  }
+
+  static ({bool enabled, bool document}) _autoHideMode(PlaybackState s) =>
+      (enabled: _autoHideFor(s), document: s.isDocument);
 
   /// Molette au-dessus du média : crans de volume regroupés.
   final WheelSteps _volumeWheel = WheelSteps();
@@ -215,9 +239,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     // Les écoutes avant toute sortie anticipée : flutter_riverpod les referme
     // à chaque construction, et le mini-lecteur les perdrait en chemin — plus
     // de masquage automatique, plus d'écran qui reste allumé.
-    ref.listen<bool>(
-      playbackStateProvider.select(_autoHideFor),
-      (_, enabled) => _chrome.setAutoHide(enabled),
+    ref.listen<({bool enabled, bool document})>(
+      playbackStateProvider.select(_autoHideMode),
+      (_, mode) => _applyAutoHide(mode),
     );
     ref.listen<ToolPanel>(
       toolPanelProvider,
@@ -279,7 +303,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       child: MouseRegion(
         onHover: (_) => _chrome.activity(),
         child: Listener(
-          onPointerDown: (_) => _chrome.activity(),
+          // Un clic rappelle la barre même sur un document, où le mouvement
+          // et le défilement ne comptent pas comme une activité.
+          onPointerDown: (_) => _chrome.tap(),
           // Un glissement bouton enfoncé n'est pas un survol : il compte aussi.
           onPointerMove: (_) => _chrome.activity(),
           child: ColoredBox(

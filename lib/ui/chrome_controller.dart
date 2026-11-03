@@ -21,6 +21,18 @@ import 'theme/omnia_theme.dart';
 class ChromeController extends Notifier<bool> {
   Timer? _timer;
   bool _autoHide = false;
+
+  /// Vrai quand un simple mouvement de souris réveille les contrôles.
+  ///
+  /// Faux pour un document : on y passe son temps à bouger le pointeur et à
+  /// faire défiler, si bien que la barre ne s'effaçait jamais et mangeait le
+  /// bas de l'écran en permanence. Seul un clic la rappelle alors.
+  bool _pointerWakes = true;
+
+  /// Délai avant effacement. Plus long pour un document, qu'on lit sans rien
+  /// toucher : s'effacer trop vite y serait aussi gênant que ne jamais le
+  /// faire.
+  Duration _delay = OmniaMotion.idleHide;
   final Set<Object> _holds = {};
   final Stopwatch _sinceArm = Stopwatch();
 
@@ -35,8 +47,14 @@ class ChromeController extends Notifier<bool> {
 
   /// Active ou coupe le masquage automatique. Coupé, les contrôles restent
   /// affichés.
-  void setAutoHide(bool enabled) {
+  void setAutoHide(
+    bool enabled, {
+    bool pointerWakes = true,
+    Duration? delay,
+  }) {
     _autoHide = enabled;
+    _pointerWakes = pointerWakes;
+    _delay = delay ?? OmniaMotion.idleHide;
     if (!enabled) {
       _timer?.cancel();
       _timer = null;
@@ -49,10 +67,21 @@ class ChromeController extends Notifier<bool> {
   /// Mouvement ou clic de souris : les contrôles reviennent, et le délai
   /// repart de zéro.
   void activity() {
+    // Un document ne se réveille pas au mouvement : seul [tap] le fait.
+    if (!_pointerWakes) return;
     _show();
     // Un mouvement de souris produit des dizaines d'événements par seconde :
     // le délai n'est relancé qu'une fois toutes les 200 ms.
     if (_timer != null && _sinceArm.elapsedMilliseconds < 200) return;
+    _arm();
+  }
+
+  /// Clic ou toucher : les contrôles reviennent, quel que soit le média.
+  ///
+  /// C'est le seul geste qui les rappelle sur un document, où bouger et faire
+  /// défiler ne comptent pas comme une activité.
+  void tap() {
+    _show();
     _arm();
   }
 
@@ -94,7 +123,7 @@ class ChromeController extends Notifier<bool> {
       ..reset()
       ..start();
     if (!_autoHide || _holds.isNotEmpty) return;
-    _timer = Timer(OmniaMotion.idleHide, _hide);
+    _timer = Timer(_delay, _hide);
   }
 }
 
