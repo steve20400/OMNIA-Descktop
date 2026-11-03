@@ -49,7 +49,9 @@ final commandBusProvider = Provider<PlayerCommandBus>((ref) {
 final windowServiceProvider = Provider<WindowService>((ref) {
   final service = WindowManagerService();
   ref.onDispose(service.dispose);
-  return service;
+  // Bornée : une réponse de la fenêtre qui ne vient jamais bloquait la file
+  // des commandes, et avec elle tout le lecteur.
+  return BoundedWindowService(service);
 });
 
 final systemIntegrationProvider =

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' show Offset, Rect, Size;
@@ -1951,4 +1952,53 @@ void main() {
       // Nettoyé par le système.
     }
   });
+
+  test("une fenêtre muette n'emporte pas les commandes suivantes", () async {
+    // Le défaut corrigé ici : les commandes s'exécutent dans une file
+    // strictement ordonnée, et rien ne bornait leur durée. Un seul appel à la
+    // fenêtre resté sans réponse — ce qui arrive quand le système garde la
+    // main pendant un redimensionnement ou une réduction — emportait toutes
+    // les commandes suivantes. Le lecteur continuait de s'afficher sans plus
+    // rien accepter : ni défilement, ni zoom, ni même sortie du mini-lecteur.
+    final ownBus = PlayerCommandBus();
+    final ownAv = FakeAvController();
+    final ownPlaylist = PlaylistService(bus: ownBus, scanner: FakeFolderScanner(folders));
+    final muet = PlaybackService(
+      bus: ownBus,
+      router: MediaRouter([ownAv]),
+      window: BoundedWindowService(
+        _MuetteSurPleinEcran(),
+        budget: const Duration(milliseconds: 30),
+      ),
+      playlist: ownPlaylist,
+      history: MemoryHistoryStore(),
+    );
+
+    await muet.openPath('/serie/ep1.mkv');
+    ownAv.handled.clear();
+
+    // La fenêtre ne répondra jamais à ce plein écran.
+    ownBus.dispatch(const ToggleFullscreen());
+    // La commande suivante doit arriver quand même.
+    ownBus.dispatch(const TogglePlay());
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(
+      ownAv.handled.whereType<TogglePlay>(),
+      isNotEmpty,
+      reason: 'la file doit survivre à une fenêtre qui se tait',
+    );
+
+    await muet.dispose();
+    await ownPlaylist.dispose();
+    await ownBus.dispose();
+  });
+
+}
+
+
+/// Une fenêtre qui ne répond jamais au plein écran.
+class _MuetteSurPleinEcran extends FakeWindowService {
+  @override
+  Future<void> setFullscreen(bool value) => Completer<void>().future;
 }

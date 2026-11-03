@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../models/window_sizes.dart';
@@ -177,6 +178,119 @@ class WindowManagerService with WindowListener implements WindowService {
     _closeRequests.close();
   }
 }
+
+/// Une fenêtre dont aucun appel ne peut durer indéfiniment.
+///
+/// Les commandes du lecteur s'exécutent dans une file strictement ordonnée :
+/// une seule qui n'aboutit jamais emporte toutes les suivantes. Le lecteur
+/// paraît alors figé alors qu'il continue de s'afficher — plus de défilement,
+/// plus de zoom, plus même de sortie du mini-lecteur — et il ne reste qu'à
+/// tuer l'application.
+///
+/// Les appels qui peuvent ne pas revenir sont ceux qui traversent le canal de
+/// la plateforme pendant que le système tient la fenêtre : un
+/// redimensionnement à la souris, une réduction dans la barre des tâches, le
+/// retour qui suit. Aucun ne demande plus d'un battement quand tout va bien.
+/// Passé le budget, l'appel est abandonné et la file continue : une fenêtre
+/// mal placée se répare d'un geste, un lecteur figé non.
+class BoundedWindowService implements WindowService {
+  BoundedWindowService(this._inner, {this.budget = const Duration(seconds: 2)});
+
+  final WindowService _inner;
+
+  /// Au-delà, la fenêtre est tenue pour muette.
+  final Duration budget;
+
+  /// Dernières réponses obtenues, servies quand la fenêtre se tait : une
+  /// valeur périmée vaut mieux qu'une valeur inventée.
+  Rect _bounds = Rect.zero;
+  bool _fullscreen = false;
+  bool _alwaysOnTop = false;
+  bool _maximized = false;
+
+  Future<void> _run(String what, Future<void> Function() call) async {
+    try {
+      await call().timeout(budget);
+    } on TimeoutException {
+      debugPrint('OMNIA : la fenêtre ne répond pas ($what), appel abandonné');
+    }
+  }
+
+  Future<T> _ask<T>(String what, Future<T> Function() call, T stale) async {
+    try {
+      return await call().timeout(budget);
+    } on TimeoutException {
+      debugPrint('OMNIA : la fenêtre ne répond pas ($what), dernière valeur gardée');
+      return stale;
+    }
+  }
+
+  @override
+  Stream<void> get geometryChanges => _inner.geometryChanges;
+
+  @override
+  Stream<void> get closeRequests => _inner.closeRequests;
+
+  @override
+  Future<bool> isFullscreen() async =>
+      _fullscreen = await _ask('plein écran', _inner.isFullscreen, _fullscreen);
+
+  @override
+  Future<void> setFullscreen(bool value) =>
+      _run('plein écran', () => _inner.setFullscreen(value));
+
+  @override
+  Future<bool> isAlwaysOnTop() async =>
+      _alwaysOnTop = await _ask('au-dessus', _inner.isAlwaysOnTop, _alwaysOnTop);
+
+  @override
+  Future<void> setAlwaysOnTop(bool value) =>
+      _run('au-dessus', () => _inner.setAlwaysOnTop(value));
+
+  @override
+  Future<bool> isMaximized() async =>
+      _maximized = await _ask('agrandie', _inner.isMaximized, _maximized);
+
+  @override
+  Future<void> minimize() => _run('réduction', _inner.minimize);
+
+  @override
+  Future<void> toggleMaximize() => _run('agrandissement', _inner.toggleMaximize);
+
+  @override
+  Future<void> setMaximized(bool value) =>
+      _run('agrandissement', () => _inner.setMaximized(value));
+
+  @override
+  Future<void> close() => _run('fermeture', _inner.close);
+
+  @override
+  Future<void> destroy() => _run('destruction', _inner.destroy);
+
+  @override
+  Future<void> setTitle(String title) =>
+      _run('titre', () => _inner.setTitle(title));
+
+  @override
+  Future<Rect> getBounds() async =>
+      _bounds = await _ask('géométrie', _inner.getBounds, _bounds);
+
+  @override
+  Future<void> setBounds(Rect bounds) =>
+      _run('géométrie', () => _inner.setBounds(bounds));
+
+  @override
+  Future<void> focus() => _run('activation', _inner.focus);
+
+  @override
+  Future<void> setMinimumSize(Size size) =>
+      _run('taille minimale', () => _inner.setMinimumSize(size));
+
+  @override
+  Future<void> setAspectRatio(double ratio) =>
+      _run('verrou de ratio', () => _inner.setAspectRatio(ratio));
+}
+
 
 /// Fenêtre factice pour les tests et les environnements sans plugin.
 class FakeWindowService implements WindowService {
