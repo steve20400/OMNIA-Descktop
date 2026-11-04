@@ -228,6 +228,15 @@ jobs:
         run: |
           tag="v${OMNIA_VERSION}"
           fichiers=("build/installer/OMNIA-Setup-${OMNIA_VERSION}.exe" "build/installer/OMNIA-${OMNIA_VERSION}-Windows-portable.zip")
+          # Empreintes publiées avec les fichiers : c'est ce qui permet de
+          # vérifier qu'un téléchargement est bien celui qui sort d'ici, et
+          # non une copie retouchée en chemin. Un fichier par système, sans
+          # quoi les deux postes se disputeraient le même.
+          ( cd build/installer && sha256sum \
+              "OMNIA-Setup-${OMNIA_VERSION}.exe" \
+              "OMNIA-${OMNIA_VERSION}-Windows-portable.zip" \
+              > SHA256SUMS-windows.txt )
+          fichiers+=("build/installer/SHA256SUMS-windows.txt")
           gh release create "$tag" "${fichiers[@]}" \
             --title "OMNIA Desktop ${OMNIA_VERSION} (build ${{ github.run_number }})" \
             --notes "Application complète de bureau.
@@ -361,7 +370,12 @@ jobs:
         run: |
           tag="v${OMNIA_VERSION}"
           archive="build/paquet/omnia-${OMNIA_VERSION}-linux-x64.tar.gz"
-          gh release create "$tag" "$archive" \
+          # Même raison que du côté Windows : l'empreinte voyage avec
+          # l'archive, et chaque poste publie la sienne.
+          ( cd build/paquet && sha256sum \
+              "omnia-${OMNIA_VERSION}-linux-x64.tar.gz" > SHA256SUMS-linux.txt )
+          somme="build/paquet/SHA256SUMS-linux.txt"
+          gh release create "$tag" "$archive" "$somme" \
             --title "OMNIA Desktop ${OMNIA_VERSION} (build ${{ github.run_number }})" \
             --notes "Application complète de bureau.
 
@@ -373,7 +387,7 @@ jobs:
             # son archive sur la version déjà créée, en réessayant.
             for essai in 1 2 3 4 5; do
               sleep $((essai * 10))
-              gh release upload "$tag" "$archive" --clobber && exit 0
+              gh release upload "$tag" "$archive" "$somme" --clobber && exit 0
             done
             exit 1
           }

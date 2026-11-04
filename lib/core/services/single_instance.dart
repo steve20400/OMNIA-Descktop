@@ -157,6 +157,23 @@ class SingleInstanceService {
 
   /// Devient la première instance : écoute et écrit le fichier de verrou.
   ///
+  /// Réserve le fichier de verrou à son propriétaire.
+  ///
+  /// Il porte le secret qui autorise à faire ouvrir un fichier par OMNIA.
+  /// Sur une machine partagée, il était lisible par tous les comptes : le
+  /// secret se ramassait en lisant un fichier. Sous Windows, le dossier de
+  /// données de l'utilisateur est déjà privé ; ailleurs, on le dit au
+  /// système. Un échec n'est pas fatal — le secret reste vérifié avant toute
+  /// action, et l'application doit démarrer.
+  Future<void> _restrictLockFile() async {
+    if (Platform.isWindows) return;
+    try {
+      await Process.run('chmod', ['600', lockFile.path]);
+    } on Object {
+      // Pas de chmod sur ce système : le verrou reste utilisable.
+    }
+  }
+
   /// [onArguments] est appelé à chaque instance secondaire qui se présente
   /// avec le bon secret.
   Future<void> serve(void Function(List<String> args) onArguments) async {
@@ -173,6 +190,7 @@ class SingleInstanceService {
         'since': (clock?.call() ?? DateTime.now()).toIso8601String(),
       }),
     );
+    await _restrictLockFile();
 
     server.listen((client) => _handleClient(client, onArguments));
   }
