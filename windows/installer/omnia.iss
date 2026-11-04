@@ -64,10 +64,15 @@ french.AudioType=Audio (OMNIA)
 english.AudioType=Audio (OMNIA)
 french.DocumentType=Document (OMNIA)
 english.DocumentType=Document (OMNIA)
+french.FirewallGroup=OMNIA Connect :
+english.FirewallGroup=OMNIA Connect:
+french.FirewallTask=Autoriser OMNIA à recevoir les connexions des appareils du réseau local
+english.FirewallTask=Allow OMNIA to receive connections from devices on the local network
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "associate"; Description: "{cm:AssocTask}"; GroupDescription: "{cm:AssocGroup}"
+Name: "firewall"; Description: "{cm:FirewallTask}"; GroupDescription: "{cm:FirewallGroup}"
 
 [Files]
 Source: "{#BuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -476,4 +481,18 @@ Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\SupportedTypes"; Val
 ; END EXTENSIONS
 
 [Run]
+; Pare-feu : OMNIA Connect ouvre un serveur local que l'appareil d'en face
+; vient joindre. Sans règle, Windows refuse en silence les connexions
+; entrantes sur tout réseau qu'il classe « public » — ce qu'il fait par
+; défaut du point d'accès d'un téléphone, qu'il n'a jamais vu. L'appairage
+; échouait alors sans que rien ne dise pourquoi.
+;
+; L'ancienne règle est retirée d'abord : une mise à niveau en empilerait
+; sinon une par version, toutes vers le même programme.
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""OMNIA Connect"""; Flags: runhidden; Tasks: firewall; Check: IsAdminInstallMode
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""OMNIA Connect"" dir=in action=allow program=""{app}\{#AppExe}"" enable=yes profile=private,public"; Flags: runhidden; Tasks: firewall; Check: IsAdminInstallMode
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+; La règle part avec l'application : rien ne doit rester ouvert après elle.
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""OMNIA Connect"""; Flags: runhidden; RunOnceId: "RetirerRegleParefeu"; Check: IsAdminInstallMode
