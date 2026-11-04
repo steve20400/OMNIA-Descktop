@@ -235,7 +235,17 @@ jobs:
           - **OMNIA-Setup-${OMNIA_VERSION}.exe** : installateur Windows, à préférer.
           - **OMNIA-${OMNIA_VERSION}-Windows-portable.zip** : Windows sans installation, à décompresser puis lancer \`omnia.exe\`.
           - **omnia-${OMNIA_VERSION}-linux-x64.tar.gz** : Linux x64, décompresser puis \`./install.sh\` (ou \`./installer-omnia.sh\` sans droits d'administrateur)." \
-          || { sleep 20; gh release upload "$tag" "${fichiers[@]}" --clobber; }
+          || {
+            # Les deux postes créent la même version en parallèle : celui qui
+            # perd la course y dépose seulement ses fichiers. Un seul essai ne
+            # suffit pas — la version peut être encore en cours de création,
+            # et le dépôt échoue alors sans raison durable.
+            for essai in 1 2 3 4 5; do
+              sleep $((essai * 10))
+              gh release upload "$tag" "${fichiers[@]}" --clobber && exit 0
+            done
+            exit 1
+          }
 
   linux:
     name: Linux (application, lancement réel)
@@ -358,5 +368,13 @@ jobs:
           - **OMNIA-Setup-${OMNIA_VERSION}.exe** : installateur Windows, à préférer.
           - **OMNIA-${OMNIA_VERSION}-Windows-portable.zip** : Windows sans installation, à décompresser puis lancer \`omnia.exe\`.
           - **omnia-${OMNIA_VERSION}-linux-x64.tar.gz** : Linux x64, décompresser puis \`./install.sh\` (ou \`./installer-omnia.sh\` sans droits d'administrateur)." \
-          || { sleep 20; gh release upload "$tag" "$archive" --clobber; }
+          || {
+            # Même course que du côté Windows : celui qui arrive second dépose
+            # son archive sur la version déjà créée, en réessayant.
+            for essai in 1 2 3 4 5; do
+              sleep $((essai * 10))
+              gh release upload "$tag" "$archive" --clobber && exit 0
+            done
+            exit 1
+          }
 
