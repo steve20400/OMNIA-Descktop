@@ -486,8 +486,33 @@ class PlaybackService implements PlaybackStateSink {
     }
   }
 
+  /// Budget d'une commande dans la file.
+  ///
+  /// La file est strictement ordonnée : une commande qui n'aboutit jamais
+  /// emporte toutes les suivantes, et le lecteur paraît figé alors qu'il
+  /// continue de s'afficher. Les appels à la fenêtre sont déjà bornés, mais
+  /// ils ne sont pas les seuls à pouvoir ne pas revenir : un disque plein, un
+  /// fichier verrouillé, un contrôleur qui attend une vue démontée font le
+  /// même effet.
+  ///
+  /// Le budget est large à dessein. Il ne doit jamais couper une commande qui
+  /// travaille vraiment — rapatrier un document projeté peut demander
+  /// plusieurs secondes — et ne sert qu'à empêcher le lecteur de mourir
+  /// debout. Quand il se déclenche, il nomme la commande en cause : une
+  /// panne qu'on ne sait pas nommer est une panne qu'on cherche à l'aveugle.
+  static const Duration commandBudget = Duration(seconds: 60);
+
   void _onCommand(DispatchedCommand dispatched) {
-    _queue = _queue.then((_) => _handle(dispatched.command)).catchError((Object e) {
+    _queue = _queue.then((_) {
+      return _handle(dispatched.command).timeout(
+        commandBudget,
+        onTimeout: () => throw TimeoutException(
+          'la commande ${dispatched.command.runtimeType} '
+          'n\'a pas abouti ; les suivantes repartent sans elle',
+          commandBudget,
+        ),
+      );
+    }).catchError((Object e) {
       update(
         (st) => st.copyWith(
           status: PlaybackStatus.error,
