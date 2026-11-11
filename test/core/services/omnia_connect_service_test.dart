@@ -25,7 +25,10 @@ void main() {
       expect(port, greaterThan(0));
       expect(service.isRunning, isTrue);
       expect(service.sessionToken, isNotNull);
-      expect(service.sessionToken!.length, greaterThanOrEqualTo(16));
+      // Le jeton porte 256 bits. C'est la seule chose qui sépare un appareil
+      // invité d'un inconnu : il doit rester hors de portée d'une recherche
+      // exhaustive, aujourd'hui comme dans dix ans.
+      expect(base64Url.decode(service.sessionToken!).length, 32);
     });
 
     test('génère un payload de couplage valide', () async {
@@ -103,7 +106,12 @@ void main() {
       expect(service.hasConnectedClients, isTrue);
 
       final cmdFuture = service.remoteCommands.first;
-      ws.add(jsonEncode({'type': 'togglePlay', 'payload': {}}));
+      // Avec son enveloppe : version du protocole et numéro d'ordre. Un
+      // message nu est désormais rejeté, c'est ce qui ferme la porte au
+      // rejeu — et c'est vérifié dans connect_message_gate_test.dart.
+      ws.add(
+        const ConnectMessage(type: 'togglePlay').envelope(1),
+      );
 
       final received = await cmdFuture;
       expect(received, isA<TogglePlay>());
