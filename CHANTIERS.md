@@ -68,7 +68,26 @@ contenu ne suive.
 
 - [ ] Pas d'état intermédiaire flou au redimensionnement ni à l'ouverture
 
-### 1.3 — La fermeture n'est pas encore assez rapide 🟡
+### 1.3 — On ne distingue pas les bords de la fenêtre 🟠
+
+La fenêtre n'a pas de cadre dessiné : impossible de voir où elle commence.
+
+> « Lorsque j'essaie de redimensionner une des fenêtres, je n'arrive même pas
+> à savoir où la fenêtre commence, parce que les bordures ne sont pas
+> distinguables. Sur Ubuntu, comme mon fond d'écran est noir, les bordures ne
+> se distinguent même pas du fond d'écran. Je suis obligé de passer
+> l'application au thème clair avant de pouvoir la redimensionner. »
+
+Deux cas cités : deux fenêtres d'OMNIA superposées, et une fenêtre sombre
+sur un fond d'écran sombre.
+
+**Cause** : la barre de titre du système est masquée, donc le système ne
+dessine plus de bord. Rien ne l'a remplacé.
+
+- [ ] Un bord visible, qui tienne sur fond clair comme sur fond sombre, et
+      qui distingue deux fenêtres d'OMNIA l'une de l'autre
+
+### 1.4 — La fermeture n'est pas encore assez rapide 🟡
 
 Déjà améliorée (fermeture bornée), mais la référence est VLC.
 
@@ -253,12 +272,59 @@ destination, sur n'importe lequel des trois modes de liaison.
 
 ---
 
-## 5. Sécurité — décisions en attente
+## 5. Refonte des interfaces — quand tout le reste est réglé
+
+Ne commence **qu'une fois toutes les fonctionnalités en place et tous les
+bugs réglés**. C'est une refonte, pas une retouche, et elle touche les deux
+plateformes.
+
+> « Côté IHM, l'application est nulle. […] Côté back-end, tout ce qui tourne
+> en arrière-plan, je peux dire c'est bon. »
+
+> « Pour un grand public, je ne vois pas en quoi quelqu'un devrait installer
+> ça alors qu'il peut se contenter de VLC. »
+
+**La référence visée, dite explicitement** : l'interface d'accueil d'une
+console — PlayStation, Nintendo — et surtout les façades d'émulateurs, leur
+page de bibliothèque de jeux. L'accueil qu'on parcourt, les vignettes qui
+défilent, le fond personnalisable.
+
+> « Je veux une interface que des gens pourront ouvrir rien que pour la
+> laisser sur leur bureau, parce que je veux quelque chose de beau. »
+
+Priorité : le bureau est « carrément très moche » ; le mobile est moins
+urgent, et sa refonte d'accueil est déjà cadrée en 4.1.
+
+- [ ] Rassembler des références visuelles (façades d'émulateurs, accueils de
+      consoles) avant de dessiner quoi que ce soit
+- [ ] Fond d'écran personnalisable
+- [ ] Bibliothèque parcourable à vignettes, pensée pour être belle à l'arrêt
+- [ ] Refonte page par page, bureau d'abord
+
+---
+
+## 6. Horizon
+
+### 6.1 — Lanceur de jeux PC
+
+Le même soin d'interface, appliqué à une bibliothèque de jeux. OMNIA sert
+d'entraînement : on apprend la façade ici avant de la faire là-bas.
+
+> « J'avais vu l'interface, waouh, ça m'a impressionné. On aurait dit qu'on
+> était sur une PlayStation, et il manipulait même avec les manettes. »
+
+Les projets plus lointains ont leurs propres fichiers :
+[`PROJET-LABORATOIRE-VIRTUEL.md`](PROJET-LABORATOIRE-VIRTUEL.md) et
+[`PROJET-MONDE-GENERE.md`](PROJET-MONDE-GENERE.md).
+
+---
+
+## 7. Sécurité — décisions en attente
 
 Audit du 4 novembre. Les failles faibles et moyennes sont corrigées
 (`ec62097`, `2502901`). Restent :
 
-### 5.1 — Critiques
+### 7.1 — Critiques
 
 - [ ] **Clé de signature Android publiée** dans un dépôt public, avec son
       mot de passe écrit en clair dans `android/app/build.gradle` (valeur de
@@ -271,7 +337,7 @@ Audit du 4 novembre. Les failles faibles et moyennes sont corrigées
 - [ ] **Lecture de n'importe quel fichier** via `/api/stream?path=`
 - [ ] **`openRemoteStream` ouvre n'importe quelle URL** dictée par le client
 
-### 5.2 — Élevées
+### 7.2 — Élevées
 
 - [ ] Tout circule en clair : pas de TLS
 - [ ] `REQUEST_INSTALL_PACKAGES` et `MANAGE_EXTERNAL_STORAGE` à justifier ou
@@ -281,7 +347,7 @@ Audit du 4 novembre. Les failles faibles et moyennes sont corrigées
 - [ ] `usesCleartextTraffic="true"`, aucun `networkSecurityConfig`
 - [ ] Aucune minification ni obfuscation
 
-### 5.3 — Licence des binaires
+### 7.3 — Licence des binaires
 
 Vérifié le 4 novembre. Côté Windows, OMNIA embarque
 `mpv-dev-x86_64-20230924-git-652a1dd.7z`, et non le paquet `mpv-dev-lgpl-*`
