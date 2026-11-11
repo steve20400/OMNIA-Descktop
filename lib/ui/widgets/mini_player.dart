@@ -308,7 +308,10 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             // qui ne demande aucun focus, continuait de défiler. D'où une
             // fenêtre qui semblait figée sans l'être.
             if (!_focus.hasFocus) _focus.requestFocus();
-            _chrome.activity();
+            // Un clic rappelle les commandes quel que soit le média. Avec
+            // [activity], un document ne les récupérait jamais : le réveil au
+            // mouvement y est coupé, et c'était le seul geste tenté ici.
+            _chrome.tap();
           },
           onPointerMove: (_) => _chrome.activity(),
           child: ColoredBox(

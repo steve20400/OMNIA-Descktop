@@ -102,9 +102,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   static bool _autoHideFor(PlaybackState s) {
     if (!s.hasFile || s.status == PlaybackStatus.error) return false;
     // Un document s'efface aussi en fenêtre : on le lit longtemps sans rien
-    // toucher, et la barre y restait en permanence. Une image non : on la
-    // regarde d'un coup, et ses commandes servent tout de suite.
-    if (s.isDocument) return true;
+    // toucher, et la barre y restait en permanence.
+    //
+    // Mais jamais dans le mini-lecteur. Ses commandes sont tout ce qu'il a —
+    // fermer, épingler, zoomer — et une fenêtre de cette taille n'a pas la
+    // place de les faire revenir autrement. Elles s'effaçaient au bout de
+    // cinq secondes et plus rien ne les rappelait.
+    //
+    // Une image non plus : on la regarde d'un coup, et ses commandes servent
+    // tout de suite.
+    if (s.isDocument) return !s.miniPlayer;
     if (s.mediaType == MediaType.image) return s.fullscreen;
     if (!s.mediaType.isAv || s.status != PlaybackStatus.playing) return false;
     return s.hasVideo || s.fullscreen;
@@ -128,7 +135,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   static ({bool enabled, bool document}) _autoHideMode(PlaybackState s) =>
-      (enabled: _autoHideFor(s), document: s.isDocument);
+      (enabled: _autoHideFor(s), document: s.isDocument && !s.miniPlayer);
 
   /// Molette au-dessus du média : crans de volume regroupés.
   final WheelSteps _volumeWheel = WheelSteps();
@@ -284,7 +291,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     // Contrôles masqués : le pointeur s'efface aussi, au-dessus du média
     // seulement (la barre de titre et le panneau le gardent).
-    final hideCursor = !chromeVisible;
+    //
+    // Sauf sur un document : on le lit en pointant, et c'est le pointeur qui
+    // sert à viser un lien, sélectionner un mot, attraper le bord de la
+    // fenêtre. Il s'effaçait avec la barre, et on manipulait la fenêtre sans
+    // voir où l'on pointait. Seule la barre devait disparaître.
+    final isDocument = ref.watch(
+      playbackStateProvider.select((s) => s.isDocument),
+    );
+    final hideCursor = !chromeVisible && !isDocument;
     // Fenêtre étroite ou plein écran : le panneau se pose en tiroir sur la
     // scène, qui garde toute sa largeur. Sinon il s'ancre à côté d'elle.
     final drawer = panelIsDrawer(
