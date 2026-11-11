@@ -40,6 +40,7 @@ import '../widgets/stage.dart';
 import '../widgets/stage_context_menu.dart';
 import '../widgets/title_bar.dart';
 import '../widgets/tool_panels.dart';
+import '../widgets/window_edge_outline.dart';
 import '../widgets/window_resize_edges.dart';
 
 /// Écran unique d'OMNIA : barre de titre, panneau de dossier, scène,
@@ -521,7 +522,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   ///
   /// Toujours le même widget, plein écran ou non (bords simplement
   /// désactivés) : changer de type démonterait tout l'écran, vidéo comprise.
-  Widget _resizable(Widget child, {required bool enabled}) =>
-      WindowResizeEdges(enabled: enabled, child: child);
+  /// Le bord dessiné accompagne les bandes de redimensionnement : l'un dit où
+  /// la fenêtre s'arrête, l'autre permet de l'y attraper.
+  Widget _resizable(Widget child, {required bool enabled}) => WindowResizeEdges(
+        enabled: enabled,
+        child: WindowEdgeOutline(enabled: enabled, child: child),
+      );
 
 }

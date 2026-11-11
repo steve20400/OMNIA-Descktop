@@ -16,6 +16,7 @@ class OmniaColors extends ThemeExtension<OmniaColors> {
     required this.dust,
     required this.alert,
     required this.overlayScrim,
+    required this.windowEdge,
   });
 
   /// Fond principal.
@@ -45,6 +46,15 @@ class OmniaColors extends ThemeExtension<OmniaColors> {
   /// Voile posé sur le contenu (dépôt de fichier, chargement).
   final Color overlayScrim;
 
+  /// Trait du bord de la fenêtre.
+  ///
+  /// Il doit se voir contre deux choses à la fois : le fond de l'application
+  /// juste derrière lui, et le bureau de l'utilisateur juste devant — qui
+  /// peut être aussi sombre que l'application elle-même. D'où un ton franc,
+  /// pris à l'écart des deux, et non un simple éclaircissement du fond comme
+  /// [seam], qui disparaît sur un bureau noir.
+  final Color windowEdge;
+
   /// Surface flottante translucide (à combiner avec un flou d'arrière-plan).
   Color get overlay => curtain.withValues(alpha: 0.78);
 
@@ -63,6 +73,7 @@ class OmniaColors extends ThemeExtension<OmniaColors> {
     dust: Color(0xFF9C9199),
     alert: Color(0xFFE0573C),
     overlayScrim: Color(0xB3120F14),
+    windowEdge: Color(0xFF8A8189),
   );
 
   /// Thème clair — secondaire.
@@ -76,6 +87,7 @@ class OmniaColors extends ThemeExtension<OmniaColors> {
     dust: Color(0xFF6E6469),
     alert: Color(0xFFC94B33),
     overlayScrim: Color(0xB3F6F1EA),
+    windowEdge: Color(0xFFB3A99D),
   );
 
   @override
@@ -89,6 +101,7 @@ class OmniaColors extends ThemeExtension<OmniaColors> {
     Color? dust,
     Color? alert,
     Color? overlayScrim,
+    Color? windowEdge,
   }) {
     return OmniaColors(
       velvet: velvet ?? this.velvet,
@@ -100,6 +113,7 @@ class OmniaColors extends ThemeExtension<OmniaColors> {
       dust: dust ?? this.dust,
       alert: alert ?? this.alert,
       overlayScrim: overlayScrim ?? this.overlayScrim,
+      windowEdge: windowEdge ?? this.windowEdge,
     );
   }
 
@@ -116,6 +130,7 @@ class OmniaColors extends ThemeExtension<OmniaColors> {
       dust: Color.lerp(dust, other.dust, t)!,
       alert: Color.lerp(alert, other.alert, t)!,
       overlayScrim: Color.lerp(overlayScrim, other.overlayScrim, t)!,
+      windowEdge: Color.lerp(windowEdge, other.windowEdge, t)!,
     );
   }
 }
