@@ -297,9 +297,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     // sert à viser un lien, sélectionner un mot, attraper le bord de la
     // fenêtre. Il s'effaçait avec la barre, et on manipulait la fenêtre sans
     // voir où l'on pointait. Seule la barre devait disparaître.
-    final isDocument = ref.watch(
-      playbackStateProvider.select((s) => s.isDocument),
-    );
     final hideCursor = !chromeVisible && !isDocument;
     // Fenêtre étroite ou plein écran : le panneau se pose en tiroir sur la
     // scène, qui garde toute sa largeur. Sinon il s'ancre à côté d'elle.
