@@ -367,16 +367,69 @@ ANDROID_MIPMAPS = (
     ('mdpi', 48), ('hdpi', 72), ('xhdpi', 96), ('xxhdpi', 144), ('xxxhdpi', 192),
 )
 
-# L'avant-plan d'une icône adaptative : 108 dp de toile pour 72 dp de zone
-# sûre. Tout ce qui déborde de ce centre peut être rogné par le masque du
-# lanceur, qui n'est pas le même d'un téléphone à l'autre.
+# L'avant-plan d'une icône adaptative : 108 dp de toile, dont le lanceur ne
+# garantit qu'un disque de 66 dp au centre — son masque peut être un cercle,
+# et un cercle rogne les coins d'un carré. Le dessin a deux coins occupés (le
+# haut du moniteur, le bas du téléphone) : il est rendu assez petit pour que
+# ces coins tiennent dans le disque, soit 60 dp de côté.
 ADAPTIVE_CANVAS = 432
-ADAPTIVE_SAFE = 288
+ADAPTIVE_SAFE = 240
+
+# La plaque d'Android.
+#
+# Une icône adaptative est faite de deux couches que le lanceur découpe à sa
+# forme. Là où les deux sont transparentes, il ne montre pas le fond d'écran :
+# il peint du noir. Rendre le fond transparent ne donnait donc pas « pas de
+# fond », mais un fond noir — Android impose une plaque, et l'on n'en choisit
+# que la couleur.
+#
+# Elle est claire, du blanc chaud de la palette. Et comme le cadre blanc du
+# moniteur y disparaîtrait, le dessin posé dessus prend un cadre prune.
+PLATE = WHITE
+FRAME_ON_PLATE = (0x3A, 0x31, 0x42)
 
 
-def centred(inner_size, canvas_size):
+def on_plate(layers):
+    """Le dessin recoloré pour la plaque claire : cadre, pied et socle en prune.
+
+    La lampe reste blanche : elle est sur l'écran sombre du moniteur, pas sur
+    la plaque.
+    """
+    out = []
+    for shape, paint in layers:
+        if not callable(paint) and paint[0] == WHITE and not isinstance(shape, Circle):
+            paint = (FRAME_ON_PLATE, paint[1])
+        out.append((shape, paint))
+    return out
+
+
+def plated(size, inner_size):
+    """L'icône d'avant Android 8 : le dessin sur une plaque aux coins ronds.
+
+    Ces lanceurs montrent le PNG tel quel. La plaque y est donc peinte, pour
+    que l'icône soit la même d'une version d'Android à l'autre.
+    """
+    plate = render(size, [(RoundRect(0, 0, 256, 256, 56), (PLATE, 1.0))])
+    drawing = centred(inner_size, size, layers=on_plate(FULL))
+    rows = []
+    for back, front in zip(plate, drawing):
+        line = bytearray()
+        for i in range(0, len(back), 4):
+            a = front[i + 3] / 255
+            line += bytes((
+                round(front[i] * a + back[i] * (1 - a)),
+                round(front[i + 1] * a + back[i + 1] * (1 - a)),
+                round(front[i + 2] * a + back[i + 2] * (1 - a)),
+                # La plaque porte l'opacité : ses coins ronds restent lissés.
+                max(back[i + 3], front[i + 3]),
+            ))
+        rows.append(bytes(line))
+    return rows
+
+
+def centred(inner_size, canvas_size, layers=None):
     """Le dessin rendu à [inner_size], centré dans une toile transparente."""
-    inner = render(inner_size)
+    inner = render(inner_size, layers)
     pad = (canvas_size - inner_size) // 2
     right = canvas_size - pad - inner_size
     rows = []
@@ -394,22 +447,28 @@ def centred(inner_size, canvas_size):
 def write_android(out):
     """Écrit les ressources d'icône d'Android sous [out] (le dossier res).
 
-    Les cinq densités pour les lanceurs d'avant Android 8, et l'avant-plan de
-    l'icône adaptative pour les suivants. Le fond adaptatif, lui, est une
-    couleur déclarée dans les ressources : il reste transparent.
+    Les cinq densités pour les lanceurs d'avant Android 8, plaque comprise,
+    et l'avant-plan de l'icône adaptative pour les suivants. Le fond
+    adaptatif est une couleur déclarée dans les ressources
+    (`ic_launcher_background`) : elle doit valoir [PLATE], et surtout ne
+    jamais être transparente.
     """
     for name, size in ANDROID_MIPMAPS:
         folder = os.path.join(out, 'mipmap-' + name)
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, 'ic_launcher.png'), 'wb') as f:
-            f.write(png(size, render(size)))
+            f.write(png(size, plated(size, round(size * 0.78))))
         print('  mipmap-%s : %d px' % (name, size))
     folder = os.path.join(out, 'drawable')
     os.makedirs(folder, exist_ok=True)
     with open(os.path.join(folder, 'ic_launcher_foreground.png'), 'wb') as f:
-        f.write(png(ADAPTIVE_CANVAS, centred(ADAPTIVE_SAFE, ADAPTIVE_CANVAS)))
+        f.write(png(
+            ADAPTIVE_CANVAS,
+            centred(ADAPTIVE_SAFE, ADAPTIVE_CANVAS, layers=on_plate(FULL)),
+        ))
     print('  avant-plan adaptatif : %d px (dessin à %d)'
           % (ADAPTIVE_CANVAS, ADAPTIVE_SAFE))
+    print('  fond adaptatif attendu : #%02X%02X%02X' % PLATE)
 
 
 def main():
