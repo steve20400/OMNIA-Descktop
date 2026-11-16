@@ -87,12 +87,13 @@ class Stage extends ConsumerWidget {
             duration: OmniaMotion.stage,
             switchInCurve: OmniaMotion.stageCurve,
             switchOutCurve: OmniaMotion.concealCurve,
+            // Un fondu, sans changement d'échelle. Le média entrait à 98,5 %
+            // de sa taille : le temps de la transition, une page de texte ou
+            // une image étaient rééchantillonnées, donc molles — on ouvrait
+            // un fichier et la fenêtre commençait par être floue.
             transitionBuilder: (child, animation) => FadeTransition(
               opacity: animation,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.985, end: 1).animate(animation),
-                child: child,
-              ),
+              child: child,
             ),
             child: content,
           ),
