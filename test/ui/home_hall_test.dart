@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omnia/core/commands/player_command.dart';
 import 'package:omnia/core/models/app_preferences.dart';
 import 'package:omnia/core/models/history_entry.dart';
+import 'package:omnia/core/models/media_file.dart';
 import 'package:omnia/core/models/media_type.dart';
+import 'package:omnia/ui/home/hall_library.dart';
 import 'package:omnia/ui/home/hall_model.dart';
 import 'package:omnia/ui/home/home_hall.dart';
 import 'package:omnia/ui/recent_files.dart';
@@ -79,9 +81,13 @@ Future<LeafHarness> _mount(
   WidgetTester tester, {
   bool withRecents = true,
   Size size = const Size(1200, 760),
+  List<MediaFile> library = const [],
 }) async {
   final harness = LeafHarness(
-    overrides: [if (withRecents) recentFilesProvider.overrideWith(_Recents.new)],
+    overrides: [
+      if (withRecents) recentFilesProvider.overrideWith(_Recents.new),
+      userLibraryProvider.overrideWith((ref) async => library),
+    ],
   );
   harness.attach(tester);
   tester.view.physicalSize = size;
@@ -167,6 +173,32 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(HallPoster), findsNothing);
       expect(find.text('Rien dans ce rayon'), findsOneWidget);
+    });
+
+    testWidgets('les rayons montrent aussi les dossiers personnels, sans doublon', (tester) async {
+      await _mount(
+        tester,
+        library: [
+          MediaFile(path: '/videos/Nouveau film.mkv', type: MediaType.video, modifiedAt: DateTime(2026, 11, 10)),
+          // Déjà ouvert : il reste à sa place parmi les récents, une seule fois.
+          MediaFile(path: '/films/Dune.Part.Two.2024.mkv', type: MediaType.video, modifiedAt: DateTime(2026, 11, 9)),
+          MediaFile(path: '/images/plage.jpg', type: MediaType.image, modifiedAt: DateTime(2026, 11, 8)),
+        ],
+      );
+
+      // « Tout » est presque vide : les dossiers le complètent.
+      expect(find.text('Nouveau film'), findsOneWidget);
+
+      await tester.tap(find.text('Vidéos'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HallPoster), findsNWidgets(3));
+
+      await tester.tap(find.text('Images'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HallPoster), findsOneWidget);
+      expect(find.text('plage'), findsNWidgets(2));
+      // Jamais ouvert : rien à reprendre, on l'ouvre.
+      expect(find.widgetWithText(OmniaButton, 'Ouvrir'), findsOneWidget);
     });
 
     testWidgets('hall vide : la bienvenue, et la place des premières affiches', (tester) async {
@@ -265,6 +297,14 @@ void main() {
       final relue = AppPreferences.fromJson({'hallBackground': 'hologramme'});
       expect(relue.hallBackground, HallBackground.artwork);
       expect(relue.hallWallpaper, isEmpty);
+      expect(relue.hallShowsLibrary, isTrue);
+    });
+
+    test('les dossiers personnels se retirent de l’accueil, et le restent', () {
+      final relue = AppPreferences.fromJson(
+        const AppPreferences(hallShowsLibrary: false).toJson(),
+      );
+      expect(relue.hallShowsLibrary, isFalse);
     });
   });
 }

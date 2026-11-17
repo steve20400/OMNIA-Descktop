@@ -141,6 +141,7 @@ class AppPreferences {
     this.mobilePromoSnoozeUntil,
     this.hallBackground = HallBackground.artwork,
     this.hallWallpaper = '',
+    this.hallShowsLibrary = true,
   });
 
   static const AppPreferences defaults = AppPreferences();
@@ -259,6 +260,11 @@ class AppPreferences {
   final HallBackground hallBackground;
   final String hallWallpaper;
 
+  /// Les rayons de l'accueil montrent aussi les médias des dossiers
+  /// personnels (Vidéos, Musique, Images, Documents), pas seulement ceux
+  /// déjà ouverts.
+  final bool hallShowsLibrary;
+
   /// Vrai si les ouvertures depuis l'application doivent créer une nouvelle fenêtre.
   bool get inAppOpenNewWindow => inAppOpenTarget == InAppOpenTarget.newWindow;
 
@@ -302,6 +308,7 @@ class AppPreferences {
     DateTime? mobilePromoSnoozeUntil,
     HallBackground? hallBackground,
     String? hallWallpaper,
+    bool? hallShowsLibrary,
   }) {
     return AppPreferences(
       language: language ?? this.language,
@@ -345,6 +352,7 @@ class AppPreferences {
       mobilePromoSnoozeUntil: mobilePromoSnoozeUntil ?? this.mobilePromoSnoozeUntil,
       hallBackground: hallBackground ?? this.hallBackground,
       hallWallpaper: (hallWallpaper ?? this.hallWallpaper).trim(),
+      hallShowsLibrary: hallShowsLibrary ?? this.hallShowsLibrary,
     );
   }
 
@@ -425,6 +433,7 @@ class AppPreferences {
         'mobilePromoSnoozeUntil': mobilePromoSnoozeUntil?.toIso8601String(),
         'hallBackground': hallBackground.name,
         'hallWallpaper': hallWallpaper,
+        'hallShowsLibrary': hallShowsLibrary,
       };
 
   /// Relecture tolérante : une valeur absente, d'un mauvais type ou hors bornes
@@ -497,6 +506,7 @@ class AppPreferences {
       hallWallpaper: json['hallWallpaper'] is String
           ? json['hallWallpaper']! as String
           : d.hallWallpaper,
+      hallShowsLibrary: bool0('hallShowsLibrary', d.hallShowsLibrary),
     );
   }
 

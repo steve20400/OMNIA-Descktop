@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/commands/player_command.dart';
 import '../../core/controllers/media_router.dart';
+import '../../core/models/history_entry.dart';
+import '../../core/models/media_file.dart';
 import '../../core/models/media_type.dart';
 import '../../core/providers.dart';
 import '../file_dialogs.dart';
 import '../recent_files.dart';
+import 'hall_library.dart';
 
 /// Les rayons de l'accueil : tout, ou un seul type de média.
 enum HallCategory {
@@ -71,12 +74,54 @@ class HallController extends Notifier<HallState> {
   }
 }
 
-/// Les fichiers récents que montre le rayon [category], du plus récent au
-/// plus ancien.
-List<RecentFile> hallItems(List<RecentFile> recents, HallCategory category) => [
-      for (final recent in recents)
-        if (category.accepts(MediaRouter.typeForPath(recent.path))) recent,
-    ];
+/// Sous ce nombre d'affiches, le rayon « Tout » se complète avec les
+/// médias des dossiers personnels : un premier lancement n'ouvre pas sur un
+/// hall vide.
+const int hallAllMinimum = 12;
+
+/// Médias des dossiers personnels montrés au plus dans un rayon.
+const int hallShelfMaximum = 60;
+
+/// Ce que montre le rayon [category] : d'abord les médias déjà ouverts, du
+/// plus récent au plus ancien, puis ceux des dossiers personnels
+/// ([library]) qui n'y sont pas encore.
+///
+/// « Tout » reste l'accueil de ce qu'on a regardé ; les dossiers ne le
+/// complètent que s'il est presque vide. Les autres rayons montrent aussi
+/// le reste de la bibliothèque.
+List<RecentFile> hallItems(
+  List<RecentFile> recents,
+  HallCategory category, {
+  List<MediaFile> library = const [],
+}) {
+  final items = <RecentFile>[
+    for (final recent in recents)
+      if (category.accepts(MediaRouter.typeForPath(recent.path))) recent,
+  ];
+  final shown = {for (final item in items) item.path};
+  final room = category == HallCategory.all
+      ? hallAllMinimum - items.length
+      : hallShelfMaximum;
+  var added = 0;
+  for (final file in library) {
+    if (added >= room) break;
+    if (!category.accepts(file.type) || shown.contains(file.path)) continue;
+    items.add(
+      RecentFile(
+        entry: HistoryEntry(
+          path: file.path,
+          position: Duration.zero,
+          duration: Duration.zero,
+          lastOpened: file.modifiedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+        exists: true,
+      ),
+    );
+    shown.add(file.path);
+    added++;
+  }
+  return items;
+}
 
 /// L'affiche sélectionnée, ramenée dans les bornes du rayon ; `null` s'il est
 /// vide.
@@ -110,7 +155,11 @@ bool handleHallKey(KeyEvent event, WidgetRef ref) {
     return false;
   }
   final hall = ref.read(hallProvider);
-  final items = hallItems(ref.read(recentFilesProvider), hall.category);
+  final items = hallItems(
+    ref.read(recentFilesProvider),
+    hall.category,
+    library: ref.read(userLibraryProvider).valueOrNull ?? const [],
+  );
   if (items.isEmpty) return false;
   final controller = ref.read(hallProvider.notifier);
   final key = event.logicalKey;

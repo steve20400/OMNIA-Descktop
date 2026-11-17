@@ -10,6 +10,7 @@ import '../../core/commands/player_command.dart';
 import '../../core/controllers/media_router.dart';
 import '../../core/models/app_preferences.dart';
 import '../../core/models/history_entry.dart';
+import '../../core/models/media_file.dart';
 import '../../core/models/media_type.dart';
 import '../../core/providers.dart';
 import '../../l10n/app_localizations.dart';
@@ -21,6 +22,7 @@ import '../theme/omnia_theme.dart';
 import '../widgets/mobile_promo_banner.dart';
 import '../widgets/omnia_button.dart';
 import 'hall_artwork.dart';
+import 'hall_library.dart';
 import 'hall_model.dart';
 
 /// L'accueil d'OMNIA : le hall du cinéma.
@@ -57,6 +59,13 @@ class _HomeHallState extends ConsumerState<HomeHall> {
   void initState() {
     super.initState();
     _scheduleClock();
+    // De retour à l'accueil, les dossiers personnels sont relus : un film
+    // téléchargé entre-temps y a sa place. Après l'image, pour ne rien
+    // changer pendant la construction ; l'ancienne liste reste affichée le
+    // temps du nouveau parcours.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.invalidate(userLibraryProvider);
+    });
   }
 
   /// L'heure change à la minute pile, pas une minute après l'ouverture.
@@ -106,7 +115,8 @@ class _HomeHallState extends ConsumerState<HomeHall> {
   Widget build(BuildContext context) {
     final recents = ref.watch(recentFilesProvider);
     final hall = ref.watch(hallProvider);
-    final items = hallItems(recents, hall.category);
+    final library = ref.watch(userLibraryProvider).valueOrNull ?? const <MediaFile>[];
+    final items = hallItems(recents, hall.category, library: library);
     final selected = hallSelection(items, hall);
     final prefs = ref.watch(
       preferencesProvider.select((p) => (background: p.hallBackground, wallpaper: p.hallWallpaper)),
@@ -639,9 +649,11 @@ class _HallRibbon extends ConsumerWidget {
     if (count == 0) return SizedBox(height: posterHeight);
     final controllerRef = ref.read(hallProvider.notifier);
 
+    // Place pour l'affiche, son nom — à la taille de texte du système — et
+    // les marges de la bande.
+    final nameHeight = MediaQuery.textScalerOf(context).scale(18);
     return SizedBox(
-      // Place pour l'affiche agrandie, son halo et son nom.
-      height: posterHeight + 56,
+      height: posterHeight + nameHeight + OmniaMetrics.space2 + 2 * OmniaMetrics.space2 + 6,
       child: ListView.separated(
         controller: controller,
         scrollDirection: Axis.horizontal,
@@ -730,64 +742,74 @@ class _HallPosterState extends State<HallPoster> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AnimatedScale(
-              scale: selected ? 1 : 0.9,
-              alignment: Alignment.bottomCenter,
-              duration: OmniaMotion.reveal,
-              curve: OmniaMotion.revealCurve,
-              child: AnimatedContainer(
+            // La hauteur est fixée, jamais animée : quand la fenêtre change de
+            // taille, une hauteur qui glisse vers la nouvelle dépasserait de
+            // la bande le temps de l'animation. Seuls le bord et le halo
+            // s'animent.
+            SizedBox(
+              height: widget.height,
+              child: AnimatedScale(
+                scale: selected ? 1 : 0.9,
+                alignment: Alignment.bottomCenter,
                 duration: OmniaMotion.reveal,
                 curve: OmniaMotion.revealCurve,
-                height: widget.height,
-                decoration: BoxDecoration(
-                  borderRadius: OmniaMetrics.overlayRadius,
-                  border: Border.all(
-                    color: selected ? colors.projector : colors.seam,
-                    width: selected ? 2 : 1,
-                  ),
-                  boxShadow: [
-                    if (selected)
-                      BoxShadow(
-                        color: colors.projector.withValues(alpha: 0.38),
-                        blurRadius: 26,
-                        spreadRadius: 1,
-                      ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
+                child: AnimatedContainer(
+                  duration: OmniaMotion.reveal,
+                  curve: OmniaMotion.revealCurve,
+                  decoration: BoxDecoration(
+                    borderRadius: OmniaMetrics.overlayRadius,
+                    border: Border.all(
+                      color: selected ? colors.projector : colors.seam,
+                      width: selected ? 2 : 1,
                     ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(OmniaMetrics.radiusLarge - 1)),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Opacity(
-                        opacity: recent.exists ? 1 : 0.35,
-                        child: HallArtwork(path: recent.path, exists: recent.exists),
-                      ),
-                      if (fraction > 0)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: _PosterBeam(fraction: fraction),
+                    boxShadow: [
+                      if (selected)
+                        BoxShadow(
+                          color: colors.projector.withValues(alpha: 0.38),
+                          blurRadius: 26,
+                          spreadRadius: 1,
                         ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
                     ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.all(Radius.circular(OmniaMetrics.radiusLarge - 1)),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Opacity(
+                          opacity: recent.exists ? 1 : 0.35,
+                          child: HallArtwork(path: recent.path, exists: recent.exists),
+                        ),
+                        if (fraction > 0)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: _PosterBeam(fraction: fraction),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: OmniaMetrics.space2),
-            Text(
-              hallTitleFor(recent.path),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: type.secondary.copyWith(
-                color: selected ? colors.screen : colors.dust,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            // Souple : si la place manque (texte agrandi dans le système), le
+            // nom est rogné au lieu de déborder de la bande.
+            Flexible(
+              child: Text(
+                hallTitleFor(recent.path),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: type.secondary.copyWith(
+                  color: selected ? colors.screen : colors.dust,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
               ),
             ),
           ],

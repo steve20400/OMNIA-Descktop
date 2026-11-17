@@ -572,6 +572,18 @@ class _GeneralSection extends ConsumerWidget {
         ],
         const SettingDivider(),
         SettingRow(
+          title: 'Fichiers de vos dossiers',
+          hint: 'Les vidéos, la musique, les images et les documents de votre '
+              'dossier personnel complètent les rayons de l’accueil. Rien ne '
+              'quitte l’ordinateur.',
+          control: OmniaSwitch(
+            label: 'Fichiers de vos dossiers',
+            value: p.hallShowsLibrary,
+            onChanged: (v) => ref.change((p) => p.copyWith(hallShowsLibrary: v)),
+          ),
+        ),
+        const SettingDivider(),
+        SettingRow(
           title: l10n.endModeLabel,
           hint: l10n.settingsEndModeHint,
           control: OmniaSegmented<EndOfPlaybackMode>(
