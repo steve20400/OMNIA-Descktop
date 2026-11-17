@@ -190,10 +190,10 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
     });
 
     final service = ref.read(omniaConnectServiceProvider);
-    final success = await service.client.connect(
-      host: target.host,
-      port: target.port,
-      token: target.token,
+    // Toutes les adresses annoncées, comme côté téléphone : celle qui joint
+    // l'autre appareil dépend de la façon dont les deux sont reliés.
+    final success = await service.client.connectAny(
+      target,
       name: 'OMNIA Desktop Client',
     );
 
@@ -201,8 +201,14 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
       setState(() {
         _isConnectingClient = false;
         if (!success) {
+          // Chaque adresse avec sa cause : un pare-feu qui se tait, un port
+          // fermé et un code périmé ne se règlent pas de la même façon.
+          final essayees = service.client.lastFailures.entries
+              .map((e) => '${e.key} (${e.value.reason})')
+              .join(', ');
           _clientError =
-              'Impossible de joindre ${target.host}:${target.port}. '
+              'Impossible de joindre l\'autre appareil sur le port '
+              '${target.port}. Adresses essayées : $essayees. '
               'Vérifiez que les deux appareils sont sur le même réseau et que '
               'OMNIA Connect est ouvert sur l\'autre appareil.';
         }
