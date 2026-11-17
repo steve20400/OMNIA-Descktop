@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,7 +103,7 @@ class HallArtwork extends ConsumerWidget {
               fit: fit,
               gaplessPlayback: true,
               filterQuality: FilterQuality.medium,
-              errorBuilder: (_, __, ___) => blank,
+              errorBuilder: (_, _, _) => blank,
             ),
           _ => blank,
         };
@@ -113,7 +114,7 @@ class HallArtwork extends ConsumerWidget {
           fit: fit,
           gaplessPlayback: true,
           filterQuality: FilterQuality.medium,
-          errorBuilder: (_, __, ___) => blank,
+          errorBuilder: (_, _, _) => blank,
         ),
       MediaType.video => fromBytes(ref.watch(_videoFrameProvider(path))),
       MediaType.audio => fromBytes(ref.watch(_audioCoverProvider(path))),

@@ -15,10 +15,10 @@ import 'package:path/path.dart' as p;
 /// disque : une affiche ne se calcule qu'une fois par fichier.
 class VideoFrameGrabber {
   VideoFrameGrabber({
-    Future<Directory?> Function()? cacheDirectory,
+    this.cacheDirectory,
     this.enabled = true,
     this.timeout = const Duration(seconds: 15),
-  }) : _cacheDirectory = cacheDirectory;
+  });
 
   /// Faux sous les tests d'interface : libmpv n'y est pas chargé, et rien ne
   /// doit tenter de l'ouvrir.
@@ -28,7 +28,8 @@ class VideoFrameGrabber {
   /// absente, réseau qui ne répond pas).
   final Duration timeout;
 
-  final Future<Directory?> Function()? _cacheDirectory;
+  /// Dossier où les affiches sont gardées ; `null`, aucun cache.
+  final Future<Directory?> Function()? cacheDirectory;
 
   /// File d'attente : une extraction à la fois.
   Future<void> _queue = Future<void>.value();
@@ -76,7 +77,7 @@ class VideoFrameGrabber {
   /// de la date de modification, si bien qu'une vidéo remplacée reçoit une
   /// nouvelle affiche.
   Future<File?> _cacheFileFor(File file) async {
-    final directory = await _cacheDirectory?.call();
+    final directory = await cacheDirectory?.call();
     if (directory == null) return null;
     final FileStat stat;
     try {
