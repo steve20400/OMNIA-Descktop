@@ -31,17 +31,33 @@ class VideoFrameGrabber {
   /// Dossier où les affiches sont gardées ; `null`, aucun cache.
   final Future<Directory?> Function()? cacheDirectory;
 
-  /// File d'attente : une extraction à la fois.
-  Future<void> _queue = Future<void>.value();
-  final Map<String, Future<Uint8List?>> _pending = {};
+  /// Extractions demandées et pas encore commencées. La plus récente passe
+  /// en premier : c'est celle qui est à l'écran, quand on fait défiler un
+  /// long dossier.
+  final List<_Request> _waiting = [];
+  bool _working = false;
+
+  /// Affiches déjà rendues, ou en cours : chaque fichier ne se calcule
+  /// qu'une fois par session.
+  final Map<String, Future<Uint8List?>> _results = {};
 
   /// L'affiche de [path], ou `null` quand il n'y en a pas.
   Future<Uint8List?> frameOf(String path) {
     if (!enabled) return Future<Uint8List?>.value();
-    return _pending[path] ??= _cachedOrGrab(path);
+    return _results[path] ??= _load(path);
   }
 
-  Future<Uint8List?> _cachedOrGrab(String path) async {
+  /// Renonce à l'affiche de [path] si son extraction n'a pas commencé : la
+  /// vignette qui la demandait a quitté l'écran. Elle sera redemandée si
+  /// elle y revient.
+  void cancel(String path) {
+    final index = _waiting.indexWhere((r) => r.path == path);
+    if (index < 0) return;
+    final request = _waiting.removeAt(index)..cancelled = true;
+    request.done.complete(null);
+  }
+
+  Future<Uint8List?> _load(String path) async {
     final file = File(path);
     if (!file.existsSync()) return null;
     final cached = await _cacheFileFor(file);
@@ -53,23 +69,43 @@ class VideoFrameGrabber {
       }
     }
 
-    final turn = Completer<void>();
-    final previous = _queue;
-    _queue = turn.future;
-    await previous;
-    try {
-      final bytes = await grab(path, timeout: timeout);
-      if (bytes != null && cached != null) {
-        try {
-          await cached.parent.create(recursive: true);
-          await cached.writeAsBytes(bytes, flush: true);
-        } on FileSystemException {
-          // Pas de cache : l'image sera refaite la prochaine fois.
-        }
+    final request = _Request(path);
+    _waiting.add(request);
+    unawaited(_work());
+    final bytes = await request.done.future;
+    if (request.cancelled) {
+      // Pas de résultat à garder : la prochaine demande recommencera.
+      _results.remove(path);
+      return null;
+    }
+    if (bytes != null && cached != null) {
+      try {
+        await cached.parent.create(recursive: true);
+        await cached.writeAsBytes(bytes, flush: true);
+      } on FileSystemException {
+        // Pas de cache : l'image sera refaite la prochaine fois.
       }
-      return bytes;
+    }
+    return bytes;
+  }
+
+  /// Une extraction à la fois : chaque lecteur ouvre ses propres décodeurs.
+  Future<void> _work() async {
+    if (_working) return;
+    _working = true;
+    try {
+      while (_waiting.isNotEmpty) {
+        final request = _waiting.removeLast();
+        Uint8List? bytes;
+        try {
+          bytes = await grab(request.path, timeout: timeout);
+        } on Object {
+          bytes = null;
+        }
+        request.done.complete(bytes);
+      }
     } finally {
-      turn.complete();
+      _working = false;
     }
   }
 
@@ -170,4 +206,12 @@ class VideoFrameGrabber {
       await player.dispose();
     }
   }
+}
+
+class _Request {
+  _Request(this.path);
+
+  final String path;
+  final Completer<Uint8List?> done = Completer<Uint8List?>();
+  bool cancelled = false;
 }

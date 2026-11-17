@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../core/models/media_type.dart';
 import '../../core/models/playlist_entry.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
+import '../home/hall_artwork.dart';
 import '../theme/omnia_theme.dart';
 
 /// Une ligne du panneau de dossier.
@@ -35,16 +35,6 @@ class PlaylistTile extends StatefulWidget {
 
 class _PlaylistTileState extends State<PlaylistTile> {
   bool _hovered = false;
-
-  IconData get _icon => switch (widget.entry.file.type) {
-        MediaType.video => Icons.movie_outlined,
-        MediaType.audio => Icons.music_note_outlined,
-        MediaType.pdf => Icons.picture_as_pdf_outlined,
-        MediaType.doc => Icons.description_outlined,
-        MediaType.text => Icons.article_outlined,
-        MediaType.image => Icons.image_outlined,
-        MediaType.unknown => Icons.insert_drive_file_outlined,
-      };
 
 
   /// Ligne secondaire : durée si connue, sinon nombre de pages, sinon taille.
@@ -81,7 +71,6 @@ class _PlaylistTileState extends State<PlaylistTile> {
     final foreground = widget.current
         ? colors.projector
         : (_hovered ? colors.screen : colors.screen.withValues(alpha: 0.86));
-    final iconColor = widget.current ? colors.projector : colors.dust;
     final subtitle = _subtitle();
 
     return MouseRegion(
@@ -114,7 +103,13 @@ class _PlaylistTileState extends State<PlaylistTile> {
           ),
           child: Row(
             children: [
-              Icon(_icon, size: OmniaMetrics.iconSize - 2, color: iconColor),
+              // La petite affiche du fichier, comme dans le hall : image de
+              // la vidéo, pochette, première page, la photo.
+              _Thumb(
+                path: entry.file.path,
+                current: widget.current,
+                height: (widget.height - 12).clamp(20.0, 35.0),
+              ),
               const SizedBox(width: OmniaMetrics.space3),
               Expanded(
                 child: Column(
@@ -145,6 +140,36 @@ class _PlaylistTileState extends State<PlaylistTile> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Vignette d'un fichier de la liste : son affiche en réduction, cerclée
+/// d'ambre quand c'est le fichier en cours.
+class _Thumb extends StatelessWidget {
+  const _Thumb({required this.path, required this.current, required this.height});
+
+  final String path;
+  final bool current;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      width: height * 1.6,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.all(Radius.circular(OmniaMetrics.radiusSmall)),
+        border: Border.all(
+          color: current ? colors.projector : colors.seam,
+          width: current ? 1.5 : 1,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(OmniaMetrics.radiusSmall - 1)),
+        child: HallArtwork(path: path, exists: true, showExtension: false),
       ),
     );
   }

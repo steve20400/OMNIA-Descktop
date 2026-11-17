@@ -14,6 +14,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:media_kit/media_kit.dart';
 import 'package:omnia/core/services/video_frame_grabber.dart';
 import 'package:path/path.dart' as p;
@@ -21,25 +22,96 @@ import 'package:path/path.dart' as p;
 final bool _enabled = Platform.environment['OMNIA_LIBMPV_TEST'] == '1';
 const String _skipReason = 'OMNIA_LIBMPV_TEST absent : test du moteur réel passé.';
 
-/// Une vidéo d'essai sans dépendance : trois secondes de YUV4MPEG2, le
-/// format brut que FFmpeg lit tel quel. Chaque image a sa propre teinte.
-Uint8List _y4m({int width = 160, int height = 120, int frames = 30}) {
-  final out = BytesBuilder(copy: false)
-    ..add('YUV4MPEG2 W$width H$height F10:1 Ip A1:1 C420jpeg\n'.codeUnits);
-  final luma = width * height;
-  final chroma = (width ~/ 2) * (height ~/ 2);
-  for (var f = 0; f < frames; f++) {
-    out.add('FRAME\n'.codeUnits);
-    final y = Uint8List(luma);
-    for (var i = 0; i < luma; i++) {
-      y[i] = (40 + (i % width) + f * 4) & 0xFF;
-    }
-    out
-      ..add(y)
-      ..add(Uint8List(chroma)..fillRange(0, chroma, (90 + f * 3) & 0xFF))
-      ..add(Uint8List(chroma)..fillRange(0, chroma, (160 - f * 2) & 0xFF));
+/// Une vidéo d'essai sans dépendance : trois secondes d'AVI en Motion-JPEG,
+/// 10 images par seconde, chacune de sa teinte avec un carré qui se déplace.
+///
+/// AVI et Motion-JPEG plutôt que YUV4MPEG : le libmpv livré sous Windows ne
+/// reconnaît pas ce dernier (« Failed to recognize file format »), alors
+/// que ces deux-là sont lus partout.
+Uint8List _mjpegAvi({int width = 160, int height = 120, int frames = 30}) {
+  Uint8List jpegFrame(int f) {
+    final frame = img.Image(width: width, height: height);
+    img.fill(frame, color: img.ColorRgb8((40 + f * 6) % 256, 90, (200 - f * 4) % 256));
+    img.fillRect(
+      frame,
+      x1: f * 4,
+      y1: 30,
+      x2: f * 4 + 30,
+      y2: 70,
+      color: img.ColorRgb8(240, 220, 120),
+    );
+    return img.encodeJpg(frame, quality: 80);
   }
-  return out.takeBytes();
+
+  final jpegs = [for (var f = 0; f < frames; f++) jpegFrame(f)];
+  final largest = jpegs.map((j) => j.length).reduce((a, b) => a > b ? a : b);
+
+  Uint8List le32(List<int> values) {
+    final data = ByteData(values.length * 4);
+    for (var i = 0; i < values.length; i++) {
+      data.setUint32(i * 4, values[i], Endian.little);
+    }
+    return data.buffer.asUint8List();
+  }
+
+  Uint8List le16(List<int> values) {
+    final data = ByteData(values.length * 2);
+    for (var i = 0; i < values.length; i++) {
+      data.setUint16(i * 2, values[i], Endian.little);
+    }
+    return data.buffer.asUint8List();
+  }
+
+  List<int> chunk(String id, List<int> body) {
+    final out = BytesBuilder(copy: false)
+      ..add(id.codeUnits)
+      ..add(le32([body.length]))
+      ..add(body);
+    if (body.length.isOdd) out.addByte(0);
+    return out.takeBytes();
+  }
+
+  List<int> list(String type, List<int> body) =>
+      chunk('LIST', [...type.codeUnits, ...body]);
+
+  final avih = chunk('avih', le32([
+    // 10 images par seconde, index présent, une piste.
+    100000, 0, 0, 0x10, frames, 0, 1, largest, width, height, 0, 0, 0, 0,
+  ]));
+  final strh = chunk('strh', [
+    ...'vids'.codeUnits,
+    ...'MJPG'.codeUnits,
+    ...le32([0]),
+    ...le16([0, 0]),
+    ...le32([0, 1, 10, 0, frames, largest, 0xFFFFFFFF, 0]),
+    ...le16([0, 0, width, height]),
+  ]);
+  final strf = chunk('strf', [
+    ...le32([40, width, height]),
+    ...le16([1, 24]),
+    ...'MJPG'.codeUnits,
+    ...le32([width * height * 3, 0, 0, 0, 0]),
+  ]);
+  final hdrl = list('hdrl', [...avih, ...list('strl', [...strh, ...strf])]);
+
+  final movi = BytesBuilder(copy: false);
+  final index = BytesBuilder(copy: false);
+  var offset = 4; // Après le mot « movi », comme le veut l'index.
+  for (final jpeg in jpegs) {
+    final frame = chunk('00dc', jpeg);
+    index
+      ..add('00dc'.codeUnits)
+      ..add(le32([0x10, offset, jpeg.length]));
+    movi.add(frame);
+    offset += frame.length;
+  }
+  final body = [
+    ...'AVI '.codeUnits,
+    ...hdrl,
+    ...list('movi', movi.takeBytes()),
+    ...chunk('idx1', index.takeBytes()),
+  ];
+  return Uint8List.fromList(chunk('RIFF', body));
 }
 
 bool _isJpeg(Uint8List? bytes) =>
@@ -65,7 +137,7 @@ void main() {
   });
 
   test('une vidéo donne son affiche, en JPEG', () async {
-    final video = File(p.join(work.path, 'essai.y4m'))..writeAsBytesSync(_y4m());
+    final video = File(p.join(work.path, 'essai.avi'))..writeAsBytesSync(_mjpegAvi());
 
     final bytes = await VideoFrameGrabber.grab(video.path);
 
@@ -79,7 +151,7 @@ void main() {
   }, skip: _enabled ? false : _skipReason);
 
   test('l’affiche est gardée sur disque, et resservie', () async {
-    final video = File(p.join(work.path, 'film.y4m'))..writeAsBytesSync(_y4m());
+    final video = File(p.join(work.path, 'film.avi'))..writeAsBytesSync(_mjpegAvi());
     final cache = Directory(p.join(work.path, 'affiches'));
     final grabber = VideoFrameGrabber(cacheDirectory: () async => cache);
 

@@ -36,11 +36,18 @@ final videoFrameGrabberProvider = Provider<VideoFrameGrabber>(
   ),
 );
 
-final _videoFrameProvider = FutureProvider.family<Uint8List?, String>(
-  (ref, path) => ref.read(videoFrameGrabberProvider).frameOf(path),
-);
+/// L'image d'une vidéo, tant qu'une affiche la montre. Quand aucune ne la
+/// montre plus — on a fait défiler un long dossier —, l'extraction qui
+/// n'avait pas commencé est abandonnée.
+final _videoFrameProvider = FutureProvider.autoDispose.family<Uint8List?, String>((ref, path) {
+  final grabber = ref.read(videoFrameGrabberProvider);
+  ref.onDispose(() => grabber.cancel(path));
+  return grabber.frameOf(path);
+});
 
-final _audioCoverProvider = FutureProvider.family<Uint8List?, String>((ref, path) async {
+/// La pochette d'un son, tant qu'une affiche la montre : un dossier de
+/// milliers de titres ne les garde pas toutes en mémoire.
+final _audioCoverProvider = FutureProvider.autoDispose.family<Uint8List?, String>((ref, path) async {
   try {
     final tags = await ref.read(audioMetadataServiceProvider).read(path);
     return tags?.cover;
@@ -83,6 +90,7 @@ class HallArtwork extends ConsumerWidget {
     required this.path,
     required this.exists,
     this.fit = BoxFit.cover,
+    this.showExtension = true,
   });
 
   final String path;
@@ -91,10 +99,14 @@ class HallArtwork extends ConsumerWidget {
   final bool exists;
   final BoxFit fit;
 
+  /// L'extension en coin de l'affiche vierge ; trop petite pour la porter,
+  /// une vignette de liste s'en passe.
+  final bool showExtension;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final type = MediaRouter.typeForPath(path);
-    final blank = HallBlankPoster(type: type, extension: p.extension(path));
+    final blank = HallBlankPoster(type: type, extension: showExtension ? p.extension(path) : '');
     if (!exists || !ref.watch(hallArtworkEnabledProvider)) return blank;
 
     Widget fromBytes(AsyncValue<Uint8List?> value) => switch (value) {
