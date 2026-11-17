@@ -421,11 +421,11 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
                           color: connected
-                              ? Colors.green.withValues(alpha: 0.15)
+                              ? colors.projector.withValues(alpha: 0.12)
                               : colors.seam.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: connected ? Colors.green : colors.seam,
+                            color: connected ? colors.projector : colors.seam,
                             width: 1,
                           ),
                         ),
@@ -434,17 +434,17 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                           children: [
                             Icon(
                               connected ? Icons.check_circle_rounded : Icons.sensors_rounded,
-                              color: connected ? Colors.green : colors.dust,
+                              color: connected ? colors.projector : colors.dust,
                               size: 16,
                             ),
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text(
                                 connected
-                                    ? 'Périphérique Mobile Appairé et Synchronisé'
+                                    ? 'Téléphone relié'
                                     : 'Scannez ce QR Code avec l\'application OMNIA Mobile',
                                 style: type.secondary.copyWith(
-                                  color: connected ? Colors.green : colors.dust,
+                                  color: connected ? colors.projector : colors.dust,
                                   fontSize: 12,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -471,20 +471,25 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Information de sécurité / Zero Internet
+                  // Ce que la liaison est, sans rien promettre de plus. Elle
+                  // annonçait un « chiffrement de session » qui n'existe pas :
+                  // tout circule en clair (audit, CHANTIERS 7.2).
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.shield_outlined, color: colors.dust, size: 14),
+                      Icon(Icons.lan_outlined, color: colors.dust, size: 14),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          'Chiffrement de session local point-à-point • 100% Hors-ligne',
+                          'Liaison directe sur le réseau local, sans Internet. '
+                          'Elle n’est pas chiffrée : à réserver à un réseau de confiance.',
                           style: type.secondary.copyWith(
                             color: colors.dust,
                             fontSize: 11,
                           ),
                           textAlign: TextAlign.center,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -641,7 +646,7 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
+                Icon(Icons.check_circle_rounded, color: colors.projector, size: 16),
                 const SizedBox(width: 8),
                 Text(
                   'Connecté au mobile',
