@@ -154,8 +154,7 @@ void main() {
           '${bytes.length} octets, en-tête ${bytes.take(4).toList()}',
         'journal de mpv :',
         ...journal,
-      ].join('
-'),
+      ].join('\n'),
     );
   }, skip: _enabled ? false : _skipReason);
 
