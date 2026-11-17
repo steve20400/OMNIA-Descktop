@@ -14,6 +14,7 @@ import '../../core/utils/connect_mode.dart';
 import '../../core/utils/pairing_code.dart';
 import '../theme/omnia_theme.dart';
 import 'connect_mode_notice.dart';
+import 'connect_transfer_widgets.dart';
 import 'firewall_notice.dart';
 import 'omnia_button.dart';
 import 'omnia_icon_button.dart';
@@ -448,6 +449,20 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                       );
                     },
                   ),
+                  // Envoi de fichier, dès qu'un téléphone est relié.
+                  StreamBuilder<bool>(
+                    stream: connectService.isConnectedStream,
+                    initialData: connectService.hasConnectedClients,
+                    builder: (context, snapshot) => (snapshot.data ?? false)
+                        ? const Padding(
+                            padding: EdgeInsets.only(top: 12),
+                            child: TransferSendButton(
+                              peerLabel: 'le téléphone',
+                              deviceName: 'OMNIA Desktop',
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                   const SizedBox(height: 16),
 
                   // Information de sécurité / Zero Internet
@@ -677,6 +692,11 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                   ],
                 );
               },
+            ),
+            const SizedBox(height: 12),
+            const TransferSendButton(
+              peerLabel: 'le téléphone',
+              deviceName: 'OMNIA Desktop',
             ),
             const SizedBox(height: 16),
             Row(

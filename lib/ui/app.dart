@@ -13,6 +13,7 @@ import 'app_close.dart';
 import 'screens/player_screen.dart';
 import 'screens/splash_screen.dart';
 import 'theme/omnia_theme.dart';
+import 'widgets/connect_transfer_widgets.dart';
 
 /// Clé globale pour accéder au navigateur racine depuis n'importe où
 /// (notamment lors des demandes de fermeture du système).
@@ -38,6 +39,7 @@ class OmniaApp extends ConsumerStatefulWidget {
 class _OmniaAppState extends ConsumerState<OmniaApp> {
   StreamSubscription<void>? _geometrySub;
   StreamSubscription<void>? _closeSub;
+  StreamSubscription<void>? _transferSub;
   Timer? _saveDebounce;
   AppLifecycleListener? _lifecycle;
 
@@ -53,6 +55,9 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
     _closeSub = window.closeRequests.listen((_) {
       closeApplication(ref);
     });
+    // Un fichier proposé par l'appareil relié : la demande s'affiche où
+    // qu'on soit dans OMNIA, et rien ne s'écrit sans réponse.
+    _transferSub = listenForIncomingTransfers(ref, rootNavigatorKey);
     _lifecycle = AppLifecycleListener(
       onExitRequested: () async {
         final canClose = await handleUnsavedChangesGuard(ref);
@@ -130,6 +135,7 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
   void dispose() {
     _lifecycle?.dispose();
     _closeSub?.cancel();
+    _transferSub?.cancel();
     _saveDebounce?.cancel();
     _geometrySub?.cancel();
     super.dispose();
