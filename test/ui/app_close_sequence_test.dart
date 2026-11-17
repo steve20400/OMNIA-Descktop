@@ -110,6 +110,70 @@ void main() {
       expect(moteurArrete, isFalse);
     });
 
+    test("la fenêtre disparaît avant que l'état ne s'écrive", () async {
+      // Le défaut corrigé ici : la fenêtre restait affichée pendant la mise
+      // en silence et l'enregistrement — plus de trois secondes dans le pire
+      // cas. La fermeture paraissait lente alors que le clic était déjà
+      // donné. Elle disparaît maintenant d'abord, et le reste se fait
+      // derrière.
+      final journal = <String>[];
+      await runExitSequence(
+        ExitSteps(
+          hideWindow: () async => journal.add('masquée'),
+          silence: () async => journal.add('son'),
+          saveState: () async => journal.add('état'),
+          closeWindow: () async => journal.add('détruite'),
+          stopEngine: () async => journal.add('moteur'),
+        ),
+        silence: court,
+        save: court,
+        hide: court,
+      );
+      expect(journal.indexOf('masquée'), lessThan(journal.indexOf('état')));
+      expect(journal.indexOf('état'), lessThan(journal.indexOf('détruite')));
+      // Le son est coupé au même moment que la fenêtre part : jamais après
+      // l'enregistrement.
+      expect(journal.indexOf('son'), lessThan(journal.indexOf('état')));
+    });
+
+    test("un enregistrement lent n'empêche pas la fenêtre de disparaître", () async {
+      final masquee = Completer<void>();
+      final jamais = Completer<void>();
+      final fin = runExitSequence(
+        ExitSteps(
+          hideWindow: () async => masquee.complete(),
+          silence: () async {},
+          saveState: () => jamais.future,
+          closeWindow: () async {},
+          stopEngine: () async {},
+        ),
+        silence: court,
+        save: const Duration(milliseconds: 200),
+        hide: court,
+      );
+      // La fenêtre est partie bien avant la fin de l'enregistrement.
+      await masquee.future.timeout(const Duration(milliseconds: 100));
+      await fin;
+    });
+
+    test('une fenêtre qui refuse de se masquer ne retient pas la suite', () async {
+      final journal = <String>[];
+      final jamais = Completer<void>();
+      await runExitSequence(
+        ExitSteps(
+          hideWindow: () => jamais.future,
+          silence: () async => journal.add('son'),
+          saveState: () async => journal.add('état'),
+          closeWindow: () async => journal.add('détruite'),
+          stopEngine: () async {},
+        ),
+        silence: court,
+        save: court,
+        hide: court,
+      );
+      expect(journal, ['son', 'état', 'détruite']);
+    });
+
     test('atMost rend la main au terme du délai, sans relancer la panne', () async {
       final jamais = Completer<void>();
       final montre = Stopwatch()..start();

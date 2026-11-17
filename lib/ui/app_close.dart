@@ -80,6 +80,12 @@ Future<void> atMost(Future<void> Function() action, Duration budget) async {
   }
 }
 
+/// Délai accordé à la disparition de la fenêtre. Au-delà, on continue sans
+/// l'attendre : elle sera détruite de toute façon en fin de séquence.
+const Duration hideBudget = Duration(milliseconds: 300);
+
+Future<void> _nothing() async {}
+
 /// Les gestes de la fermeture, dans l'ordre où ils doivent se produire.
 class ExitSteps {
   const ExitSteps({
@@ -87,7 +93,16 @@ class ExitSteps {
     required this.saveState,
     required this.closeWindow,
     required this.stopEngine,
+    this.hideWindow = _nothing,
   });
+
+  /// Retirer la fenêtre de l'écran, sans la détruire encore.
+  ///
+  /// C'est ce qui fait une fermeture immédiate : la fenêtre restait affichée
+  /// le temps de couper le son et d'enregistrer — jusqu'à plus de trois
+  /// secondes sur un disque lent — et l'on regardait une application qui ne
+  /// répondait plus à un clic déjà donné.
+  final Future<void> Function() hideWindow;
 
   /// Couper le son. Un simple réglage de propriété, sans rapport avec l'arrêt
   /// du moteur : c'est ce qui traînait après la disparition de la fenêtre.
@@ -103,15 +118,24 @@ class ExitSteps {
   final Future<void> Function() stopEngine;
 }
 
-/// Déroule la fermeture dans l'ordre qui ne retient jamais la fenêtre : le
-/// son, l'état, la fenêtre, puis le moteur — ce dernier sans que personne ne
-/// l'attende, le processus s'en allant de toute façon.
+/// Déroule la fermeture dans l'ordre qui ne retient jamais la fenêtre.
+///
+/// Le son et la fenêtre partent ensemble, à l'instant du clic : c'est le
+/// moment où l'utilisateur tient l'application pour fermée, et rien ne doit
+/// le précéder. L'état s'écrit ensuite, fenêtre déjà invisible ; puis la
+/// fenêtre est détruite, et le moteur arrêté sans que personne ne l'attende,
+/// le processus s'en allant de toute façon.
 Future<void> runExitSequence(
   ExitSteps steps, {
   Duration silence = silenceBudget,
   Duration save = saveBudget,
+  Duration hide = hideBudget,
 }) async {
-  await atMost(steps.silence, silence);
+  // Lancée avant la disparition, attendue après : une fenêtre partie avec le
+  // son qui continue serait pire qu'une fenêtre lente.
+  final silenced = atMost(steps.silence, silence);
+  await atMost(steps.hideWindow, hide);
+  await silenced;
   await atMost(steps.saveState, save);
   await steps.closeWindow();
   unawaited(atMost(steps.stopEngine, silence));
@@ -130,6 +154,7 @@ ExitSteps exitStepsFor(dynamic ref, {Future<void> Function()? closeWindow}) {
   // faites d'avance.
   final window = ref.read(windowServiceProvider) as WindowService;
   return ExitSteps(
+    hideWindow: window.hide,
     silence: () async {
       await (ref.read(avControllerProvider) as dynamic).player.setVolume(0);
     },

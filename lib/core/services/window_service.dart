@@ -19,6 +19,13 @@ abstract interface class WindowService {
   Future<void> setAlwaysOnTop(bool value);
   Future<bool> isMaximized();
   Future<void> minimize();
+
+  /// Retire la fenêtre de l'écran sans la détruire.
+  ///
+  /// Sert à la fermeture : la fenêtre disparaît à l'instant du clic, et ce
+  /// qui reste à faire — enregistrer la position, arrêter le moteur — se
+  /// fait derrière, sans que personne ne regarde une fenêtre figée.
+  Future<void> hide();
   Future<void> toggleMaximize();
   Future<void> close();
   Future<void> setTitle(String title);
@@ -86,6 +93,9 @@ class WindowManagerService with WindowListener implements WindowService {
 
   @override
   Future<void> minimize() => windowManager.minimize();
+
+  @override
+  Future<void> hide() => windowManager.hide();
 
   @override
   Future<void> toggleMaximize() async {
@@ -255,6 +265,9 @@ class BoundedWindowService implements WindowService {
   Future<void> minimize() => _run('réduction', _inner.minimize);
 
   @override
+  Future<void> hide() => _run('masquage', _inner.hide);
+
+  @override
   Future<void> toggleMaximize() => _run('agrandissement', _inner.toggleMaximize);
 
   @override
@@ -330,6 +343,12 @@ class FakeWindowService implements WindowService {
 
   @override
   Future<void> minimize() async {}
+
+  /// Vrai une fois la fenêtre masquée.
+  bool hidden = false;
+
+  @override
+  Future<void> hide() async => hidden = true;
 
   @override
   Future<void> toggleMaximize() async => maximized = !maximized;
