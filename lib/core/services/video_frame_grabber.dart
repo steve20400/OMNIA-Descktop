@@ -165,23 +165,47 @@ class VideoFrameGrabber {
   /// Une image de [path], tirée par un lecteur libmpv éphémère.
   ///
   /// Public pour les tests contre le vrai moteur ; l'application passe par
-  /// [frameOf], qui met en file et en cache.
+  /// [frameOf], qui met en file et en cache. [log], s'il est fourni, reçoit
+  /// le journal du moteur : c'est ce qui dit pourquoi aucune image n'est
+  /// venue, sans machine sous la main pour rejouer la scène.
   static Future<Uint8List?> grab(
     String path, {
     Duration timeout = const Duration(seconds: 15),
+    List<String>? log,
   }) async {
+    final scaled = await _grabWith(path, grabberProperties, timeout, log);
+    if (scaled != null) return scaled;
+    // Sans la réduction par mpv : un libmpv allégé peut ne pas avoir le
+    // filtre de mise à l'échelle, et refuser alors toute la vidéo. L'image
+    // arrive plus grande, mais elle arrive.
+    log?.add('— nouvel essai sans réduction (vf) —');
+    final plain = Map.of(grabberProperties)..remove('vf');
+    return _grabWith(path, plain, timeout, log);
+  }
+
+  static Future<Uint8List?> _grabWith(
+    String path,
+    Map<String, String> properties,
+    Duration timeout,
+    List<String>? log,
+  ) async {
     final player = Player(
-      configuration: const PlayerConfiguration(
+      configuration: PlayerConfiguration(
         vo: 'null',
         muted: true,
         title: 'OMNIA — affiche',
-        logLevel: MPVLogLevel.error,
+        logLevel: log == null ? MPVLogLevel.error : MPVLogLevel.warn,
       ),
     );
+    final logs = log == null
+        ? null
+        : player.stream.log.listen((entry) {
+            if (log.length < 80) log.add('[${entry.level}] ${entry.prefix} : ${entry.text.trim()}');
+          });
     try {
       final platform = player.platform;
       if (platform is! NativePlayer) return null;
-      for (final entry in grabberProperties.entries) {
+      for (final entry in properties.entries) {
         await platform.setProperty(entry.key, entry.value);
       }
       await player.open(Media(path), play: false);
@@ -194,15 +218,22 @@ class VideoFrameGrabber {
         final Uint8List? shot;
         try {
           shot = await player.screenshot(format: 'image/jpeg');
-        } on Object {
+        } on Object catch (error) {
+          log?.add('capture refusée : $error');
           continue;
         }
         if (shot != null && shot.isNotEmpty) return shot;
       }
+      log?.add(
+        'aucune image en ${timeout.inSeconds} s ; vidéo ${player.state.width ?? '?'}'
+        ' × ${player.state.height ?? '?'}, durée ${player.state.duration}',
+      );
       return null;
-    } on Object {
+    } on Object catch (error) {
+      log?.add('échec : $error');
       return null;
     } finally {
+      await logs?.cancel();
       await player.dispose();
     }
   }

@@ -139,14 +139,23 @@ void main() {
   test('une vidéo donne son affiche, en JPEG', () async {
     final video = File(p.join(work.path, 'essai.avi'))..writeAsBytesSync(_mjpegAvi());
 
-    final bytes = await VideoFrameGrabber.grab(video.path);
+    // Le journal du moteur accompagne tout échec : c'est lui qui dit si le
+    // fichier n'est pas lu, si un filtre manque, ou si la capture échoue.
+    final journal = <String>[];
+    final bytes = await VideoFrameGrabber.grab(video.path, log: journal);
 
     expect(
       _isJpeg(bytes),
       isTrue,
-      reason: bytes == null
-          ? 'aucune image : mpv n’a rien rendu par screenshot-raw sans sortie vidéo'
-          : '${bytes.length} octets, en-tête ${bytes.take(4).toList()}',
+      reason: [
+        if (bytes == null)
+          'aucune image : mpv n’a rien rendu par screenshot-raw sans sortie vidéo'
+        else
+          '${bytes.length} octets, en-tête ${bytes.take(4).toList()}',
+        'journal de mpv :',
+        ...journal,
+      ].join('
+'),
     );
   }, skip: _enabled ? false : _skipReason);
 
