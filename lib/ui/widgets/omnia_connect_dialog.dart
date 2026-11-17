@@ -8,11 +8,13 @@ import '../../core/commands/player_command.dart';
 import '../../core/models/playback_state.dart';
 import '../../core/models/playback_status.dart';
 import '../../core/providers.dart';
+import '../../core/services/firewall_access.dart';
 import '../../core/services/omnia_connect_service.dart';
 import '../../core/utils/connect_mode.dart';
 import '../../core/utils/pairing_code.dart';
 import '../theme/omnia_theme.dart';
 import 'connect_mode_notice.dart';
+import 'firewall_notice.dart';
 import 'omnia_button.dart';
 import 'omnia_icon_button.dart';
 import 'omnia_qr_code.dart';
@@ -55,6 +57,37 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
   /// Mode retenu pour le payload affiché, pour projeter sur la même liaison.
   ConnectMode _mode = ConnectMode.wifi;
 
+  /// Ce que le pare-feu fait des connexions entrantes ; `null` tant qu'on ne
+  /// le sait pas.
+  FirewallState? _firewall;
+  bool _firewallBusy = false;
+  bool _firewallRefused = false;
+
+  /// Interroge le pare-feu, sans rien modifier.
+  ///
+  /// Même exception à la règle d'or que le serveur d'appairage, démarré
+  /// d'ici : ce n'est pas une commande de lecture, et son résultat ne
+  /// concerne que cette fenêtre.
+  Future<void> _checkFirewall() async {
+    final state = await ref.read(firewallAccessProvider).check();
+    if (mounted) setState(() => _firewall = state);
+  }
+
+  /// Demande au système d'autoriser OMNIA, puis affiche ce qu'il en est.
+  Future<void> _allowThroughFirewall() async {
+    setState(() {
+      _firewallBusy = true;
+      _firewallRefused = false;
+    });
+    final state = await ref.read(firewallAccessProvider).allow();
+    if (!mounted) return;
+    setState(() {
+      _firewallBusy = false;
+      _firewall = state;
+      _firewallRefused = state == FirewallState.blocked;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -69,6 +102,10 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
   Future<void> _initConnect() async {
     final connectService = ref.read(omniaConnectServiceProvider);
     await connectService.start();
+
+    // Le pare-feu se vérifie en parallèle : la réponse peut prendre quelques
+    // secondes, et le code d'appairage n'a pas à l'attendre pour s'afficher.
+    unawaited(_checkFirewall());
 
     // Les commandes distantes sont écoutées par le fournisseur du service,
     // pour que la télécommande continue de répondre fenêtre fermée.
@@ -324,6 +361,17 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                 // soit ce qui manque et quoi faire.
                 ConnectModeNotice(report: _modeReport, checking: _isLoading),
                 const SizedBox(height: 16),
+
+                // Le pare-feu, seulement quand il bloque : inutile d'occuper
+                // la fenêtre pour dire que tout va bien, ou qu'on ne sait pas.
+                if (_firewall == FirewallState.blocked) ...[
+                  FirewallNotice(
+                    busy: _firewallBusy,
+                    refused: _firewallRefused,
+                    onAllow: _allowThroughFirewall,
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 // Contenu principal de partage
                 if (_isLoading)

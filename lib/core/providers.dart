@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -13,6 +15,7 @@ import 'models/app_preferences.dart';
 import 'models/playback_state.dart';
 import 'models/playlist_state.dart';
 import 'services/audio_metadata_service.dart';
+import 'services/firewall_access.dart';
 import 'services/folder_scanner.dart';
 import 'services/history_store.dart';
 import 'services/omnia_connect_service.dart';
@@ -62,6 +65,14 @@ final folderScannerProvider =
 
 /// Maintien de l'écran allumé pendant une vidéo.
 final screenWakeProvider = Provider<ScreenWake>((_) => const WakelockScreenWake());
+
+/// Accès d'OMNIA Connect à travers le pare-feu du système.
+///
+/// Seul Windows est interrogé : c'est là que le pare-feu refuse en silence
+/// les connexions entrantes d'un réseau qu'il ne connaît pas.
+final firewallAccessProvider = Provider<FirewallAccess>(
+  (_) => Platform.isWindows ? WindowsFirewallAccess() : const NoFirewallAccess(),
+);
 
 /// Captures d'écran (dossier configurable).
 final screenshotServiceProvider = Provider<ScreenshotService>(
