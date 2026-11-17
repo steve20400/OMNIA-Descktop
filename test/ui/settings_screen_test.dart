@@ -245,7 +245,12 @@ void main() {
       final harness = await _pump(tester, size: const Size(360, 240));
       final before = harness.store.preferences.singleInstance;
 
-      await _tap(tester, find.byType(OmniaSwitch).first);
+      // Visé par son nom, et non par sa place : d'autres réglages peuvent
+      // venir avant lui dans la section.
+      await _tap(
+        tester,
+        find.byWidgetPredicate((w) => w is OmniaSwitch && w.label == 'Une seule fenêtre'),
+      );
       await _drain(tester);
 
       expect(harness.store.preferences.singleInstance, !before);
