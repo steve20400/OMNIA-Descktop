@@ -78,6 +78,22 @@ enum UnsavedChangesPolicy {
       values.firstWhere((e) => e.name == value, orElse: () => UnsavedChangesPolicy.ask);
 }
 
+/// Fond de l'accueil.
+enum HallBackground {
+  /// L'affiche du média sélectionné, floutée : le fond change avec la
+  /// sélection, comme sur l'accueil d'une console (défaut).
+  artwork,
+
+  /// Une image choisie par l'utilisateur, [AppPreferences.hallWallpaper].
+  wallpaper,
+
+  /// Le velours seul, sans image.
+  plain;
+
+  static HallBackground fromJson(Object? value) =>
+      values.firstWhere((e) => e.name == value, orElse: () => HallBackground.artwork);
+}
+
 /// Préférences de l'utilisateur, telles que l'écran Paramètres les présente
 /// (§10 du cahier des charges).
 ///
@@ -123,6 +139,8 @@ class AppPreferences {
     this.updateChannel = 'stable',
     this.mobilePromoDismissed = false,
     this.mobilePromoSnoozeUntil,
+    this.hallBackground = HallBackground.artwork,
+    this.hallWallpaper = '',
   });
 
   static const AppPreferences defaults = AppPreferences();
@@ -236,6 +254,11 @@ class AppPreferences {
   final bool mobilePromoDismissed;
   final DateTime? mobilePromoSnoozeUntil;
 
+  /// Fond de l'accueil, et l'image choisie quand c'est une image personnelle
+  /// (chemin vide sinon).
+  final HallBackground hallBackground;
+  final String hallWallpaper;
+
   /// Vrai si les ouvertures depuis l'application doivent créer une nouvelle fenêtre.
   bool get inAppOpenNewWindow => inAppOpenTarget == InAppOpenTarget.newWindow;
 
@@ -277,6 +300,8 @@ class AppPreferences {
     String? updateChannel,
     bool? mobilePromoDismissed,
     DateTime? mobilePromoSnoozeUntil,
+    HallBackground? hallBackground,
+    String? hallWallpaper,
   }) {
     return AppPreferences(
       language: language ?? this.language,
@@ -318,6 +343,8 @@ class AppPreferences {
       updateChannel: updateChannel ?? this.updateChannel,
       mobilePromoDismissed: mobilePromoDismissed ?? this.mobilePromoDismissed,
       mobilePromoSnoozeUntil: mobilePromoSnoozeUntil ?? this.mobilePromoSnoozeUntil,
+      hallBackground: hallBackground ?? this.hallBackground,
+      hallWallpaper: (hallWallpaper ?? this.hallWallpaper).trim(),
     );
   }
 
@@ -396,6 +423,8 @@ class AppPreferences {
         'updateChannel': updateChannel,
         'mobilePromoDismissed': mobilePromoDismissed,
         'mobilePromoSnoozeUntil': mobilePromoSnoozeUntil?.toIso8601String(),
+        'hallBackground': hallBackground.name,
+        'hallWallpaper': hallWallpaper,
       };
 
   /// Relecture tolérante : une valeur absente, d'un mauvais type ou hors bornes
@@ -464,6 +493,10 @@ class AppPreferences {
       mobilePromoSnoozeUntil: json['mobilePromoSnoozeUntil'] is String
           ? DateTime.tryParse(json['mobilePromoSnoozeUntil']! as String)
           : null,
+      hallBackground: HallBackground.fromJson(json['hallBackground']),
+      hallWallpaper: json['hallWallpaper'] is String
+          ? json['hallWallpaper']! as String
+          : d.hallWallpaper,
     );
   }
 

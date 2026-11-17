@@ -215,6 +215,24 @@ jobs:
             flutter test --reporter expanded \
             test/core/controllers/av_controller_recording_test.dart
 
+      # L'affiche des vidéos de l'accueil : une image tirée par le vrai
+      # libmpv, sans fenêtre ni son. Même préparation que l'étape des
+      # extraits. Non bloquante tant qu'elle n'a pas fait ses preuves sur les
+      # deux systèmes : son échec se lit dans l'annotation, sans priver
+      # personne de l'installateur.
+      - name: Affiche tirée par libmpv
+        continue-on-error: true
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          OMNIA_LIBMPV_TEST: '1'
+        run: |
+          release="$PWD/build/windows/x64/runner/Release"
+          export PATH="$release:$PATH"
+          if command -v cygpath >/dev/null 2>&1; then
+            export LIBMPV_LIBRARY_PATH="$(cygpath -w "$release/libmpv-2.dll")"
+          fi
+          bash tool/ci/run.sh "Affiche tirée par libmpv (Windows)"             flutter test --reporter expanded             test/core/services/video_frame_grabber_test.dart
+
       # Version publiée plutôt qu'archivée : un artefact périme au bout de
       # 90 jours et n'est pas téléchargeable par l'application, alors qu'une
       # « release » reste en ligne indéfiniment sur la page Releases — c'est là
@@ -317,6 +335,16 @@ jobs:
           bash tool/ci/run.sh "Extrait écrit par libmpv (Linux)" \
             flutter test --reporter expanded \
             test/core/controllers/av_controller_recording_test.dart
+
+      # L'affiche des vidéos de l'accueil, tirée par le vrai libmpv : voir
+      # l'étape du même nom sous Windows.
+      - name: Affiche tirée par libmpv
+        continue-on-error: true
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        env:
+          OMNIA_LIBMPV_TEST: '1'
+        run: |
+          bash tool/ci/run.sh "Affiche tirée par libmpv (Linux)"             flutter test --reporter expanded             test/core/services/video_frame_grabber_test.dart
 
       - name: Compilation
         id: build

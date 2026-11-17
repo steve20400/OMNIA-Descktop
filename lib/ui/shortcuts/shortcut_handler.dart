@@ -10,6 +10,7 @@ import '../../core/providers.dart';
 import '../document_ui_controller.dart';
 import '../file_dialogs.dart';
 import '../help_overlay_controller.dart';
+import '../home/hall_model.dart';
 import '../player_focus.dart';
 import '../settings/settings_controller.dart';
 import 'default_keymap.dart';
@@ -69,6 +70,13 @@ KeyEventResult handleShortcut(
   // attendu, et il passe avant le retour de plein écran.
   if (panelDrawerOpen && event.logicalKey == LogicalKeyboardKey.escape) {
     ref.dispatch(const SetSidePanelVisible(false));
+    return KeyEventResult.handled;
+  }
+
+  // Sur l'accueil, ← → parcourent les affiches et Entrée ouvre la
+  // sélection, comme sur l'accueil d'une console. Sans fichier ouvert, ces
+  // touches n'avaient rien à piloter ; ↑ ↓ gardent le volume.
+  if (!ref.read(playbackStateProvider).hasFile && handleHallKey(event, ref)) {
     return KeyEventResult.handled;
   }
 

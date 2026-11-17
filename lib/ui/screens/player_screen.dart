@@ -305,8 +305,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       panelWidth: panelWidth,
       fullscreen: fullscreen,
     );
-    final showDrawer = panelVisible && drawer;
-    final showDocked = panelVisible && !drawer;
+    // Sans fichier, c'est le hall : il occupe toute la fenêtre, d'un bord à
+    // l'autre, comme l'accueil d'une console. Le panneau du dossier n'y a rien
+    // à montrer, et la barre de titre se pose sur l'image au lieu de la
+    // surmonter d'une bande.
+    final hall = !hasFile;
+    final showDrawer = panelVisible && drawer && !hall;
+    final showDocked = panelVisible && !drawer && !hall;
 
     final content = Focus(
       focusNode: _focusNode,
@@ -323,176 +328,189 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           onPointerMove: (_) => _chrome.activity(),
           child: ColoredBox(
             color: colors.velvet,
-            child: Column(
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                // Frontières de rafraîchissement : chaque image vidéo redessine
-                // la scène, pas la barre de titre ni le panneau.
-                if (!fullscreen) const RepaintBoundary(child: TitleBar()),
-                Expanded(
-                  child: Row(
-                    children: [
-                      if (!drawer) const RepaintBoundary(child: SidePanel()),
-                      if (showDocked) const PanelResizeHandle(),
-                      Expanded(
-                        child: MouseRegion(
-                          cursor: hideCursor ? SystemMouseCursors.none : MouseCursor.defer,
-                          onExit: (_) => _chrome.pointerLeft(),
-                          child: Listener(
-                            onPointerSignal: _onPointerSignal,
-                            // La hauteur de la scène décide de la place laissée
-                            // aux surfaces qui s'y posent : sur 200 pixels, la
-                            // barre de contrôles ne peut pas tout réserver.
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final stageHeight = constraints.hasBoundedHeight
-                                    ? constraints.maxHeight
-                                    : MediaQuery.sizeOf(context).height;
-                                return Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    StageContextMenu(
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: canToggleByClick
-                                            ? () {
-                                                _focusNode.requestFocus();
-                                                ref.dispatch(const TogglePlay());
-                                              }
-                                            : _focusNode.requestFocus,
-                                        onDoubleTap: hasFile
-                                            ? () => ref.dispatch(const ToggleFullscreen())
-                                            : null,
-                                        child: const Stage(),
-                                      ),
-                                    ),
-                                    // Éclair de capture, sous le message :
-                                    // on voit le déclic, on lit le chemin.
-                                    const ScreenshotFlash(),
-                                    const OsdOverlay(),
-                                    // Témoin « REC » : visible même contrôles
-                                    // masqués, tant qu'un extrait s'écrit.
-                                    const Positioned(
-                                      right: OmniaMetrics.space4,
-                                      top: OmniaMetrics.space4,
-                                      child: RecordingIndicator(),
-                                    ),
-                                    // Bornée à la scène : étroite, la barre de
-                                    // recherche se resserre au lieu de sortir.
-                                    if (isDocument && findVisible && search != null)
-                                      Positioned(
-                                        left: OmniaMetrics.space4,
-                                        right: OmniaMetrics.space4,
-                                        top: OmniaMetrics.space4,
-                                        child: Align(
-                                          alignment: Alignment.topRight,
-                                          child: FindBar(search: search),
+                Column(
+                  children: [
+                    // Frontières de rafraîchissement : chaque image vidéo redessine
+                    // la scène, pas la barre de titre ni le panneau.
+                    if (!fullscreen && !hall) const RepaintBoundary(child: TitleBar()),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          if (!drawer && !hall) const RepaintBoundary(child: SidePanel()),
+                          if (showDocked) const PanelResizeHandle(),
+                          Expanded(
+                            child: MouseRegion(
+                              cursor: hideCursor ? SystemMouseCursors.none : MouseCursor.defer,
+                              onExit: (_) => _chrome.pointerLeft(),
+                              child: Listener(
+                                onPointerSignal: _onPointerSignal,
+                                // La hauteur de la scène décide de la place laissée
+                                // aux surfaces qui s'y posent : sur 200 pixels, la
+                                // barre de contrôles ne peut pas tout réserver.
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final stageHeight = constraints.hasBoundedHeight
+                                        ? constraints.maxHeight
+                                        : MediaQuery.sizeOf(context).height;
+                                    return Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        StageContextMenu(
+                                          child: GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTap: canToggleByClick
+                                                ? () {
+                                                    _focusNode.requestFocus();
+                                                    ref.dispatch(const TogglePlay());
+                                                  }
+                                                : _focusNode.requestFocus,
+                                            onDoubleTap: hasFile
+                                                ? () => ref.dispatch(const ToggleFullscreen())
+                                                : null,
+                                            child: const Stage(),
+                                          ),
                                         ),
-                                      ),
-                                    // La languette : le panneau replié, au bord
-                                    // gauche de la scène.
-                                    if (!panelVisible)
-                                      const Positioned(
-                                        left: 0,
-                                        top: 0,
-                                        bottom: 0,
-                                        child: Center(child: PanelEdgeTab()),
-                                      ),
-                                    Positioned(
-                                      left: OmniaMetrics.space4,
-                                      top: OmniaMetrics.space4,
-                                      right: OmniaMetrics.space4,
-                                      bottom: OmniaMetrics.controlBarClearance(stageHeight),
-                                      child: const Align(
-                                        alignment: Alignment.bottomRight,
-                                        child: ToolPanelHost(),
-                                      ),
-                                    ),
-                                    // Invite de reprise, au-dessus des contrôles ;
-                                    // sans taille quand il n'y a rien à proposer.
-                                    Positioned(
-                                      left: 0,
-                                      right: 0,
-                                      bottom: OmniaMetrics.resumePromptBottomFor(stageHeight),
-                                      child: const Center(child: ResumePrompt()),
-                                    ),
-                                    // Pas de fichier, pas de barre : sur
-                                    // l'accueil elle n'aurait rien à piloter —
-                                    // ni lecture, ni progression, ni piste — et
-                                    // un volume qu'on règle devant un écran vide
-                                    // laisse croire qu'il se passe quelque
-                                    // chose. Il reste réglable au clavier
-                                    // (↑ ↓ M), et l'OSD l'affiche. Le garde est
-                                    // ici, et non sur le seul contenu : une
-                                    // barre réduite à rien laissait derrière
-                                    // elle un MouseRegion et un IgnorePointer
-                                    // sans objet au ras de la scène.
-                                    if (hasFile)
-                                      Positioned(
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        child: IgnorePointer(
-                                          ignoring: !chromeVisible,
-                                          // Pointeur sur la barre : elle reste
-                                          // affichée tant qu'on s'en sert.
-                                          child: MouseRegion(
-                                            onEnter: (_) => _chrome.hold(_barHold),
-                                            onExit: (_) => _chrome.release(_barHold),
-                                            child: AnimatedOpacity(
-                                              opacity: chromeVisible ? 1 : 0,
-                                              duration: OmniaMotion.reveal,
-                                              curve: chromeVisible
-                                                  ? OmniaMotion.revealCurve
-                                                  : OmniaMotion.concealCurve,
-                                              child: AnimatedSlide(
-                                                offset: chromeVisible
-                                                    ? Offset.zero
-                                                    : const Offset(0, 0.12),
-                                                duration: OmniaMotion.reveal,
-                                                curve: OmniaMotion.revealCurve,
-                                                child: RepaintBoundary(
-                                                  child: isDocument
-                                                      ? const DocumentBar()
-                                                      : (isImage
-                                                          ? const ImageBar()
-                                                          : const ControlBar()),
+                                        // Éclair de capture, sous le message :
+                                        // on voit le déclic, on lit le chemin.
+                                        const ScreenshotFlash(),
+                                        const OsdOverlay(),
+                                        // Témoin « REC » : visible même contrôles
+                                        // masqués, tant qu'un extrait s'écrit.
+                                        const Positioned(
+                                          right: OmniaMetrics.space4,
+                                          top: OmniaMetrics.space4,
+                                          child: RecordingIndicator(),
+                                        ),
+                                        // Bornée à la scène : étroite, la barre de
+                                        // recherche se resserre au lieu de sortir.
+                                        if (isDocument && findVisible && search != null)
+                                          Positioned(
+                                            left: OmniaMetrics.space4,
+                                            right: OmniaMetrics.space4,
+                                            top: OmniaMetrics.space4,
+                                            child: Align(
+                                              alignment: Alignment.topRight,
+                                              child: FindBar(search: search),
+                                            ),
+                                          ),
+                                        // La languette : le panneau replié, au bord
+                                        // gauche de la scène.
+                                        if (!panelVisible && !hall)
+                                          const Positioned(
+                                            left: 0,
+                                            top: 0,
+                                            bottom: 0,
+                                            child: Center(child: PanelEdgeTab()),
+                                          ),
+                                        Positioned(
+                                          left: OmniaMetrics.space4,
+                                          top: OmniaMetrics.space4,
+                                          right: OmniaMetrics.space4,
+                                          bottom: OmniaMetrics.controlBarClearance(stageHeight),
+                                          child: const Align(
+                                            alignment: Alignment.bottomRight,
+                                            child: ToolPanelHost(),
+                                          ),
+                                        ),
+                                        // Invite de reprise, au-dessus des contrôles ;
+                                        // sans taille quand il n'y a rien à proposer.
+                                        Positioned(
+                                          left: 0,
+                                          right: 0,
+                                          bottom: OmniaMetrics.resumePromptBottomFor(stageHeight),
+                                          child: const Center(child: ResumePrompt()),
+                                        ),
+                                        // Pas de fichier, pas de barre : sur
+                                        // l'accueil elle n'aurait rien à piloter —
+                                        // ni lecture, ni progression, ni piste — et
+                                        // un volume qu'on règle devant un écran vide
+                                        // laisse croire qu'il se passe quelque
+                                        // chose. Il reste réglable au clavier
+                                        // (↑ ↓ M), et l'OSD l'affiche. Le garde est
+                                        // ici, et non sur le seul contenu : une
+                                        // barre réduite à rien laissait derrière
+                                        // elle un MouseRegion et un IgnorePointer
+                                        // sans objet au ras de la scène.
+                                        if (hasFile)
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            child: IgnorePointer(
+                                              ignoring: !chromeVisible,
+                                              // Pointeur sur la barre : elle reste
+                                              // affichée tant qu'on s'en sert.
+                                              child: MouseRegion(
+                                                onEnter: (_) => _chrome.hold(_barHold),
+                                                onExit: (_) => _chrome.release(_barHold),
+                                                child: AnimatedOpacity(
+                                                  opacity: chromeVisible ? 1 : 0,
+                                                  duration: OmniaMotion.reveal,
+                                                  curve: chromeVisible
+                                                      ? OmniaMotion.revealCurve
+                                                      : OmniaMotion.concealCurve,
+                                                  child: AnimatedSlide(
+                                                    offset: chromeVisible
+                                                        ? Offset.zero
+                                                        : const Offset(0, 0.12),
+                                                    duration: OmniaMotion.reveal,
+                                                    curve: OmniaMotion.revealCurve,
+                                                    child: RepaintBoundary(
+                                                      child: isDocument
+                                                          ? const DocumentBar()
+                                                          : (isImage
+                                                              ? const ImageBar()
+                                                              : const ControlBar()),
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                    // Le tiroir et son voile par-dessus tout le
-                                    // reste : c'est lui qu'on manipule.
-                                    if (showDrawer) ...[
-                                      Positioned.fill(
-                                        child: GestureDetector(
-                                          key: const ValueKey('panel-drawer-scrim'),
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () =>
-                                              ref.dispatch(const SetSidePanelVisible(false)),
-                                          child: ColoredBox(color: colors.overlayScrim),
-                                        ),
-                                      ),
-                                      const Positioned(
-                                        left: 0,
-                                        top: 0,
-                                        bottom: 0,
-                                        child: RepaintBoundary(
-                                          child: SidePanel(drawer: true),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                );
-                              },
+                                        // Le tiroir et son voile par-dessus tout le
+                                        // reste : c'est lui qu'on manipule.
+                                        if (showDrawer) ...[
+                                          Positioned.fill(
+                                            child: GestureDetector(
+                                              key: const ValueKey('panel-drawer-scrim'),
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: () =>
+                                                  ref.dispatch(const SetSidePanelVisible(false)),
+                                              child: ColoredBox(color: colors.overlayScrim),
+                                            ),
+                                          ),
+                                          const Positioned(
+                                            left: 0,
+                                            top: 0,
+                                            bottom: 0,
+                                            child: RepaintBoundary(
+                                              child: SidePanel(drawer: true),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+                // Sur le hall, la barre de titre flotte sur l'image.
+                if (hall && !fullscreen)
+                  const Positioned(
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    child: RepaintBoundary(child: TitleBar(overlay: true)),
+                  ),
               ],
             ),
           ),

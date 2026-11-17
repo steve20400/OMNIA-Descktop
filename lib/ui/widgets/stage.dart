@@ -12,16 +12,13 @@ import '../document_search.dart';
 import '../document_search_provider.dart';
 import '../document_ui_controller.dart';
 import '../file_dialogs.dart';
-import '../shortcuts/default_keymap.dart';
-import '../shortcuts/shortcut_labels.dart';
+import '../home/home_hall.dart';
 import '../theme/omnia_theme.dart';
 import 'audio_stage.dart';
 import 'image_stage.dart';
-import 'mobile_promo_banner.dart';
 import 'omnia_button.dart';
 
 import 'pdf_stage.dart';
-import 'recent_files_menu.dart';
 import 'text_view.dart';
 
 /// La scène : la zone plein cadre où vit le contenu.
@@ -46,7 +43,8 @@ class Stage extends ConsumerWidget {
         file: state.file,
       );
     } else if (!state.hasFile) {
-      content = const _EmptyStage(key: ValueKey('empty'));
+      // Le hall : les affiches des médias ouverts dernièrement.
+      content = const HomeHall(key: ValueKey('empty'));
     } else if ((state.mediaType == MediaType.text || state.mediaType == MediaType.doc) &&
         textDocument != null) {
       content = TextView(
@@ -181,80 +179,6 @@ double? videoAspectRatioFor(AspectMode mode) => switch (mode) {
       AspectMode.standard => 4 / 3,
       AspectMode.auto || AspectMode.fill => null,
     };
-
-class _EmptyStage extends ConsumerWidget {
-  const _EmptyStage({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final type = context.type;
-    final l10n = AppLocalizations.of(context);
-    // Sur une scène courte, l'accueil défile plutôt que de déborder ; sur une
-    // grande, il reste centré (la hauteur minimale remplit la scène).
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight: constraints.hasBoundedHeight ? constraints.maxHeight : 0,
-          ),
-          child: _emptyContent(ref, type, l10n),
-        ),
-      ),
-    );
-  }
-
-  Widget _emptyContent(WidgetRef ref, OmniaTypography type, AppLocalizations l10n) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(OmniaMetrics.space6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              l10n.appTitle,
-              style: type.wordmark.copyWith(fontSize: 16, letterSpacing: 9),
-            ),
-            const SizedBox(height: OmniaMetrics.space5),
-            Text(l10n.emptyStageHint, style: type.viewTitle, textAlign: TextAlign.center),
-            const SizedBox(height: OmniaMetrics.space2),
-            Text(l10n.emptyStageSubtitle, style: type.secondary, textAlign: TextAlign.center),
-            const SizedBox(height: OmniaMetrics.space6),
-            Wrap(
-              spacing: OmniaMetrics.space3,
-              runSpacing: OmniaMetrics.space3,
-              alignment: WrapAlignment.center,
-              children: [
-                OmniaButton(
-                  label: l10n.openFile,
-                  icon: Icons.insert_drive_file_outlined,
-                  shortcut: ref.shortcutOf(ShortcutAction.openFile, l10n),
-                  primary: true,
-                  onPressed: () => pickAndOpenFile(ref),
-                ),
-                OmniaButton(
-                  label: l10n.openFolder,
-                  icon: Icons.folder_outlined,
-                  shortcut: ref.shortcutOf(ShortcutAction.openFolder, l10n),
-                  onPressed: () => pickAndOpenFolder(ref),
-                ),
-              ],
-            ),
-            const SizedBox(height: OmniaMetrics.space8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: const RecentFilesList(),
-            ),
-            const SizedBox(height: OmniaMetrics.space5),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: const MobilePromoBanner(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _ErrorStage extends ConsumerWidget {
   const _ErrorStage({super.key, required this.error, required this.file});

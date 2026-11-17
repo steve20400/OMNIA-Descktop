@@ -27,7 +27,11 @@ import 'window_drag_area.dart';
 /// bouton. Dans une fenêtre étroite, le mot « OMNIA » cède sa place, puis le
 /// titre lui-même ; les boutons de fenêtre et la zone de déplacement restent.
 class TitleBar extends ConsumerWidget {
-  const TitleBar({super.key});
+  const TitleBar({super.key, this.overlay = false});
+
+  /// Posée sur l'accueil plutôt qu'au-dessus : fond transparent, l'image du
+  /// hall court jusqu'au bord de la fenêtre, sans bande au-dessus d'elle.
+  final bool overlay;
 
   /// Largeur sous laquelle le mot « OMNIA » s'efface : le nom du fichier
   /// compte davantage.
@@ -106,7 +110,7 @@ class TitleBar extends ConsumerWidget {
                     // Le titre vit dans la zone de déplacement : on déplace la
                     // fenêtre en le saisissant, comme partout ailleurs.
                     child: Container(
-                      color: colors.curtain,
+                      color: overlay ? Colors.transparent : colors.curtain,
                       alignment: Alignment.center,
                       padding: slot == null
                           ? EdgeInsets.zero

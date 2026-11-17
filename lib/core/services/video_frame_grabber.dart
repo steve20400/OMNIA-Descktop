@@ -1,0 +1,172 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:media_kit/media_kit.dart';
+import 'package:path/path.dart' as p;
+
+/// Tire de chaque vidéo une image, sans fenêtre ni son : l'affiche que montre
+/// l'accueil.
+///
+/// Un lecteur libmpv à part, sans sortie vidéo (`vo=null`) : il décode
+/// jusqu'à 10 % du film, réduit l'image à 480 pixels de large, et la rend en
+/// JPEG par la commande `screenshot-raw` de mpv. Une vidéo à la fois — chaque
+/// lecteur ouvre ses propres décodeurs — et chaque image est gardée sur
+/// disque : une affiche ne se calcule qu'une fois par fichier.
+class VideoFrameGrabber {
+  VideoFrameGrabber({
+    Future<Directory?> Function()? cacheDirectory,
+    this.enabled = true,
+    this.timeout = const Duration(seconds: 15),
+  }) : _cacheDirectory = cacheDirectory;
+
+  /// Faux sous les tests d'interface : libmpv n'y est pas chargé, et rien ne
+  /// doit tenter de l'ouvrir.
+  final bool enabled;
+
+  /// Au-delà, la vidéo est réputée sans image (fichier abîmé, piste vidéo
+  /// absente, réseau qui ne répond pas).
+  final Duration timeout;
+
+  final Future<Directory?> Function()? _cacheDirectory;
+
+  /// File d'attente : une extraction à la fois.
+  Future<void> _queue = Future<void>.value();
+  final Map<String, Future<Uint8List?>> _pending = {};
+
+  /// L'affiche de [path], ou `null` quand il n'y en a pas.
+  Future<Uint8List?> frameOf(String path) {
+    if (!enabled) return Future<Uint8List?>.value();
+    return _pending[path] ??= _cachedOrGrab(path);
+  }
+
+  Future<Uint8List?> _cachedOrGrab(String path) async {
+    final file = File(path);
+    if (!file.existsSync()) return null;
+    final cached = await _cacheFileFor(file);
+    if (cached != null && cached.existsSync()) {
+      try {
+        return await cached.readAsBytes();
+      } on FileSystemException {
+        // Illisible : on la refait.
+      }
+    }
+
+    final turn = Completer<void>();
+    final previous = _queue;
+    _queue = turn.future;
+    await previous;
+    try {
+      final bytes = await grab(path, timeout: timeout);
+      if (bytes != null && cached != null) {
+        try {
+          await cached.parent.create(recursive: true);
+          await cached.writeAsBytes(bytes, flush: true);
+        } on FileSystemException {
+          // Pas de cache : l'image sera refaite la prochaine fois.
+        }
+      }
+      return bytes;
+    } finally {
+      turn.complete();
+    }
+  }
+
+  /// Fichier de cache de [file] : son nom dépend du chemin, de la taille et
+  /// de la date de modification, si bien qu'une vidéo remplacée reçoit une
+  /// nouvelle affiche.
+  Future<File?> _cacheFileFor(File file) async {
+    final directory = await _cacheDirectory?.call();
+    if (directory == null) return null;
+    final FileStat stat;
+    try {
+      stat = file.statSync();
+    } on FileSystemException {
+      return null;
+    }
+    final key = '${file.absolute.path}|${stat.size}|${stat.modified.millisecondsSinceEpoch}';
+    return File(p.join(directory.path, '${cacheKey(key)}.jpg'));
+  }
+
+  /// Empreinte courte et stable de [text] : deux FNV-1a de 32 bits, sur le
+  /// texte puis sur le texte retourné.
+  static String cacheKey(String text) {
+    int fnv(Iterable<int> units) {
+      var hash = 0x811C9DC5;
+      for (final unit in units) {
+        hash ^= unit;
+        hash = (hash * 0x01000193) & 0xFFFFFFFF;
+      }
+      return hash;
+    }
+
+    final forward = fnv(text.codeUnits);
+    final backward = fnv(text.codeUnits.reversed);
+    return forward.toRadixString(16).padLeft(8, '0') +
+        backward.toRadixString(16).padLeft(8, '0');
+  }
+
+  /// Réglages du lecteur d'affiches, posés avant l'ouverture du fichier.
+  static const Map<String, String> grabberProperties = {
+    // media_kit coupe le décodage vidéo tant qu'aucune surface n'est
+    // attachée : l'affiche, c'est justement la vidéo.
+    'vid': 'auto',
+    'aid': 'no',
+    'sid': 'no',
+    'ao': 'null',
+    // Décodage logiciel : l'image reste en mémoire, prête pour la capture.
+    'hwdec': 'no',
+    // À 10 % : le générique de début est passé, le film a commencé.
+    'start': '10%',
+    'hr-seek': 'yes',
+    'pause': 'yes',
+    // Une affiche n'a pas besoin de la 4K : réduite par mpv lui-même,
+    // l'image arrive légère et l'encodage JPEG reste bref.
+    'vf': 'lavfi=[scale=480:-2]',
+  };
+
+  /// Une image de [path], tirée par un lecteur libmpv éphémère.
+  ///
+  /// Public pour les tests contre le vrai moteur ; l'application passe par
+  /// [frameOf], qui met en file et en cache.
+  static Future<Uint8List?> grab(
+    String path, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final player = Player(
+      configuration: const PlayerConfiguration(
+        vo: 'null',
+        muted: true,
+        title: 'OMNIA — affiche',
+        logLevel: MPVLogLevel.error,
+      ),
+    );
+    try {
+      final platform = player.platform;
+      if (platform is! NativePlayer) return null;
+      for (final entry in grabberProperties.entries) {
+        await platform.setProperty(entry.key, entry.value);
+      }
+      await player.open(Media(path), play: false);
+
+      // L'image arrive quand le décodeur a atteint le point de départ : on
+      // la demande à intervalles réguliers, jusqu'au délai.
+      final deadline = DateTime.now().add(timeout);
+      while (DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        final Uint8List? shot;
+        try {
+          shot = await player.screenshot(format: 'image/jpeg');
+        } on Object {
+          continue;
+        }
+        if (shot != null && shot.isNotEmpty) return shot;
+      }
+      return null;
+    } on Object {
+      return null;
+    } finally {
+      await player.dispose();
+    }
+  }
+}

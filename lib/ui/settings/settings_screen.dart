@@ -472,6 +472,28 @@ extension _Preferences on WidgetRef {
 
 // --- Général ------------------------------------------------------------------------
 
+/// Choisit l'image de fond de l'accueil, et la retient.
+///
+/// Le bus et les préférences sont lus avant le dialogue : il est modal et
+/// peut durer, et la ligne des réglages peut avoir disparu entre-temps.
+Future<void> _pickHallWallpaper(WidgetRef ref) async {
+  final bus = ref.read(commandBusProvider);
+  final before = ref.read(preferencesProvider);
+  final file = await FilePicker.pickFile(
+    dialogTitle: 'Image de fond de l’accueil',
+    type: FileType.image,
+    windowsOptions: const WindowsOptions(lockParentWindow: true),
+    linuxOptions: const LinuxOptions(lockParentWindow: true),
+  );
+  final path = file?.path;
+  if (path == null || path.isEmpty) return;
+  final command = UpdatePreferences.between(
+    before,
+    before.copyWith(hallBackground: HallBackground.wallpaper, hallWallpaper: path),
+  );
+  if (command.changes.isNotEmpty) bus.dispatch(command);
+}
+
 class _GeneralSection extends ConsumerWidget {
   const _GeneralSection();
 
@@ -513,6 +535,41 @@ class _GeneralSection extends ConsumerWidget {
             onChanged: (v) => ref.change((p) => p.copyWith(themeMode: v)),
           ),
         ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Fond de l’accueil',
+          hint: 'L’affiche du média sélectionné, floutée, comme sur une console ; '
+              'une image à vous ; ou le fond uni.',
+          control: OmniaSegmented<HallBackground>(
+            values: HallBackground.values,
+            selected: p.hallBackground,
+            labelOf: (v) => switch (v) {
+              HallBackground.artwork => 'Affiche',
+              HallBackground.wallpaper => 'Image',
+              HallBackground.plain => 'Uni',
+            },
+            onChanged: (v) {
+              // Une image sans image choisie : on la demande tout de suite.
+              if (v == HallBackground.wallpaper && p.hallWallpaper.isEmpty) {
+                unawaited(_pickHallWallpaper(ref));
+                return;
+              }
+              ref.change((p) => p.copyWith(hallBackground: v));
+            },
+          ),
+        ),
+        if (p.hallBackground == HallBackground.wallpaper) ...[
+          const SettingDivider(),
+          SettingRow(
+            title: 'Image de fond',
+            hint: p.hallWallpaper.isEmpty ? 'Aucune image choisie.' : p.hallWallpaper,
+            control: OmniaButton(
+              label: 'Choisir…',
+              icon: Icons.image_outlined,
+              onPressed: () => _pickHallWallpaper(ref),
+            ),
+          ),
+        ],
         const SettingDivider(),
         SettingRow(
           title: l10n.endModeLabel,

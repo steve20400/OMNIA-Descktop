@@ -200,10 +200,12 @@ void main() {
       expect(find.widgetWithText(OmniaButton, 'Ouvrir un fichier'), findsOneWidget);
       expect(find.widgetWithText(OmniaButton, 'Ouvrir un dossier'), findsOneWidget);
 
-      // La languette, dès que le panneau est replié.
+      // Le hall occupe toute la fenêtre : ni panneau de dossier, ni
+      // languette — sans fichier, ils n'auraient rien à montrer.
+      expect(find.byType(SidePanel), findsNothing);
       app.bus.dispatch(const SetSidePanelVisible(false));
       await _drain(tester);
-      expect(find.byType(PanelEdgeTab), findsOneWidget);
+      expect(find.byType(PanelEdgeTab), findsNothing);
 
       // Les paramètres, par la barre de titre.
       await tester.tap(byTooltipPrefix('Paramètres'));

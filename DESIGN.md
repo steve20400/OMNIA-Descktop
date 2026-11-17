@@ -70,7 +70,39 @@ Nulle part ailleurs de lueur, dégradé ou animation décorative. Toute l'audace
 
 Le motion répond toujours à une action. Aucune boucle décorative.
 
-## 7. Auto-critique
+## 7. Le hall — l'accueil (refonte de novembre 2026)
+
+> Référence demandée : l'écran d'accueil d'une console (PlayStation, Switch) et des
+> façades d'émulateurs (Playnite plein écran, LaunchBox Big Box, ES-DE). Une page qu'on
+> laisse ouverte parce qu'elle est belle à l'arrêt.
+
+Dans un cinéma, le hall affiche ce qui passe. L'accueil d'OMNIA aussi :
+- **La bande d'affiches** : les médias ouverts dernièrement, en affiches 16:10 (image du
+  film, pochette, première page du PDF, la photo). On la parcourt à la souris ou au
+  clavier, comme à la manette : ← → pour bouger, Entrée pour ouvrir. ↑ ↓ restent le volume.
+- **L'affiche sélectionnée est éclairée par le projecteur** : elle grandit (0,9 → 1), prend
+  un bord `Projecteur` de 2 px et un halo `Projecteur` 38 % / flou 26 px. C'est le seul
+  autre endroit, avec le faisceau, où la lumière du projecteur se pose.
+- **Le fond suit la sélection** : l'affiche choisie, floutée (σ 40), à 60 % sur le velours,
+  avec deux voiles de lisibilité (bas → haut, gauche → droite). Ces voiles ne décorent
+  pas : ils gardent le texte lisible sur n'importe quelle image. Réglable : affiche,
+  image personnelle, ou velours uni.
+- **La séance** : au-dessus de la bande, le titre (32, sans les points des noms de
+  fichiers), le type en `Projecteur`, où l'on en est en Plex Mono (« Reprise à 12:05 sur
+  40:00 »), puis « Reprendre » et « Afficher dans le dossier ».
+- **Le faisceau au pied de chaque affiche** : 3 px, la part déjà vue en `Projecteur` —
+  la même lumière que la barre de progression.
+- **En haut** : les rayons (Tout, Vidéos, Musique, Documents, Images), soulignés par un
+  trait de faisceau quand ils sont choisis ; l'heure en Plex Mono à droite, la date dessous.
+- **En bas** : Ouvrir un fichier, Ouvrir un dossier, et la bannière mobile quand il y a
+  la place.
+
+Mise en page : marges latérales de 32 px (16 px sous 560 px de large), 24 px entre les
+blocs. Affiches de 132 à 248 px de large selon la fenêtre. Tout texte qui peut s'allonger
+tient sur une ou deux lignes, coupé net. Sous 240 px de haut, le hall défile au lieu de
+déborder.
+
+## 8. Auto-critique
 
 - *Fond quasi noir + ambre* : classique « cinéma », mais assumé parce que c'est le concept. La prune (pas le bleu-nuit)
   et le blanc chaud évitent le rendu « terminal ».
