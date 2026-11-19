@@ -22,7 +22,11 @@ import 'floating_surface.dart';
 /// La pastille ne dépasse jamais [pillMaxWidth], ni la scène moins une marge
 /// de chaque côté : un texte trop long s'abrège.
 class OsdOverlay extends ConsumerWidget {
-  const OsdOverlay({super.key});
+  const OsdOverlay({super.key, this.compact = false});
+
+  /// Dans le mini-lecteur : la pastille se tient tout près du bord haut, la
+  /// fenêtre n'a pas de place à perdre.
+  final bool compact;
 
   /// Largeur de la pastille quand la place ne manque pas.
   static const double pillMaxWidth = 480;
@@ -44,7 +48,7 @@ class OsdOverlay extends ConsumerWidget {
           return Align(
             alignment: Alignment.topCenter,
             child: Padding(
-              padding: const EdgeInsets.only(top: OmniaMetrics.space5),
+              padding: EdgeInsets.only(top: compact ? OmniaMetrics.space2 : OmniaMetrics.space5),
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: maxPillWidth(available)),
                 child: AnimatedSwitcher(

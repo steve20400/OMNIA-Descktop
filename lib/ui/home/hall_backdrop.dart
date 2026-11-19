@@ -51,7 +51,7 @@ class HallBackdrop extends ConsumerWidget {
   /// changeait qu'à peine.
   static Widget _fill(Widget? current, List<Widget> previous) => Stack(
         fit: StackFit.expand,
-        children: [...previous, if (current != null) current],
+        children: [...previous, ?current],
       );
 
   @override

@@ -139,6 +139,7 @@ class AppPreferences {
     this.allowRemoteStreaming = true,
     this.wirelessMode = 'wifi',
     this.projectionMode = 'file',
+    this.tapToPause = true,
     this.autoCheckUpdates = true,
     this.updateChannel = 'stable',
     this.mobilePromoDismissed = false,
@@ -251,6 +252,10 @@ class AppPreferences {
   /// Le choix appartient à l'appareil qui projette, jamais à celui qui reçoit.
   final String projectionMode;
 
+  /// Un clic ou un toucher sur l'image met en pause un son ou une vidéo.
+  /// Désactivé, il ne fait que rappeler les commandes : la lecture continue.
+  final bool tapToPause;
+
   // Réseau & Mises à jour
   final bool autoCheckUpdates;
   final String updateChannel;
@@ -306,6 +311,7 @@ class AppPreferences {
     bool? allowRemoteStreaming,
     String? wirelessMode,
     String? projectionMode,
+    bool? tapToPause,
     bool? autoCheckUpdates,
     String? updateChannel,
     bool? mobilePromoDismissed,
@@ -350,6 +356,7 @@ class AppPreferences {
       allowRemoteStreaming: allowRemoteStreaming ?? this.allowRemoteStreaming,
       wirelessMode: wirelessMode ?? this.wirelessMode,
       projectionMode: projectionMode ?? this.projectionMode,
+      tapToPause: tapToPause ?? this.tapToPause,
       autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
       updateChannel: updateChannel ?? this.updateChannel,
       mobilePromoDismissed: mobilePromoDismissed ?? this.mobilePromoDismissed,
@@ -431,6 +438,7 @@ class AppPreferences {
         'allowRemoteStreaming': allowRemoteStreaming,
         'wirelessMode': wirelessMode,
         'projectionMode': projectionMode,
+        'tapToPause': tapToPause,
         'autoCheckUpdates': autoCheckUpdates,
         'updateChannel': updateChannel,
         'mobilePromoDismissed': mobilePromoDismissed,
@@ -500,6 +508,9 @@ class AppPreferences {
       projectionMode: json['projectionMode'] is String
           ? json['projectionMode']! as String
           : d.projectionMode,
+      tapToPause: json['tapToPause'] is bool
+          ? json['tapToPause']! as bool
+          : d.tapToPause,
       autoCheckUpdates: bool0('autoCheckUpdates', d.autoCheckUpdates),
       updateChannel: json['updateChannel'] is String ? json['updateChannel']! as String : d.updateChannel,
       mobilePromoDismissed: bool0('mobilePromoDismissed', d.mobilePromoDismissed),

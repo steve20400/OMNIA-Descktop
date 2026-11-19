@@ -32,6 +32,7 @@ import 'image_edit_dialog.dart';
 import 'image_stage.dart';
 import 'omnia_icon_button.dart';
 import 'omnia_menu.dart';
+import 'osd_overlay.dart';
 import 'pdf_stage.dart';
 import 'playlist_tile.dart';
 import 'stage.dart';
@@ -275,7 +276,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
       child: content,
     );
 
-    return Focus(
+    // Le retour à l'écran — volume surtout — s'affiche aussi dans le
+    // mini-lecteur : régler le son sans le voir changer laissait deviner.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Focus(
       focusNode: _focus,
       autofocus: true,
       onKeyEvent: (_, event) {
@@ -396,6 +402,8 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
           ),
         ),
       ),
+        const OsdOverlay(compact: true),
+      ],
     );
   }
 

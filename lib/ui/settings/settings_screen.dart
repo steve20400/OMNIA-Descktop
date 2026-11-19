@@ -770,6 +770,16 @@ class _PlaybackSection extends ConsumerWidget {
             ),
           ),
         ],
+        const SettingDivider(),
+        SettingRow(
+          title: 'Un clic sur l’image met en pause',
+          hint: 'Éteint, le clic ne fait qu’afficher les commandes : la lecture continue',
+          control: OmniaSwitch(
+            label: 'Clic pour mettre en pause',
+            value: p.tapToPause,
+            onChanged: (v) => ref.change((p) => p.copyWith(tapToPause: v)),
+          ),
+        ),
       ],
     );
   }

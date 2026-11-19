@@ -239,7 +239,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       playbackStateProvider.select(
         (s) => s.hasFile && s.status != PlaybackStatus.error && s.mediaType.isAv,
       ),
-    );
+    ) && ref.watch(preferencesProvider.select((p) => p.tapToPause));
     final isDocument = ref.watch(playbackStateProvider.select((s) => s.isDocument));
     final isImage = ref.watch(playbackStateProvider.select((s) => s.mediaType == MediaType.image));
     final miniPlayer = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));

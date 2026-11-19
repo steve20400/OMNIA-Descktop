@@ -606,13 +606,16 @@ class _EdgeScrollState extends State<_EdgeScroll> with SingleTickerProviderState
   /// Vitesse au ras du bord, en pixels par seconde.
   static const double maxSpeed = 1100;
 
+  // Créé au premier défilement seulement. Le créer dans dispose(), pour le
+  // libérer, interrogeait un arbre déjà démonté.
   late final _ticker = createTicker(_tick);
+  bool _tickerCreated = false;
   double _velocity = 0;
   Duration _last = Duration.zero;
 
   @override
   void dispose() {
-    _ticker.dispose();
+    if (_tickerCreated) _ticker.dispose();
     super.dispose();
   }
 
@@ -629,6 +632,8 @@ class _EdgeScrollState extends State<_EdgeScroll> with SingleTickerProviderState
 
   void _setVelocity(double velocity) {
     _velocity = velocity;
+    if (velocity == 0 && !_tickerCreated) return;
+    _tickerCreated = true;
     if (velocity != 0 && !_ticker.isActive) {
       _last = Duration.zero;
       _ticker.start();
