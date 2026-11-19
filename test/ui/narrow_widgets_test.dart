@@ -7,7 +7,6 @@ import 'package:omnia/core/models/playback_state.dart';
 import 'package:omnia/core/models/resume_offer.dart';
 import 'package:omnia/ui/document_search.dart';
 import 'package:omnia/ui/help_overlay_controller.dart';
-import 'package:omnia/ui/osd/osd_controller.dart';
 import 'package:omnia/ui/osd/osd_message.dart';
 import 'package:omnia/ui/settings/settings_controller.dart';
 import 'package:omnia/ui/tool_panel_controller.dart';
@@ -88,9 +87,7 @@ void main() {
 
     for (final message in messages) {
       testWidgets('la pastille ${message.runtimeType} tient dans la scène', (tester) async {
-        final harness = LeafHarness(
-          overrides: [osdProvider.overrideWith(() => FixedOsd(message))],
-        );
+        final harness = LeafHarness(osd: message);
         harness.attach(tester);
         tester.view.physicalSize = const Size(1200, 400);
         await tester.pumpWidget(omniaTestApp(harness.container, const OsdOverlay()));

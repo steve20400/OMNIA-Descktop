@@ -59,7 +59,11 @@ class FixedOsd extends OsdController {
 /// fixé, réglages en mémoire, fenêtre factice, et un bus dont chaque
 /// commande est relevée dans [commands].
 class LeafHarness {
-  LeafHarness({PlaybackState state = const PlaybackState(), List<Override> overrides = const []}) {
+  LeafHarness({
+    PlaybackState state = const PlaybackState(),
+    List<Override> overrides = const [],
+    OsdMessage? osd,
+  }) {
     _subscription = bus.commands.listen(commands.add);
     container = ProviderContainer(
       overrides: [
@@ -69,6 +73,10 @@ class LeafHarness {
         playbackStateProvider.overrideWith(() => FixedPlaybackState(state)),
         preferencesProvider.overrideWith(FixedPreferences.new),
         recentFilesProvider.overrideWith(NoRecentFiles.new),
+        // L'affichage à l'écran, fixé : le vrai écoute le service de lecture,
+        // qui démarre media_kit — absent des tests de widgets. Le
+        // mini-lecteur monte cet affichage, comme la scène.
+        osdProvider.overrideWith(() => FixedOsd(osd)),
         ...overrides,
       ],
     );

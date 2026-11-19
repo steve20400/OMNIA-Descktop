@@ -145,11 +145,16 @@ dans l'onglet, elle ne remplit plus l'écran.
 
 Les boutons en haut (mini-lecteur, paramètres) manquent de contraste.
 
-- [ ] Un fond plus foncé derrière eux
+- [x] Un fond plus foncé derrière eux : chaque bouton sur sa pastille
+      sombre, icônes blanches en thème clair aussi, voile prolongé,
+      boutons de 44 points
 
 ### R.11 — Mobile : la même refonte que le bureau
 
-- [ ] Le hall du mobile, avec ses modes de fond, en sombre et en clair
+- [x] Le hall du mobile, avec ses modes de fond, en sombre et en clair :
+      Aperçu (la séance en scène, l'image nette fondue dans le dégradé de
+      ses couleurs, bouton « Reprendre »), Affiche, Image (copiée dans
+      OMNIA), Uni ; réglage dans Paramètres → Général
 
 ### R.13 — Commenter les PDF
 
