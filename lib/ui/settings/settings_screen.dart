@@ -538,13 +538,15 @@ class _GeneralSection extends ConsumerWidget {
         const SettingDivider(),
         SettingRow(
           title: 'Fond de l’accueil',
-          hint: 'L’affiche du média sélectionné, floutée, comme sur une console ; '
-              'une image à vous ; ou le fond uni.',
+          hint: 'Aperçu : l’image du média sélectionné et un dégradé de ses '
+              'couleurs, comme sur une console. Affiche : la même image, floutée, '
+              'sur toute la fenêtre. Image : une image à vous. Uni : le fond seul.',
           control: OmniaSegmented<HallBackground>(
             values: HallBackground.values,
             selected: p.hallBackground,
             labelOf: (v) => switch (v) {
               HallBackground.artwork => 'Affiche',
+              HallBackground.preview => 'Aperçu',
               HallBackground.wallpaper => 'Image',
               HallBackground.plain => 'Uni',
             },

@@ -293,9 +293,9 @@ void main() {
       expect(relue.hallWallpaper, '/images/fond.jpg');
     });
 
-    test('une valeur inconnue retombe sur l’affiche', () {
+    test('une valeur inconnue retombe sur l’aperçu', () {
       final relue = AppPreferences.fromJson({'hallBackground': 'hologramme'});
-      expect(relue.hallBackground, HallBackground.artwork);
+      expect(relue.hallBackground, HallBackground.preview);
       expect(relue.hallWallpaper, isEmpty);
       expect(relue.hallShowsLibrary, isTrue);
     });

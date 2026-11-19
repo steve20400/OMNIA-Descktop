@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -228,4 +229,87 @@ class HallBlankPoster extends StatelessWidget {
       ),
     );
   }
+}
+
+/// La couleur d'un média, tirée de son image : le fond du hall prend sa
+/// teinte, comme l'accueil d'une console prend celle du jeu sélectionné.
+///
+/// `null` quand il n'y a pas d'image, ou sous les tests d'interface.
+final hallTintProvider = FutureProvider.autoDispose.family<Color?, String>((ref, path) async {
+  if (!ref.watch(hallArtworkEnabledProvider)) return null;
+  try {
+    switch (MediaRouter.typeForPath(path)) {
+      case MediaType.video:
+        final bytes = await ref.watch(_videoFrameProvider(path).future);
+        return bytes == null ? null : tintFromEncoded(bytes);
+      case MediaType.audio:
+        final bytes = await ref.watch(_audioCoverProvider(path).future);
+        return bytes == null ? null : tintFromEncoded(bytes);
+      case MediaType.image:
+        return tintFromEncoded(await File(path).readAsBytes());
+      case MediaType.pdf:
+        final document = await ref.watch(_pdfDocumentProvider(path).future);
+        if (document == null || document.pages.isEmpty) return null;
+        final image = await document.pages.first.render(
+          fullWidth: 24,
+          fullHeight: 34,
+          width: 24,
+          height: 34,
+          backgroundColor: 0xFFFFFFFF,
+        );
+        if (image == null) return null;
+        try {
+          return tintFromPixels(image.pixels, bgra: true);
+        } finally {
+          image.dispose();
+        }
+      case MediaType.text || MediaType.doc || MediaType.unknown:
+        return null;
+    }
+  } on Object {
+    return null;
+  }
+});
+
+/// La teinte d'une image encodée (JPEG, PNG…), décodée en tout petit.
+Future<Color?> tintFromEncoded(Uint8List bytes) async {
+  try {
+    final codec = await ui.instantiateImageCodec(bytes, targetWidth: 32);
+    final frame = await codec.getNextFrame();
+    final data = await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    frame.image.dispose();
+    codec.dispose();
+    if (data == null) return null;
+    return tintFromPixels(data.buffer.asUint8List(), bgra: false);
+  } on Object {
+    return null;
+  }
+}
+
+/// La couleur dominante de [pixels] — RGBA, ou BGRA si [bgra] — où les
+/// teintes vives pèsent plus que les gris : un ciel bleu l'emporte sur le
+/// bitume, une pochette rouge sur son fond noir.
+Color? tintFromPixels(Uint8List pixels, {required bool bgra}) {
+  var red = 0.0;
+  var green = 0.0;
+  var blue = 0.0;
+  var weight = 0.0;
+  for (var i = 0; i + 3 < pixels.length; i += 4) {
+    final r = bgra ? pixels[i + 2] : pixels[i];
+    final g = pixels[i + 1];
+    final b = bgra ? pixels[i] : pixels[i + 2];
+    final hsv = HSVColor.fromColor(Color.fromARGB(255, r, g, b));
+    final w = 0.05 + hsv.saturation * hsv.value;
+    red += r * w;
+    green += g * w;
+    blue += b * w;
+    weight += w;
+  }
+  if (weight == 0) return null;
+  return Color.fromARGB(
+    255,
+    (red / weight).round().clamp(0, 255),
+    (green / weight).round().clamp(0, 255),
+    (blue / weight).round().clamp(0, 255),
+  );
 }

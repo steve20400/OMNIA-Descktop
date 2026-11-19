@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 /// l'accueil.
 ///
 /// Un lecteur libmpv à part, sans sortie vidéo (`vo=null`) : il décode
-/// jusqu'à 10 % du film, réduit l'image à 480 pixels de large, et la rend en
+/// jusqu'à 10 % du film, réduit l'image à 960 pixels de large, et la rend en
 /// JPEG par la commande `screenshot-raw` de mpv. Une vidéo à la fois — chaque
 /// lecteur ouvre ses propres décodeurs — et chaque image est gardée sur
 /// disque : une affiche ne se calcule qu'une fois par fichier.
@@ -121,7 +121,9 @@ class VideoFrameGrabber {
     } on FileSystemException {
       return null;
     }
-    final key = '${file.absolute.path}|${stat.size}|${stat.modified.millisecondsSinceEpoch}';
+    // « 960 » : la largeur de l'image fait partie de la clé ; l'agrandir
+    // refait les affiches gardées à l'ancienne taille.
+    final key = '${file.absolute.path}|${stat.size}|${stat.modified.millisecondsSinceEpoch}|960';
     return File(p.join(directory.path, '${cacheKey(key)}.jpg'));
   }
 
@@ -159,7 +161,7 @@ class VideoFrameGrabber {
     'pause': 'yes',
     // Une affiche n'a pas besoin de la 4K : réduite par mpv lui-même,
     // l'image arrive légère et l'encodage JPEG reste bref.
-    'vf': 'lavfi=[scale=480:-2]',
+    'vf': 'lavfi=[scale=960:-2]',
   };
 
   /// Une image de [path], tirée par un lecteur libmpv éphémère.

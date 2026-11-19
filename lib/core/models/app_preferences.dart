@@ -80,9 +80,13 @@ enum UnsavedChangesPolicy {
 
 /// Fond de l'accueil.
 enum HallBackground {
-  /// L'affiche du média sélectionné, floutée : le fond change avec la
-  /// sélection, comme sur l'accueil d'une console (défaut).
+  /// L'affiche du média sélectionné, floutée, sur toute la fenêtre : le fond
+  /// change avec la sélection.
   artwork,
+
+  /// L'aperçu net du média sélectionné d'un côté, et de l'autre un dégradé
+  /// tiré de ses couleurs, comme l'accueil d'une console (défaut).
+  preview,
 
   /// Une image choisie par l'utilisateur, [AppPreferences.hallWallpaper].
   wallpaper,
@@ -91,7 +95,7 @@ enum HallBackground {
   plain;
 
   static HallBackground fromJson(Object? value) =>
-      values.firstWhere((e) => e.name == value, orElse: () => HallBackground.artwork);
+      values.firstWhere((e) => e.name == value, orElse: () => HallBackground.preview);
 }
 
 /// Préférences de l'utilisateur, telles que l'écran Paramètres les présente
@@ -139,7 +143,7 @@ class AppPreferences {
     this.updateChannel = 'stable',
     this.mobilePromoDismissed = false,
     this.mobilePromoSnoozeUntil,
-    this.hallBackground = HallBackground.artwork,
+    this.hallBackground = HallBackground.preview,
     this.hallWallpaper = '',
     this.hallShowsLibrary = true,
   });

@@ -1,14 +1,12 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/commands/player_command.dart';
 import '../../core/controllers/media_router.dart';
-import '../../core/models/app_preferences.dart';
 import '../../core/models/history_entry.dart';
 import '../../core/models/media_file.dart';
 import '../../core/models/media_type.dart';
@@ -22,6 +20,7 @@ import '../theme/omnia_theme.dart';
 import '../widgets/mobile_promo_banner.dart';
 import '../widgets/omnia_button.dart';
 import 'hall_artwork.dart';
+import 'hall_backdrop.dart';
 import 'hall_library.dart';
 import 'hall_model.dart';
 
@@ -198,8 +197,8 @@ class _HomeHallState extends ConsumerState<HomeHall> {
           fit: StackFit.expand,
           children: [
             RepaintBoundary(
-              child: _HallBackdrop(
-                background: prefs.background,
+              child: HallBackdrop(
+                mode: prefs.background,
                 wallpaper: prefs.wallpaper,
                 selected: selected,
               ),
@@ -215,112 +214,6 @@ class _HomeHallState extends ConsumerState<HomeHall> {
           ],
         );
       },
-    );
-  }
-}
-
-// --- Fond ----------------------------------------------------------------------
-
-/// Le fond du hall : l'affiche sélectionnée, très floutée — la lumière de
-/// l'écran qui baigne la salle —, une image choisie, ou le velours seul.
-///
-/// Les deux voiles qui la recouvrent ne décorent pas : ils gardent le texte
-/// lisible, quel que soit le fond.
-class _HallBackdrop extends StatelessWidget {
-  const _HallBackdrop({
-    required this.background,
-    required this.wallpaper,
-    required this.selected,
-  });
-
-  final HallBackground background;
-  final String wallpaper;
-  final RecentFile? selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final Widget? image;
-    switch (background) {
-      case HallBackground.plain:
-        image = null;
-      case HallBackground.wallpaper:
-        image = wallpaper.isEmpty
-            ? null
-            : Image.file(
-                File(wallpaper),
-                key: ValueKey('fond:$wallpaper'),
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              );
-      case HallBackground.artwork:
-        final recent = selected;
-        image = recent == null || !recent.exists
-            ? null
-            : Opacity(
-                key: ValueKey('affiche:${recent.path}'),
-                opacity: 0.6,
-                child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40, tileMode: TileMode.decal),
-                  child: Transform.scale(
-                    scale: 1.15,
-                    child: HallArtwork(path: recent.path, exists: true),
-                  ),
-                ),
-              );
-    }
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ColoredBox(color: colors.velvet),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 450),
-          switchInCurve: OmniaMotion.stageCurve,
-          switchOutCurve: OmniaMotion.concealCurve,
-          child: image ?? const SizedBox.shrink(key: ValueKey('velours')),
-        ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-              colors: [
-                colors.velvet,
-                colors.velvet.withValues(alpha: 0.72),
-                colors.velvet.withValues(alpha: 0.25),
-              ],
-              stops: const [0, 0.45, 1],
-            ),
-          ),
-        ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [colors.velvet.withValues(alpha: 0.7), colors.velvet.withValues(alpha: 0)],
-              stops: const [0, 0.65],
-            ),
-          ),
-        ),
-        // Sous la barre de titre posée sur l'image : ses boutons restent
-        // lisibles même sur une photo claire choisie comme fond.
-        Positioned(
-          left: 0,
-          top: 0,
-          right: 0,
-          height: 140,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [colors.velvet.withValues(alpha: 0.6), colors.velvet.withValues(alpha: 0)],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -654,7 +547,9 @@ class _HallRibbon extends ConsumerWidget {
     final nameHeight = MediaQuery.textScalerOf(context).scale(18);
     return SizedBox(
       height: posterHeight + nameHeight + OmniaMetrics.space2 + 2 * OmniaMetrics.space2 + 6,
-      child: ListView.separated(
+      child: _EdgeScroll(
+        controller: controller,
+        child: ListView.separated(
         controller: controller,
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: gutter, vertical: OmniaMetrics.space2),
@@ -683,6 +578,129 @@ class _HallRibbon extends ConsumerWidget {
             ),
           );
         },
+        ),
+      ),
+    );
+  }
+}
+
+/// La bande se fait défiler à la souris, sans barre de défilement qui
+/// abîmerait le hall : le curseur près du bord gauche ou droit la fait
+/// glisser dans ce sens, d'autant plus vite qu'il approche du bord, et la
+/// molette la fait défiler à l'horizontale. Les bords s'estompent quand il
+/// reste des affiches de ce côté.
+class _EdgeScroll extends StatefulWidget {
+  const _EdgeScroll({required this.controller, required this.child});
+
+  final ScrollController controller;
+  final Widget child;
+
+  @override
+  State<_EdgeScroll> createState() => _EdgeScrollState();
+}
+
+class _EdgeScrollState extends State<_EdgeScroll> with SingleTickerProviderStateMixin {
+  /// Largeur de la zone, à chaque bord, où le curseur fait défiler.
+  static const double zone = 96;
+
+  /// Vitesse au ras du bord, en pixels par seconde.
+  static const double maxSpeed = 1100;
+
+  late final _ticker = createTicker(_tick);
+  double _velocity = 0;
+  Duration _last = Duration.zero;
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  void _onHover(Offset position, double width) {
+    final x = position.dx;
+    var velocity = 0.0;
+    if (x < zone) {
+      velocity = -maxSpeed * (1 - x / zone);
+    } else if (x > width - zone) {
+      velocity = maxSpeed * (1 - (width - x) / zone);
+    }
+    _setVelocity(velocity);
+  }
+
+  void _setVelocity(double velocity) {
+    _velocity = velocity;
+    if (velocity != 0 && !_ticker.isActive) {
+      _last = Duration.zero;
+      _ticker.start();
+    } else if (velocity == 0 && _ticker.isActive) {
+      _ticker.stop();
+    }
+  }
+
+  void _tick(Duration elapsed) {
+    final controller = widget.controller;
+    if (!controller.hasClients) return;
+    final seconds = (elapsed - _last).inMicroseconds / Duration.microsecondsPerSecond;
+    _last = elapsed;
+    final position = controller.position;
+    final next = (position.pixels + _velocity * seconds)
+        .clamp(position.minScrollExtent, position.maxScrollExtent);
+    if (next != position.pixels) controller.jumpTo(next);
+    // Au bout de la bande, plus rien à faire défiler : on s'arrête.
+    if ((next <= position.minScrollExtent && _velocity < 0) ||
+        (next >= position.maxScrollExtent && _velocity > 0)) {
+      _setVelocity(0);
+    }
+  }
+
+  void _onWheel(PointerSignalEvent signal) {
+    if (signal is! PointerScrollEvent) return;
+    final controller = widget.controller;
+    if (!controller.hasClients || controller.position.maxScrollExtent <= 0) return;
+    GestureBinding.instance.pointerSignalResolver.register(signal, (event) {
+      final scroll = event as PointerScrollEvent;
+      final delta = scroll.scrollDelta.dy != 0 ? scroll.scrollDelta.dy : scroll.scrollDelta.dx;
+      final position = controller.position;
+      controller.jumpTo(
+        (position.pixels + delta).clamp(position.minScrollExtent, position.maxScrollExtent),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => Listener(
+        onPointerSignal: _onWheel,
+        child: MouseRegion(
+          onHover: (event) => _onHover(event.localPosition, constraints.maxWidth),
+          onExit: (_) => _setVelocity(0),
+          child: AnimatedBuilder(
+            animation: widget.controller,
+            builder: (context, child) {
+              final controller = widget.controller;
+              final scrollable = controller.hasClients && controller.position.hasContentDimensions;
+              final left = scrollable && controller.position.pixels > 1;
+              final right = scrollable &&
+                  controller.position.pixels < controller.position.maxScrollExtent - 1;
+              if (!left && !right) return child!;
+              return ShaderMask(
+                blendMode: BlendMode.dstIn,
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: [
+                    left ? Colors.transparent : Colors.black,
+                    Colors.black,
+                    Colors.black,
+                    right ? Colors.transparent : Colors.black,
+                  ],
+                  stops: const [0, 0.05, 0.95, 1],
+                ).createShader(bounds),
+                child: child,
+              );
+            },
+            child: widget.child,
+          ),
+        ),
       ),
     );
   }
