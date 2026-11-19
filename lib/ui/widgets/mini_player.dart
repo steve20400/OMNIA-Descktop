@@ -402,6 +402,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
           ),
         ),
       ),
+        ),
         const OsdOverlay(compact: true),
       ],
     );
