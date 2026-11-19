@@ -18,6 +18,7 @@ import 'services/audio_metadata_service.dart';
 import 'services/firewall_access.dart';
 import 'services/folder_scanner.dart';
 import 'services/history_store.dart';
+import 'services/local_storage.dart';
 import 'services/omnia_connect_service.dart';
 import 'services/playback_service.dart';
 import 'services/playlist_service.dart';
@@ -71,7 +72,19 @@ final screenWakeProvider = Provider<ScreenWake>((_) => const WakelockScreenWake(
 /// Seul Windows est interrogé : c'est là que le pare-feu refuse en silence
 /// les connexions entrantes d'un réseau qu'il ne connaît pas.
 final firewallAccessProvider = Provider<FirewallAccess>(
-  (_) => Platform.isWindows ? WindowsFirewallAccess() : const NoFirewallAccess(),
+  (_) => Platform.isWindows
+      ? WindowsFirewallAccess()
+      : Platform.isLinux
+          ? LinuxFirewallAccess(
+              markerDirectory: () async {
+                try {
+                  return await localStorageDirectory();
+                } on Object {
+                  return null;
+                }
+              },
+            )
+          : const NoFirewallAccess(),
 );
 
 /// Captures d'écran (dossier configurable).

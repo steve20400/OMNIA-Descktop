@@ -245,6 +245,23 @@ except Exception:
     fi
 fi
 
+# Pare-feu : OMNIA Connect reçoit le téléphone sur le port 41530. Un pare-feu
+# actif (ufw sur Ubuntu, firewalld ailleurs) refuse par défaut toute connexion
+# entrante, et l'appairage échouait sans rien dire. Le script tourne déjà avec
+# sudo : il ouvre ce seul port, en TCP — pas toute la machine.
+echo "--> Pare-feu : autorisation d'OMNIA Connect (port 41530/tcp)..."
+if command -v ufw >/dev/null 2>&1 && sudo ufw status 2>/dev/null | grep -qi "^status: active"; then
+    sudo ufw allow 41530/tcp comment 'OMNIA Connect' >/dev/null 2>&1 &&
+        echo "    ufw : port 41530/tcp autorisé." ||
+        echo "    ufw : l'autorisation a échoué ; OMNIA la proposera au premier appairage."
+elif command -v firewall-cmd >/dev/null 2>&1 && sudo firewall-cmd --state >/dev/null 2>&1; then
+    { sudo firewall-cmd --permanent --add-port=41530/tcp && sudo firewall-cmd --reload; } >/dev/null 2>&1 &&
+        echo "    firewalld : port 41530/tcp autorisé." ||
+        echo "    firewalld : l'autorisation a échoué ; OMNIA la proposera au premier appairage."
+else
+    echo "    Aucun pare-feu actif : rien à faire."
+fi
+
 echo ""
 echo "=========================================================="
 if [ "$IS_UPGRADE" = true ]; then

@@ -78,4 +78,19 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -f -t "$ICON_BASE" || true
 fi
 
+# 6. Pare-feu : OMNIA Connect reçoit le téléphone sur le port 41530. Un
+# pare-feu actif (ufw sur Ubuntu, firewalld ailleurs) refuse par défaut toute
+# connexion entrante, et l'appairage échouait sans rien dire. Installé pour
+# tout le système, le script a les droits : il ouvre ce seul port, en TCP.
+# Sans droits, OMNIA le proposera lui-même au premier appairage.
+if [ "$EUID" -eq 0 ]; then
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi "^status: active"; then
+    ufw allow 41530/tcp comment 'OMNIA Connect' >/dev/null 2>&1 &&
+      echo "Pare-feu (ufw) : OMNIA Connect autorisé sur le port 41530/tcp." || true
+  elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    { firewall-cmd --permanent --add-port=41530/tcp && firewall-cmd --reload; } >/dev/null 2>&1 &&
+      echo "Pare-feu (firewalld) : OMNIA Connect autorisé sur le port 41530/tcp." || true
+  fi
+fi
+
 echo "Installation d'OMNIA terminée avec succès !"

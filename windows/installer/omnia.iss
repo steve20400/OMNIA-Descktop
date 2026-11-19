@@ -36,7 +36,9 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-; Installation pour tous (administrateur) ou pour soi seul, au choix.
+; Installation pour tous (administrateur) par défaut — c'est elle qui pose la
+; règle du pare-feu sans autre question — ou pour soi seul, au choix.
+PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 ChangesAssociations=yes
 ; Mise à niveau en place transparente sans désinstallation préalable :
@@ -491,8 +493,14 @@ Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\SupportedTypes"; Val
 ; sinon une par version, toutes vers le même programme.
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""OMNIA Connect"""; Flags: runhidden; Tasks: firewall; Check: IsAdminInstallMode
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""OMNIA Connect"" dir=in action=allow program=""{app}\{#AppExe}"" enable=yes profile=private,public"; Flags: runhidden; Tasks: firewall; Check: IsAdminInstallMode
+; Installation pour soi seul — y compris la mise à jour d'une installation
+; faite ainsi, qui reprend ce choix : sans droits, aucune règle n'était posée,
+; et le téléphone ne joignait jamais le PC. Une seule confirmation
+; d'administrateur, pour la seule règle : l'ancienne retirée, la nouvelle posée.
+Filename: "{sys}\cmd.exe"; Parameters: "/c netsh advfirewall firewall delete rule name=""OMNIA Connect"" & netsh advfirewall firewall add rule name=""OMNIA Connect"" dir=in action=allow program=""{app}\{#AppExe}"" enable=yes profile=private,public"; Verb: "runas"; Flags: shellexec runhidden waituntilterminated; Tasks: firewall; Check: not IsAdminInstallMode
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 ; La règle part avec l'application : rien ne doit rester ouvert après elle.
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""OMNIA Connect"""; Flags: runhidden; RunOnceId: "RetirerRegleParefeu"; Check: IsAdminInstallMode
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""OMNIA Connect"""; Verb: "runas"; Flags: shellexec runhidden waituntilterminated; RunOnceId: "RetirerRegleParefeuUtilisateur"; Check: not IsAdminInstallMode

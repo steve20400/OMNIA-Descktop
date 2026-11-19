@@ -52,7 +52,7 @@ class FirewallNotice extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Pare-feu de Windows',
+                  'Pare-feu',
                   style: type.bodyStrong.copyWith(color: accent),
                 ),
                 const SizedBox(height: 2),
@@ -60,7 +60,7 @@ class FirewallNotice extends StatelessWidget {
                   'Il refuse les connexions vers OMNIA sur ce réseau : '
                   "l'autre appareil ne pourra pas le joindre. Inutile de "
                   'couper le pare-feu — OMNIA peut être autorisé seul, et '
-                  'Windows vous demandera de confirmer.',
+                  'le système vous demandera de confirmer.',
                   style: type.secondary.copyWith(
                     color: colors.screen,
                     height: 1.4,
@@ -77,7 +77,7 @@ class FirewallNotice extends StatelessWidget {
                 const SizedBox(height: 10),
                 OmniaButton(
                   label: busy
-                      ? 'En attente de la confirmation de Windows…'
+                      ? 'En attente de votre confirmation…'
                       : 'Autoriser OMNIA dans le pare-feu',
                   icon: Icons.verified_user_outlined,
                   primary: true,

@@ -206,3 +206,106 @@ New-NetFirewallRule -DisplayName '$ruleName' -Direction Inbound -Action Allow -P
     return check();
   }
 }
+
+/// Le pare-feu de Linux : ufw (Ubuntu, Debian) ou firewalld (Fedora).
+///
+/// L'interroger en détail demande les droits d'administrateur — `ufw status`
+/// refuse de répondre sinon. On se contente donc de savoir s'il est actif,
+/// par sa configuration (lisible par tous) ou par systemd. Actif, il refuse
+/// par défaut toute connexion entrante : sans trace d'une autorisation
+/// accordée à OMNIA, il est tenu pour bloquant.
+///
+/// L'autorisation passe par `pkexec`, qui affiche la demande de mot de passe
+/// du bureau : rien ne change sans elle. Elle ouvre le seul port d'OMNIA
+/// Connect, en TCP — pas toute la machine.
+class LinuxFirewallAccess implements FirewallAccess {
+  LinuxFirewallAccess({
+    this.port = 41530,
+    ProcessRunner? runner,
+    this.ufwConfig = '/etc/ufw/ufw.conf',
+    required this.markerDirectory,
+  }) : _run = runner ?? Process.run;
+
+  /// Port d'écoute d'OMNIA Connect.
+  final int port;
+
+  final ProcessRunner _run;
+
+  /// Configuration d'ufw, où `ENABLED=yes` dit qu'il filtre.
+  final String ufwConfig;
+
+  /// Dossier où OMNIA note l'autorisation obtenue : sans droits, il ne peut
+  /// pas relire les règles d'ufw pour la retrouver.
+  final Future<Directory?> Function() markerDirectory;
+
+  static const Duration checkBudget = Duration(seconds: 10);
+  static const Duration allowBudget = Duration(minutes: 2);
+
+  bool _ufwEnabled() {
+    try {
+      return File(ufwConfig)
+          .readAsLinesSync()
+          .any((line) => line.trim().toLowerCase() == 'enabled=yes');
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<bool> _firewalldActive() async {
+    try {
+      final result = await _run('systemctl', ['is-active', 'firewalld']).timeout(checkBudget);
+      return result.stdout.toString().trim() == 'active';
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<File?> _marker() async {
+    final directory = await markerDirectory();
+    if (directory == null) return null;
+    return File('${directory.path}${Platform.pathSeparator}pare-feu-$port.autorise');
+  }
+
+  @override
+  Future<FirewallState> check() async {
+    final ufw = _ufwEnabled();
+    if (!ufw && !await _firewalldActive()) return FirewallState.open;
+    final marker = await _marker();
+    if (marker != null && marker.existsSync()) return FirewallState.open;
+    return FirewallState.blocked;
+  }
+
+  /// La commande lancée avec les droits d'administrateur, selon le pare-feu.
+  Future<List<String>?> allowCommand() async {
+    if (_ufwEnabled()) return ['ufw', 'allow', '$port/tcp', 'comment', 'OMNIA Connect'];
+    if (await _firewalldActive()) {
+      return [
+        'sh',
+        '-c',
+        'firewall-cmd --permanent --add-port=$port/tcp && firewall-cmd --reload',
+      ];
+    }
+    return null;
+  }
+
+  @override
+  Future<FirewallState> allow() async {
+    final command = await allowCommand();
+    if (command == null) return FirewallState.open;
+    try {
+      final result = await _run('pkexec', command).timeout(allowBudget);
+      // 126 : demande refusée ; 127 : pkexec absent ou non autorisé.
+      if (result.exitCode == 0) {
+        final marker = await _marker();
+        if (marker != null) {
+          await marker.parent.create(recursive: true);
+          await marker.writeAsString('OMNIA Connect autorisé sur le port $port/tcp\n');
+        }
+        return FirewallState.open;
+      }
+    } on Object {
+      // Refus, délai dépassé : rien n'a changé.
+    }
+    return check();
+  }
+}

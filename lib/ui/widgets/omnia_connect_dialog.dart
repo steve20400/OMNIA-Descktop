@@ -71,8 +71,21 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
   /// concerne que cette fenêtre.
   Future<void> _checkFirewall() async {
     final state = await ref.read(firewallAccessProvider).check();
-    if (mounted) setState(() => _firewall = state);
+    if (!mounted) return;
+    setState(() => _firewall = state);
+    // Le téléphone va tenter de joindre ce PC : si le pare-feu le refuse, la
+    // demande d'autorisation vient d'elle-même, sans aller chercher le bouton
+    // — c'est ce qui se passe au moment où l'on montre le code à scanner.
+    // Une fois par session : refusée, elle ne revient pas à chaque ouverture,
+    // et le bouton reste là pour la redemander.
+    if (state == FirewallState.blocked && !_firewallAskedThisSession) {
+      _firewallAskedThisSession = true;
+      await _allowThroughFirewall();
+    }
   }
+
+  /// Vrai dès que la demande automatique a été faite dans cette session.
+  static bool _firewallAskedThisSession = false;
 
   /// Demande au système d'autoriser OMNIA, puis affiche ce qu'il en est.
   Future<void> _allowThroughFirewall() async {

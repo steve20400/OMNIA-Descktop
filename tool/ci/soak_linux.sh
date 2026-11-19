@@ -22,13 +22,23 @@ minutes=${3:-6}
 
 samples="${RUNNER_TEMP:-/tmp}/omnia-endurance"
 mkdir -p "$samples/Documents-A" "$samples/Documents-B" "$samples/Films"
+# Des dossiers peuplés, comme chez l'utilisateur : le panneau du dossier
+# affiche une vignette par fichier — première page de chaque PDF, image tirée
+# de chaque vidéo — et c'est ce travail-là qu'il faut éprouver aussi.
 python3 -c "
 import sys
 sys.path.insert(0, 'tool/ci')
 import make_samples as m
 m.write_long_pdf('$samples/Documents-A/rapport.pdf')
 m.write_long_pdf('$samples/Documents-B/cours.pdf')
+for i in range(1, 26):
+    m.write_long_pdf('$samples/Documents-A/annexe-%02d.pdf' % i, pages=6)
+    m.write_long_pdf('$samples/Documents-B/chapitre-%02d.pdf' % i, pages=6)
 "
+for i in $(seq -w 1 12); do
+  ffmpeg -loglevel error -y -f lavfi -i "testsrc2=size=1920x1080:rate=30" -t 8 \
+    -c:v libx264 -preset ultrafast -pix_fmt yuv420p "$samples/Films/episode-$i.mp4" || true
+done
 # Une vraie vidéo, encodée comme celles de l'utilisateur : H.264 et AAC.
 ffmpeg -loglevel error -y \
   -f lavfi -i "testsrc2=size=1280x720:rate=30" \
@@ -57,7 +67,7 @@ launch video "$samples/Films/film.mp4"
 ticks=$(getconf CLK_TCK)
 csv="$out/endurance.csv"
 echo "seconde,fenetre,rss_mo,cpu_pct,fils,memoire_dispo_mo" >"$csv"
-declare -A last_ticks first_rss last_rss max_cpu first_threads last_threads cpu_sum cpu_n
+declare -A last_ticks first_rss last_rss max_rss max_cpu first_threads last_threads cpu_sum cpu_n
 
 cpu_ticks() { awk '{ print $14 + $15 }' "/proc/$1/stat" 2>/dev/null || echo 0; }
 status_value() { awk -v key="$2:" '$1 == key { print $2 }' "/proc/$1/status" 2>/dev/null || echo 0; }
@@ -97,6 +107,7 @@ for n in $(seq 1 "$samples_count"); do
     # La première minute sert de chauffe : caches remplis, polices chargées.
     if [ "$n" -eq 4 ]; then first_rss[$i]=$rss; first_threads[$i]=$threads; fi
     last_rss[$i]=$rss
+    [ "$rss" -gt "${max_rss[$i]:-0}" ] && max_rss[$i]=$rss
     last_threads[$i]=$threads
     [ "$cpu" -gt "${max_cpu[$i]:-0}" ] && max_cpu[$i]=$cpu
     if [ "$n" -gt 4 ]; then
@@ -127,7 +138,7 @@ for i in "${!pids[@]}"; do
   per_min=$(( elapsed > 0 ? growth * 60 / elapsed : 0 ))
   avg_cpu=$(( ${cpu_n[$i]:-0} > 0 ? ${cpu_sum[$i]:-0} / ${cpu_n[$i]} : 0 ))
   thread_growth=$(( ${last_threads[$i]:-0} - ${first_threads[$i]:-0} ))
-  report="$report%0A$name : mémoire ${start} → ${end} Mo (${per_min} Mo/min), processeur moyen ${avg_cpu} %25 (pointe ${max_cpu[$i]:-0} %25), fils ${first_threads[$i]:-0} → ${last_threads[$i]:-0}"
+  report="$report%0A$name : mémoire ${start} → ${end} Mo (${per_min} Mo/min, pointe ${max_rss[$i]:-0} Mo), processeur moyen ${avg_cpu} %25 (pointe ${max_cpu[$i]:-0} %25), fils ${first_threads[$i]:-0} → ${last_threads[$i]:-0}"
   # Au-delà de 20 Mo par minute de façon soutenue, dix minutes suffisent à
   # entamer sérieusement la mémoire d'une machine ordinaire.
   [ "$per_min" -gt 20 ] && problem="$problem $name-mémoire"

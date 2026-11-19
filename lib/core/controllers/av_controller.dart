@@ -55,7 +55,16 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
               ),
             ),
         _preferences = preferences ?? (() => AppPreferences.defaults) {
-    if (withVideoOutput) videoController = VideoController(this.player);
+    // Décodage matériel « sûr » : mpv n'essaie que les méthodes qu'il sait
+    // fiables. `auto`, le choix de media_kit, peut en retenir que certains
+    // pilotes graphiques supportent mal sous Linux — et un pilote en faute
+    // fige la machine entière, pas seulement OMNIA (CHANTIERS R.1).
+    if (withVideoOutput) {
+      videoController = VideoController(
+        this.player,
+        configuration: const VideoControllerConfiguration(hwdec: 'auto-safe'),
+      );
+    }
     _listen();
     unawaited(_applyBaseProperties());
   }

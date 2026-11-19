@@ -170,4 +170,88 @@ void main() {
     expect(await parefeu.check(), FirewallState.open);
     expect(await parefeu.allow(), FirewallState.open);
   });
+
+  _linux();
+}
+
+
+/// Un lanceur pour le pare-feu de Linux : `systemctl` répond selon
+/// [firewalld], `pkexec` selon [pkexecCode] ; chaque appel est noté.
+class _LanceurLinux {
+  _LanceurLinux({this.firewalld = false, this.pkexecCode = 0});
+
+  final bool firewalld;
+  final int pkexecCode;
+  final List<List<String>> appels = [];
+
+  Future<ProcessResult> call(String executable, List<String> arguments) async {
+    appels.add([executable, ...arguments]);
+    if (executable == 'systemctl') {
+      return ProcessResult(0, firewalld ? 0 : 3, firewalld ? 'active\n' : 'inactive\n', '');
+    }
+    if (executable == 'pkexec') return ProcessResult(0, pkexecCode, '', '');
+    return ProcessResult(0, 1, '', '');
+  }
+}
+
+void _linux() {
+  group('Pare-feu de Linux', () {
+    late Directory dossier;
+    late File ufw;
+
+    setUp(() {
+      dossier = Directory.systemTemp.createTempSync('omnia_parefeu_');
+      ufw = File('${dossier.path}/ufw.conf');
+    });
+    tearDown(() => dossier.deleteSync(recursive: true));
+
+    LinuxFirewallAccess parefeu(_LanceurLinux lanceur) => LinuxFirewallAccess(
+          runner: lanceur.call,
+          ufwConfig: ufw.path,
+          markerDirectory: () async => dossier,
+        );
+
+    test('aucun pare-feu actif : rien ne bloque', () async {
+      ufw.writeAsStringSync('ENABLED=no\n');
+      expect(await parefeu(_LanceurLinux()).check(), FirewallState.open);
+    });
+
+    test('ufw actif, sans autorisation donnée : bloqué', () async {
+      ufw.writeAsStringSync('# ufw.conf\nENABLED=yes\nLOGLEVEL=low\n');
+      expect(await parefeu(_LanceurLinux()).check(), FirewallState.blocked);
+    });
+
+    test('autoriser passe par pkexec et ouvre le seul port d’OMNIA Connect', () async {
+      ufw.writeAsStringSync('ENABLED=yes\n');
+      final lanceur = _LanceurLinux();
+      final acces = parefeu(lanceur);
+
+      expect(await acces.allow(), FirewallState.open);
+      expect(
+        lanceur.appels.last,
+        ['pkexec', 'ufw', 'allow', '41530/tcp', 'comment', 'OMNIA Connect'],
+      );
+      // L'autorisation est retenue : la vérification suivante la retrouve.
+      expect(await acces.check(), FirewallState.open);
+    });
+
+    test('demande refusée : toujours bloqué, rien de retenu', () async {
+      ufw.writeAsStringSync('ENABLED=yes\n');
+      final acces = parefeu(_LanceurLinux(pkexecCode: 126));
+      expect(await acces.allow(), FirewallState.blocked);
+      expect(await acces.check(), FirewallState.blocked);
+    });
+
+    test('firewalld actif : le port est ouvert de façon permanente', () async {
+      ufw.writeAsStringSync('ENABLED=no\n');
+      final lanceur = _LanceurLinux(firewalld: true);
+      final acces = parefeu(lanceur);
+
+      expect(await acces.check(), FirewallState.blocked);
+      expect(await acces.allow(), FirewallState.open);
+      final commande = lanceur.appels.last;
+      expect(commande.first, 'pkexec');
+      expect(commande.last, contains('--add-port=41530/tcp'));
+    });
+  });
 }
