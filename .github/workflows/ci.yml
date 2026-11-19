@@ -289,7 +289,7 @@ jobs:
       - name: Paquets système
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libmpv-dev xvfb libgl1-mesa-dri imagemagick
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libmpv-dev xvfb libgl1-mesa-dri imagemagick ffmpeg xdotool
 
       - uses: subosito/flutter-action@v2
         with:
@@ -380,6 +380,17 @@ jobs:
       - name: Lancement réel
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: bash tool/ci/smoke_linux.sh build/linux/x64/release/bundle build/lancement
+
+      # Endurance : le scénario qui figeait la machine de Steve sous Ubuntu
+      # (CHANTIERS R.1) — deux PDF qu'on fait défiler et une vidéo H.264,
+      # dans trois fenêtres, pendant six minutes. Mémoire, processeur et fils
+      # d'exécution de chaque fenêtre relevés toutes les 15 s ; le rapport
+      # part en annotation, et le relevé complet (endurance.csv) dans les
+      # captures. Non bloquant tant que le diagnostic est en cours.
+      - name: Endurance (trois fenêtres)
+        continue-on-error: true
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: bash tool/ci/soak_linux.sh build/linux/x64/release/bundle build/lancement 6
 
       - name: Captures du lancement réel
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

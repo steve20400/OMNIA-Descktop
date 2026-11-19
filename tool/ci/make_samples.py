@@ -85,6 +85,48 @@ def write_pdf(path):
         f.write(bytes(out))
 
 
+def write_long_pdf(path, pages=40):
+    """Un document de plusieurs pages, chacune avec un titre et des lignes.
+
+    Sert à l'essai d'endurance : un PDF d'une seule page ne se fait pas
+    défiler, et c'est en défilant qu'un visualiseur garde ou relâche ses
+    pages rendues.
+    """
+    font_number = 3 + 2 * pages
+    kids = ' '.join('%d 0 R' % (3 + 2 * i) for i in range(pages))
+    objects = [
+        b'<< /Type /Catalog /Pages 2 0 R >>',
+        ('<< /Type /Pages /Kids [%s] /Count %d >>' % (kids, pages)).encode(),
+    ]
+    for i in range(pages):
+        lines = [b'BT /F1 36 Tf 72 760 Td (Page %d) Tj ET' % (i + 1)]
+        for row in range(30):
+            lines.append(b'BT /F1 12 Tf 72 %d Td (Ligne %d de la page %d, texte d essai.) Tj ET'
+                         % (720 - row * 20, row + 1, i + 1))
+        content = b'\n'.join(lines)
+        objects.append(
+            b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] '
+            b'/Contents %d 0 R /Resources << /Font << /F1 %d 0 R >> >> >>'
+            % (4 + 2 * i, font_number))
+        objects.append(b'<< /Length %d >>\nstream\n' % len(content) + content + b'\nendstream')
+    objects.append(b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+
+    out = bytearray(b'%PDF-1.4\n')
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += b'%d 0 obj\n' % number + body + b'\nendobj\n'
+    xref = len(out)
+    out += b'xref\n0 %d\n' % (len(objects) + 1)
+    out += b'0000000000 65535 f \n'
+    for offset in offsets:
+        out += b'%010d 00000 n \n' % offset
+    out += b'trailer\n<< /Size %d /Root 1 0 R >>\n' % (len(objects) + 1)
+    out += b'startxref\n%d\n%%%%EOF\n' % xref
+    with open(path, 'wb') as f:
+        f.write(bytes(out))
+
+
 def main():
     if len(sys.argv) != 2:
         sys.exit('Usage : python tool/ci/make_samples.py <dossier>')
