@@ -473,11 +473,14 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
                     stream: connectService.isConnectedStream,
                     initialData: connectService.hasConnectedClients,
                     builder: (context, snapshot) => (snapshot.data ?? false)
-                        ? const Padding(
-                            padding: EdgeInsets.only(top: 12),
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 12),
                             child: TransferSendButton(
                               peerLabel: 'le téléphone',
                               deviceName: 'OMNIA Desktop',
+                              openFile: ref.watch(
+                                playbackStateProvider.select((s) => s.file?.path),
+                              ),
                             ),
                           )
                         : const SizedBox.shrink(),
@@ -718,9 +721,10 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
               },
             ),
             const SizedBox(height: 12),
-            const TransferSendButton(
+            TransferSendButton(
               peerLabel: 'le téléphone',
               deviceName: 'OMNIA Desktop',
+              openFile: ref.watch(playbackStateProvider.select((s) => s.file?.path)),
             ),
             const SizedBox(height: 16),
             Row(
