@@ -16,6 +16,7 @@ import '../../l10n/app_localizations.dart';
 import '../document_search.dart';
 import '../document_search_provider.dart';
 import '../theme/omnia_theme.dart';
+import 'pdf_notes.dart';
 import 'text_view.dart';
 
 /// Vue d'un PDF : défilement continu (pdfrx) ou page par page.
@@ -104,7 +105,16 @@ class _PdfStageState extends ConsumerState<PdfStage> {
       view = ColorFiltered(colorFilter: const ColorFilter.matrix(_smartInvert), child: view);
     }
 
-    return ColoredBox(color: dark ? reading.paper : colors.velvet, child: view);
+    return ColoredBox(
+      color: dark ? reading.paper : colors.velvet,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          view,
+          _PdfNotesBanner(session: session),
+        ],
+      ),
+    );
   }
 
   /// Inversion puis rotation de teinte de 180° : papier sombre, encre claire,
@@ -192,15 +202,36 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
     });
   }
 
+  /// Un clic sur une page, en mode « poser une note » : la note s'y pose.
+  bool _onTap(BuildContext context, PdfViewerController controller, PdfViewerGeneralTapHandlerDetails details) {
+    if (details.type != PdfViewerGeneralTapType.tap || !ref.read(pdfNoteModeProvider)) return false;
+    final hit = controller.getPdfPageHitTestResult(
+      details.documentPosition,
+      useDocumentLayoutCoordinates: true,
+    );
+    if (hit == null) return false;
+    ref.read(pdfNoteModeProvider.notifier).stop();
+    unawaited(
+      addPdfNoteAt(context, ref, page: hit.page.pageNumber, x: hit.offset.x, y: hit.offset.y),
+    );
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isMini = ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
+    final placing = ref.watch(pdfNoteModeProvider) && !isMini;
     final initialPage = _initialPage;
+    // Le mini-lecteur montre les notes, sans les modifier : la fenêtre est
+    // trop petite pour les écrire.
+    final editable = widget.session.notesEditable && !isMini;
 
     return Listener(
       onPointerSignal: _onPointerSignal,
-      child: LayoutBuilder(
+      child: MouseRegion(
+        cursor: placing ? SystemMouseCursors.precise : MouseCursor.defer,
+        child: LayoutBuilder(
         builder: (context, constraints) {
           if (_lastWidth != null && (constraints.maxWidth - _lastWidth!).abs() > 2) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -232,6 +263,13 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
               matchTextColor: colors.projector.withValues(alpha: 0.35),
               activeMatchTextColor: colors.projector.withValues(alpha: 0.7),
               textSelectionParams: const PdfTextSelectionParams(enabled: true),
+              onGeneralTap: isMini ? null : _onTap,
+              pageOverlaysBuilder: (context, pageRect, page) => pdfNoteMarkers(
+                pageRect: pageRect,
+                page: page,
+                notes: widget.session.notes,
+                onOpen: (note) => unawaited(openPdfNote(context, ref, note, editable: editable)),
+              ),
               onViewerReady: (_, controller) {
                 widget.onReady(controller);
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -250,6 +288,7 @@ class _ContinuousViewState extends ConsumerState<_ContinuousView> {
             ),
           );
         },
+      ),
       ),
     );
   }
@@ -402,5 +441,94 @@ class PdfDocumentSearch extends DocumentSearch {
     _searcher.removeListener(_sync);
     _searcher.dispose();
     super.dispose();
+  }
+}
+
+/// En haut de la page : le mode « poser une note » qui attend son clic, ou
+/// la note qui n'a pas pu être écrite.
+class _PdfNotesBanner extends ConsumerStatefulWidget {
+  const _PdfNotesBanner({required this.session});
+
+  final PdfSession session;
+
+  @override
+  ConsumerState<_PdfNotesBanner> createState() => _PdfNotesBannerState();
+}
+
+class _PdfNotesBannerState extends ConsumerState<_PdfNotesBanner> {
+  /// L'erreur déjà fermée : elle ne revient pas tant qu'une autre n'arrive.
+  String? _dismissed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final type = context.type;
+    final placing = ref.watch(pdfNoteModeProvider) &&
+        !ref.watch(playbackStateProvider.select((s) => s.miniPlayer));
+    final error = widget.session.notesError;
+    final showError = error != null && error != _dismissed;
+    if (!placing && !showError) return const SizedBox.shrink();
+
+    final message = placing
+        ? 'Cliquez à l’endroit de la page où poser la note.'
+        : error!;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: const EdgeInsets.all(OmniaMetrics.space3),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.curtain,
+              borderRadius: OmniaMetrics.controlRadius,
+              border: Border.all(color: placing ? colors.projector : colors.alert),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 12),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                OmniaMetrics.space3,
+                OmniaMetrics.space1,
+                OmniaMetrics.space1,
+                OmniaMetrics.space1,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    placing ? Icons.add_comment_outlined : Icons.error_outline_rounded,
+                    size: 18,
+                    color: placing ? colors.projector : colors.alert,
+                  ),
+                  const SizedBox(width: OmniaMetrics.space2),
+                  Flexible(
+                    child: Text(
+                      message,
+                      style: type.secondary.copyWith(color: colors.screen),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: placing ? 'Annuler' : 'Fermer',
+                    iconSize: 18,
+                    icon: Icon(Icons.close_rounded, color: colors.dust),
+                    onPressed: () {
+                      if (placing) {
+                        ref.read(pdfNoteModeProvider.notifier).stop();
+                      } else {
+                        setState(() => _dismissed = error);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

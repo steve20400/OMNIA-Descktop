@@ -6,6 +6,7 @@ import 'package:pdfrx/pdfrx.dart';
 import '../../core/commands/player_command.dart';
 import '../../core/models/pdf_note.dart';
 import '../../core/providers.dart';
+import '../document_search_provider.dart';
 import '../theme/omnia_theme.dart';
 import 'omnia_button.dart';
 
@@ -15,8 +16,12 @@ import 'omnia_button.dart';
 final pdfNoteModeProvider = NotifierProvider<PdfNoteMode, bool>(PdfNoteMode.new);
 
 class PdfNoteMode extends Notifier<bool> {
+  /// Un autre PDF, ou le même rouvert après une note : le mode s'éteint.
   @override
-  bool build() => false;
+  bool build() {
+    ref.watch(pdfSessionProvider.select((s) => s?.document));
+    return false;
+  }
 
   void toggle() => state = !state;
 
