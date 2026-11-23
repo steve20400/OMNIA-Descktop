@@ -602,8 +602,10 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
       return Column(
         children: [
           Text(
-            'Entrez l\'adresse IP locale du mobile (ex. 192.168.1.X) ou collez le code de couplage '
-            'pour piloter l\'application distante ou recevoir son flux.',
+            'Tapez le code affiché par l\'autre appareil — téléphone ou PC — dans son '
+            'onglet « Partager » (ou « Mon QR Code » sur un téléphone). C\'est aussi la solution quand le pare-feu de ce PC '
+            'bloque le téléphone : ici, c\'est le PC qui se connecte, et rien n\'est à '
+            'autoriser.',
             style: TextStyle(
               fontFamily: OmniaFonts.ui,
               fontSize: 13,
@@ -646,7 +648,7 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
           ],
           const SizedBox(height: 16),
           OmniaButton(
-            label: _isConnectingClient ? 'Connexion en cours...' : 'Se connecter au mobile',
+            label: _isConnectingClient ? 'Connexion en cours...' : 'Se connecter',
             icon: Icons.link_rounded,
             primary: true,
             onPressed: _isConnectingClient ? null : _connectToRemote,
