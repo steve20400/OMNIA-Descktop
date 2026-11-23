@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 import '../models/media_type.dart';
+import '../utils/media_sniffer.dart';
 import 'media_controller.dart';
 
 /// Associe une extension de fichier à un [MediaType], et un type à son
@@ -98,7 +101,9 @@ class MediaRouter {
       return MediaType.video;
     }
 
-    final ext = p.extension(path).toLowerCase().replaceFirst('.', '');
+    // « film.mp4.part » se lit comme « film.mp4 » : un téléchargement
+    // inachevé reste une vidéo.
+    final ext = p.extension(withoutPartialSuffix(path)).toLowerCase().replaceFirst('.', '');
     if (ext.isEmpty) return MediaType.unknown;
     if (videoExtensions.contains(ext)) return MediaType.video;
     if (audioExtensions.contains(ext)) return MediaType.audio;
@@ -110,6 +115,26 @@ class MediaRouter {
   }
 
   static bool isSupported(String path) => typeForPath(path).isSupported;
+
+  /// Le type de [path], en lisant ses premiers octets quand le nom ne dit
+  /// rien. Plus lent que [typeForPath] : réservé à l'ouverture d'un fichier,
+  /// jamais au parcours d'un dossier.
+  static MediaType typeForFile(String path) {
+    final byName = typeForPath(path);
+    if (byName != MediaType.unknown || path.startsWith('http://') || path.startsWith('https://')) {
+      return byName;
+    }
+    try {
+      final file = File(path).openSync();
+      try {
+        return sniffMediaType(file.readSync(256)) ?? MediaType.unknown;
+      } finally {
+        file.closeSync();
+      }
+    } on FileSystemException {
+      return MediaType.unknown;
+    }
+  }
 
   /// Contrôleur capable d'ouvrir [type], ou `null`.
   MediaController? controllerFor(MediaType type) {

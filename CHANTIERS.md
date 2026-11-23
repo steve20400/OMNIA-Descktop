@@ -55,7 +55,7 @@ de lecture, qui démarre media_kit, absent des tests) : la CI s'arrête avant
 la construction de l'APK.
 
 - [x] Test corrigé (`63e0365`)
-- [ ] APK construit par la CI
+- [x] APK construit par la CI : version v0.1.161
 
 ### S.2 — Ubuntu : la machine plante toujours
 
@@ -86,8 +86,10 @@ OMNIA. Bureau et mobile. (Suite de R.13.)
 VLC lit une vidéo encore en cours de téléchargement, ou dont le
 téléchargement s'est arrêté ; OMNIA non.
 
-- [ ] Ouvrir les fichiers partiels (`.part`, `.crdownload`…) et ceux qui
-      grossissent encore, sur le bureau et le mobile
+- [x] Ouvrir les fichiers partiels (`.part`, `.crdownload`…) et ceux qui
+      grossissent encore, sur le bureau et le mobile : la marque du
+      navigateur s'efface, un nom muet se reconnaît à ses premiers octets,
+      et mpv suit de lui-même un fichier qui grossit
 
 ### S.5 — Interconnexion, comme Xender
 

@@ -813,7 +813,9 @@ class PlaybackService implements PlaybackStateSink {
     // Mémorise le chemin pour la restauration de la session au démarrage
     unawaited(settings?.setLastOpenPath(path));
 
-    final type = MediaRouter.typeForPath(path);
+    // Par le contenu quand le nom ne dit rien : un téléchargement en cours
+    // s'appelle souvent « Non confirmé 123.crdownload ».
+    final type = MediaRouter.typeForFile(path);
     final file = MediaFile(path: path, type: type);
 
     // Un document ou une image projetés arrivent comme une adresse réseau. Le

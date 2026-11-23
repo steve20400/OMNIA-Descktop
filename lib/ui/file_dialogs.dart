@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/commands/player_command.dart';
 import '../core/controllers/media_router.dart';
 import '../core/providers.dart';
+import '../core/utils/media_sniffer.dart';
 
 /// Dialogues natifs d'ouverture. Le chemin choisi part sur le bus : l'UI ne
 /// touche jamais un contrôleur.
@@ -32,7 +33,9 @@ Future<void> openInNewWindow(String path) async {
 /// invisible dans le sélecteur.
 List<String> mediaPickerExtensions() {
   final extensions = <String>{};
-  for (final ext in MediaRouter.allExtensions) {
+  // Un téléchargement inachevé (« film.mp4.part ») se lit aussi, comme
+  // dans VLC : le sélecteur doit le proposer.
+  for (final ext in [...MediaRouter.allExtensions, ...partialDownloadExtensions]) {
     extensions.add(ext);
     extensions.add(ext.toUpperCase());
   }
