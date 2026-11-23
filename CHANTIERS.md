@@ -144,6 +144,8 @@ modes de projection.
       https seulement, et n'exécute que si la taille et l'empreinte SHA-256
       publiée avec la version correspondent. Sans paquet pour le système,
       elle le dit au lieu de simuler un téléchargement
+- [x] Un document projeté se copiait sans limite de taille : un appareil
+      relié pouvait remplir le disque. Borne de 2 Gio
 - [ ] Relire le reste du code à la recherche de failles et de bugs non vus
 
 ---
