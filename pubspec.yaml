@@ -54,6 +54,8 @@ dependencies:
   # embarque sans les exposer. Mêmes versions que celles de pdfrx.
   pdfium_dart: ^0.2.5
   ffi: ^2.2.0
+  # Empreinte SHA-256 des mises à jour, vérifiée avant de les exécuter.
+  crypto: ^3.0.7
   flutter_markdown_plus: ^1.0.12
   charset: ^2.0.1
   archive: ^4.0.0

@@ -137,6 +137,13 @@ modes de projection.
 - [x] Un appareil relié pouvait faire ouvrir n'importe quelle adresse au
       lecteur (chemin local, `file://`, protocoles internes de mpv) : seuls
       les flux `http`/`https` passent
+- [x] La mise à jour du bureau écrivait l'installateur dans le dossier
+      temporaire commun, sous un nom prévisible, puis l'exécutait sans
+      contrôle : un autre compte de la machine pouvait y glisser le sien.
+      Elle télécharge désormais dans un dossier privé tiré au hasard, en
+      https seulement, et n'exécute que si la taille et l'empreinte SHA-256
+      publiée avec la version correspondent. Sans paquet pour le système,
+      elle le dit au lieu de simuler un téléchargement
 - [ ] Relire le reste du code à la recherche de failles et de bugs non vus
 
 ---

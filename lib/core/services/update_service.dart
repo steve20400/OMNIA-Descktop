@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+
 class UpdateInfo {
   const UpdateInfo({
     required this.currentVersion,
@@ -11,6 +13,7 @@ class UpdateInfo {
     this.downloadUrl,
     this.assetName,
     this.sizeBytes = 0,
+    this.checksumsUrl,
   });
 
   final String currentVersion;
@@ -20,6 +23,10 @@ class UpdateInfo {
   final String? downloadUrl;
   final String? assetName;
   final int sizeBytes;
+
+  /// Le fichier des empreintes SHA-256 publié avec la version : le paquet
+  /// n'est exécuté que s'il y correspond.
+  final String? checksumsUrl;
 }
 
 enum UpdateStatus {
@@ -111,20 +118,26 @@ class UpdateService {
 
         String? targetUrl;
         String? assetName;
+        String? checksumsUrl;
         int size = 0;
+        final system = Platform.isWindows ? 'windows' : 'linux';
 
         for (final asset in assets) {
           final name = asset['name'] as String? ?? '';
+          final link = asset['browser_download_url'] as String?;
+          if (name.startsWith('SHA256SUMS') && name.toLowerCase().contains(system)) {
+            checksumsUrl ??= link;
+            continue;
+          }
+          if (targetUrl != null) continue;
           if (Platform.isWindows && (name.endsWith('.exe') || name.contains('installateur'))) {
-            targetUrl = asset['browser_download_url'] as String?;
+            targetUrl = link;
             assetName = name;
             size = (asset['size'] as num?)?.toInt() ?? 0;
-            break;
           } else if (Platform.isLinux && (name.endsWith('.tar.gz') || name.contains('Linux'))) {
-            targetUrl = asset['browser_download_url'] as String?;
+            targetUrl = link;
             assetName = name;
             size = (asset['size'] as num?)?.toInt() ?? 0;
-            break;
           }
         }
 
@@ -137,6 +150,7 @@ class UpdateService {
           downloadUrl: targetUrl,
           assetName: assetName,
           sizeBytes: size,
+          checksumsUrl: checksumsUrl,
         );
 
         _status = isNewer ? UpdateStatus.available : UpdateStatus.upToDate;
@@ -175,50 +189,121 @@ class UpdateService {
 
     final url = _info?.downloadUrl;
     if (url == null || url.isEmpty) {
-      // Simulation locale pour retour utilisateur et tests rapides
-      for (var p = 0.2; p <= 1.0; p += 0.2) {
-        await Future<void>.delayed(const Duration(milliseconds: 60));
-        _downloadProgress = p;
-        _downloadedBytes = (p * 29 * 1024 * 1024).round();
-        onProgress?.call(_downloadProgress, _downloadedBytes, 29 * 1024 * 1024);
-      }
-      _status = UpdateStatus.readyToInstall;
-      _statusController.add(_status);
-      return true;
+      // Plus de faux téléchargement qui « réussissait » sans rien installer :
+      // on dit qu'il n'y a rien pour ce système.
+      _fail('La dernière version ne contient pas de paquet pour ce système.');
+      return false;
+    }
+    final source = Uri.tryParse(url);
+    if (source == null || source.scheme != 'https') {
+      _fail('Adresse de téléchargement refusée : elle doit être en https.');
+      return false;
     }
 
+    // Un dossier neuf, au nom tiré au hasard et lisible par ce compte seul :
+    // dans le dossier temporaire commun, sous un nom prévisible, un autre
+    // compte de la machine pouvait poser à l'avance le fichier qu'OMNIA
+    // allait exécuter.
+    Directory? folder;
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 15);
     try {
-      final client = HttpClient();
-      final request = await client.getUrl(Uri.parse(url));
+      folder = await Directory.systemTemp.createTemp('omnia-update-');
+      final fileName = _safeAssetName(
+        _info?.assetName ?? (Platform.isWindows ? 'omnia_setup.exe' : 'omnia.tar.gz'),
+      );
+      final file = File('${folder.path}${Platform.pathSeparator}$fileName');
+
+      final request = await client.getUrl(source);
       final response = await request.close();
-
-      final total = response.contentLength > 0 ? response.contentLength : (_info?.sizeBytes ?? 1);
-      final tempDir = Directory.systemTemp;
-      final fileName = _info?.assetName ?? (Platform.isWindows ? 'omnia_setup.exe' : 'omnia.tar.gz');
-      final tempFile = File('${tempDir.path}/$fileName');
-      final sink = tempFile.openWrite();
-
-      var received = 0;
-      await for (final chunk in response) {
-        sink.add(chunk);
-        received += chunk.length;
-        _downloadedBytes = received;
-        _downloadProgress = (received / total).clamp(0.0, 1.0);
-        onProgress?.call(_downloadProgress, received, total);
+      if (response.statusCode != HttpStatus.ok) {
+        throw HttpException('réponse ${response.statusCode}');
       }
-      await sink.close();
-      client.close();
+      final announced = response.contentLength;
+      final total = announced > 0 ? announced : (_info?.sizeBytes ?? 1);
 
-      _downloadedFilePath = tempFile.path;
+      final digests = _DigestSink();
+      final hashing = sha256.startChunkedConversion(digests);
+      final sink = file.openWrite();
+      var received = 0;
+      try {
+        await for (final chunk in response) {
+          sink.add(chunk);
+          hashing.add(chunk);
+          received += chunk.length;
+          _downloadedBytes = received;
+          _downloadProgress = (received / total).clamp(0.0, 1.0);
+          onProgress?.call(_downloadProgress, received, total);
+        }
+      } finally {
+        await sink.close();
+        hashing.close();
+      }
+
+      final expectedSize = announced > 0 ? announced : (_info?.sizeBytes ?? 0);
+      if (expectedSize > 0 && received != expectedSize) {
+        throw StateError('paquet incomplet : $received octets sur $expectedSize');
+      }
+
+      // L'empreinte publiée avec la version, ou rien ne s'exécute.
+      final expected = await _expectedDigest(client, fileName);
+      if (expected == null) {
+        throw StateError("l'empreinte de contrôle de la version est introuvable");
+      }
+      if (digests.value.toString() != expected) {
+        throw StateError('le paquet ne correspond pas à son empreinte publiée');
+      }
+
+      _downloadedFilePath = file.path;
       _status = UpdateStatus.readyToInstall;
       _statusController.add(_status);
       return true;
     } catch (e) {
-      _errorMessage = 'Échec du téléchargement : $e';
-      _status = UpdateStatus.error;
-      _statusController.add(_status);
+      try {
+        if (folder != null && folder.existsSync()) await folder.delete(recursive: true);
+      } on FileSystemException {
+        // Le dossier restera dans le dossier temporaire : rien ne l'exécutera.
+      }
+      _fail('Mise à jour refusée : $e. Rien n’a été installé.');
       return false;
+    } finally {
+      client.close(force: true);
     }
+  }
+
+  /// L'empreinte SHA-256 attendue pour [fileName], lue dans le fichier
+  /// d'empreintes de la version (« empreinte  nom », une ligne par fichier).
+  Future<String?> _expectedDigest(HttpClient client, String fileName) async {
+    final url = _info?.checksumsUrl;
+    final uri = url == null ? null : Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'https') return null;
+    try {
+      final request = await client.getUrl(uri);
+      final response = await request.close();
+      if (response.statusCode != HttpStatus.ok) return null;
+      final text = await response.transform(utf8.decoder).join();
+      return checksumFor(text, fileName);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// L'empreinte de [fileName] dans [sums], au format de `sha256sum`
+  /// (« empreinte  nom » ou « empreinte *nom »), en minuscules ; `null` si
+  /// le fichier n'y figure pas.
+  static String? checksumFor(String sums, String fileName) {
+    for (final line in const LineSplitter().convert(sums)) {
+      final match = RegExp(r'^([0-9a-fA-F]{64})\s+\*?(.+?)\s*$').firstMatch(line.trim());
+      if (match == null) continue;
+      final name = match.group(2)!.split(RegExp(r'[\\/]')).last;
+      if (name == fileName) return match.group(1)!.toLowerCase();
+    }
+    return null;
+  }
+
+  /// Le nom du paquet sans dossier : il vient du réseau.
+  static String _safeAssetName(String name) {
+    final base = name.split(RegExp(r'[\\/]')).last.replaceAll(RegExp(r'[^A-Za-z0-9._+-]'), '_');
+    return base.isEmpty || base.startsWith('.') ? 'omnia-update' : base;
   }
 
   /// Applique la mise à jour téléchargée. Retourne `true` une fois installée ;
@@ -356,4 +441,17 @@ class UpdateService {
   void dispose() {
     _statusController.close();
   }
+}
+
+/// Recueille l'empreinte calculée au fil du téléchargement.
+class _DigestSink implements Sink<Digest> {
+  Digest? _value;
+
+  Digest get value => _value!;
+
+  @override
+  void add(Digest data) => _value = data;
+
+  @override
+  void close() {}
 }
