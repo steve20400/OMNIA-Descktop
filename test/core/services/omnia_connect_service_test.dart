@@ -120,6 +120,36 @@ void main() {
       await client.disconnect();
     });
 
+    test('un appareil relié ne fait ouvrir qu’un flux réseau, jamais un fichier local', () async {
+      final port = await service.start(address: InternetAddress.loopbackIPv4);
+      final client = OmniaConnectClient();
+      addTearDown(client.dispose);
+      expect(
+        await client.connect(host: '127.0.0.1', port: port, token: service.sessionToken!),
+        isTrue,
+      );
+      final recues = <PlayerCommand>[];
+      final abonnement = service.remoteCommands.listen(recues.add);
+      addTearDown(abonnement.cancel);
+
+      for (final url in ['file:///etc/passwd', r'C:\Windows\win.ini', '/home/moi/.ssh/id_rsa', 'av://dshow']) {
+        client.send(ConnectMessage(type: 'openRemoteStream', payload: {'url': url}));
+      }
+      client.send(
+        const ConnectMessage(
+          type: 'openRemoteStream',
+          payload: {'url': 'http://192.168.1.20:41530/api/stream?id=a&token=b&path=film.mkv'},
+        ),
+      );
+      for (var i = 0; i < 50 && recues.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(recues, hasLength(1), reason: 'seul le flux http passe');
+      expect((recues.single as OpenFile).path, startsWith('http://192.168.1.20'));
+    });
+
     test('accepte WebSocket valide et relaie les commandes distantes', () async {
       final port = await service.start(address: InternetAddress.loopbackIPv4);
       final connectedFuture = service.isConnectedStream.firstWhere((c) => c);
@@ -327,9 +357,12 @@ void main() {
 
       expect(url, isNotNull);
       expect(url, contains('/api/stream'));
-      // Le jeton est encode dans l'URL : le comparer brut echouerait des
-      // qu'il contient un caractere reserve (= du base64).
-      expect(url, contains(Uri.encodeComponent(pc.sessionToken!)));
+      // Ni le jeton de session, ni le chemin complet ne partent : un
+      // identifiant et un jeton propres à ce fichier, et son nom.
+      final query = Uri.parse(url!).queryParameters;
+      expect(query['id'], isNotEmpty);
+      expect(url, isNot(contains(Uri.encodeComponent(pc.sessionToken!))));
+      expect(query['path'], endsWith('film.mkv'));
       expect(commande, isA<OpenFile>());
       expect((commande as OpenFile).path, url);
     });
@@ -352,11 +385,13 @@ void main() {
         await fichier.delete();
       });
 
+      final autorise = pc.allowStream(fichier.path);
       final url = OmniaConnectService.buildStreamUrl(
         host: '127.0.0.1',
         port: port,
-        token: pc.sessionToken!,
-        path: fichier.path,
+        token: autorise.token,
+        path: 'omnia_projection_pc.mkv',
+        id: autorise.id,
       );
 
       final demande = await http.getUrl(Uri.parse(url));
@@ -365,18 +400,29 @@ void main() {
       final octets = await reponse.expand((morceau) => morceau).toList();
       expect(octets.length, 4);
 
-      // Sans le jeton du serveur, le fichier reste prive : le mobile
-      // recevrait une erreur 401 au lieu de la video.
-      final mauvaise = await http.getUrl(
-        Uri.parse(OmniaConnectService.buildStreamUrl(
-          host: '127.0.0.1',
-          port: port,
-          token: 'mauvais-jeton',
-          path: fichier.path,
-        )),
-      );
-      final refus = await mauvaise.close();
-      expect(refus.statusCode, 401);
+      Future<int> statut(String token, {String? id, String? chemin}) async {
+        final requete = await http.getUrl(
+          Uri.parse(OmniaConnectService.buildStreamUrl(
+            host: '127.0.0.1',
+            port: port,
+            token: token,
+            path: chemin ?? 'x.mkv',
+            id: id ?? '',
+          )),
+        );
+        final r = await requete.close();
+        await r.drain<void>();
+        return r.statusCode;
+      }
+
+      // Un mauvais jeton : refusé.
+      expect(await statut('mauvais-jeton', id: autorise.id), 401);
+      // Le jeton de session et un chemin quelconque ne servent plus rien :
+      // c'est ainsi qu'un appareil relié pouvait lire tout le disque.
+      final secret = File('${Directory.systemTemp.path}${Platform.pathSeparator}omnia_secret.txt')
+        ..writeAsStringSync('clé privée');
+      addTearDown(() async => secret.delete());
+      expect(await statut(pc.sessionToken!, chemin: secret.path), 401);
     });
 
     test('projectFile reste sans effet sans appairage actif', () async {
