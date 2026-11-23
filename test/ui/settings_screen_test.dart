@@ -290,8 +290,11 @@ void main() {
       await _tap(tester, dlBtn);
       await tester.pumpAndSettle();
 
-      // Vérifie que l'état passe à prêt pour installation en place
-      expect(find.text('Installer et redémarrer'), findsOneWidget);
+      // Sans paquet publié pour ce système, rien ne fait semblant d'être
+      // prêt : la mise à jour le dit. Jusqu'ici, un faux téléchargement
+      // « réussissait » et proposait d'installer… rien.
+      expect(find.text('Installer et redémarrer'), findsNothing);
+      expect(find.textContaining('pas de paquet pour ce système'), findsOneWidget);
     });
 
     testWidgets('chaque section tient à 360 × 240, et à 320 × 240', (tester) async {

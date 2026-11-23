@@ -117,7 +117,18 @@ class DocumentUiController extends Notifier<DocumentUiState> {
     final text = state.draftText;
     if (path == null || text == null) return false;
     try {
-      File(path).writeAsStringSync(text, flush: true);
+      // Une copie complète d'abord, mise ensuite à la place de l'original :
+      // une coupure en pleine écriture — c'est la fermeture de l'application
+      // qui appelle ceci — laisse l'ancien texte intact, jamais un fichier
+      // tronqué.
+      final temp = File('$path.omnia-save');
+      try {
+        temp.writeAsStringSync(text, flush: true);
+        temp.renameSync(path);
+      } on FileSystemException {
+        if (temp.existsSync()) temp.deleteSync();
+        File(path).writeAsStringSync(text, flush: true);
+      }
       clearDraft();
       return true;
     } catch (_) {
