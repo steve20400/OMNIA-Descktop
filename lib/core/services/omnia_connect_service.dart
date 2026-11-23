@@ -169,6 +169,59 @@ class OmniaConnectService {
   bool get hasConnectedClients => _clients.isNotEmpty;
   String? get sessionToken => _sessionToken;
 
+  /// Secret à six chiffres de la session, affiché avec l'adresse pour une
+  /// saisie à la main. Il remplace le jeton du QR code quand le scan échoue.
+  String? get pairingPin => _pairingPin;
+  String? _pairingPin;
+
+  /// Essais faux du secret, et jusqu'à quand il n'est plus essayé : dix
+  /// erreurs ferment la porte une minute. Un million de combinaisons à ce
+  /// rythme demande des semaines.
+  int _pinFailures = 0;
+  DateTime? _pinLockedUntil;
+  static const int _pinAttempts = 10;
+  static const Duration _pinLockout = Duration(minutes: 1);
+
+  /// Vrai si [address] est sur la machine même ou sur un réseau privé :
+  /// boucle locale, 10/8, 172.16/12, 192.168/16, 169.254/16 (liaison
+  /// directe), et leurs équivalents IPv6. « 172. » seul laissait passer des
+  /// adresses publiques.
+  static bool isPrivateAddress(InternetAddress? address) {
+    if (address == null) return false;
+    if (address.isLoopback || address.isLinkLocal) return true;
+    final bytes = address.rawAddress;
+    if (address.type == InternetAddressType.IPv4 && bytes.length == 4) {
+      return bytes[0] == 10 ||
+          (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+          (bytes[0] == 192 && bytes[1] == 168) ||
+          (bytes[0] == 169 && bytes[1] == 254);
+    }
+    if (address.type == InternetAddressType.IPv6 && bytes.isNotEmpty) {
+      return (bytes[0] & 0xFE) == 0xFC; // fc00::/7
+    }
+    return false;
+  }
+
+  /// Vrai si [given] ouvre la liaison : le jeton du QR code, ou le secret à
+  /// six chiffres pour un appareil du réseau privé.
+  bool _admits(String? given, InternetAddress? from) {
+    if (sameToken(given, _sessionToken)) return true;
+    final pin = _pairingPin;
+    if (pin == null || given == null || given.isEmpty || !isPrivateAddress(from)) return false;
+    final now = DateTime.now();
+    final locked = _pinLockedUntil;
+    if (locked != null && now.isBefore(locked)) return false;
+    if (sameToken(given, pin)) {
+      _pinFailures = 0;
+      return true;
+    }
+    if (++_pinFailures >= _pinAttempts) {
+      _pinFailures = 0;
+      _pinLockedUntil = now.add(_pinLockout);
+    }
+    return false;
+  }
+
   /// Les fichiers que cet appareil propose à l'autre, servis sur
   /// [transferPath] et nulle part ailleurs.
   final OutgoingTransfers transfers = OutgoingTransfers();
@@ -280,6 +333,9 @@ class OmniaConnectService {
     if (_server != null) return _server!.port;
 
     _sessionToken = _generateToken();
+    _pairingPin = _generatePin();
+    _pinFailures = 0;
+    _pinLockedUntil = null;
     final bindAddress = address ?? InternetAddress.anyIPv4;
     try {
       _server = await HttpServer.bind(bindAddress, port);
@@ -307,6 +363,7 @@ class OmniaConnectService {
     await _server?.close(force: true);
     _server = null;
     _sessionToken = null;
+    _pairingPin = null;
     if (!_connectionState.isClosed) {
       _connectionState.add(false);
     }
@@ -776,22 +833,12 @@ class OmniaConnectService {
     if (path == '/api/ws') {
       final token = request.uri.queryParameters['token'];
 
-      // Mêmes règles que l'hôte mobile. Sans cet alignement, l'appairage
-      // changeait de comportement selon l'appareil qui sert d'hôte : un
-      // client qui saisit l'adresse à la main — jeton vide, OMNIA Mobile
-      // part de `String token = ''` — était accepté par le téléphone et
-      // refusé ici en 401. Le jeton reste exigé de tout client qui n'est pas
-      // sur la boucle locale ou le réseau local (RFC 1918).
+      // Mêmes règles que l'hôte mobile : le jeton du QR code, ou le secret
+      // à six chiffres affiché avec l'adresse. Jusqu'ici, tout appareil du
+      // réseau local entrait sans rien présenter — n'importe qui sur le
+      // même Wi-Fi pouvait piloter OMNIA.
       final address = request.connectionInfo?.remoteAddress;
-      final isLocalClient = address?.isLoopback == true ||
-          (address?.address.startsWith('192.168.') ?? false) ||
-          (address?.address.startsWith('10.') ?? false) ||
-          (address?.address.startsWith('172.') ?? false);
-      final tokenMatches = sameToken(token, _sessionToken);
-      final allowedManual =
-          isLocalClient && (token == null || token.isEmpty || token == 'omnia');
-
-      if (!tokenMatches && !allowedManual) {
+      if (!_admits(token, address)) {
         request.response.statusCode = HttpStatus.unauthorized;
         await request.response.close();
         return;
@@ -1039,6 +1086,12 @@ class OmniaConnectService {
   /// seule chose qui sépare un appareil invité d'un inconnu : autant qu'il
   /// reste hors de portée d'une recherche exhaustive, aujourd'hui comme dans
   /// dix ans.
+  /// Six chiffres tirés au hasard cryptographique.
+  String _generatePin() {
+    final rand = Random.secure();
+    return List.generate(6, (_) => rand.nextInt(10)).join();
+  }
+
   String _generateToken() {
     final rand = Random.secure();
     final bytes = List<int>.generate(32, (_) => rand.nextInt(256));

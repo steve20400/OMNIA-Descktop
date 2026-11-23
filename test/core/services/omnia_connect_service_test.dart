@@ -67,21 +67,46 @@ void main() {
       client.close();
     });
 
-    test('accepte un appairage manuel sans jeton depuis la machine même',
+    test('sans jeton ni secret, même du réseau local, la porte reste fermée',
         () async {
-      // Cas du téléphone où l'on saisit l'adresse à la main au lieu de
-      // scanner le QR code : OMNIA Mobile part alors d'un jeton vide
-      // (`String token = ''`). L'hôte mobile l'acceptait, le bureau le
-      // refusait en 401 : l'appairage échouait donc selon l'appareil qui
-      // servait d'hôte. Le jeton reste exigé de tout client non local.
+      // Jusqu'ici, tout appareil du réseau local entrait sans rien
+      // présenter : n'importe qui sur le même Wi-Fi pouvait piloter OMNIA.
       final port = await service.start(address: InternetAddress.loopbackIPv4);
       final client = OmniaConnectClient();
       addTearDown(client.dispose);
 
+      expect(await client.connect(host: '127.0.0.1', port: port, token: ''), isFalse);
+      expect(await client.connect(host: '127.0.0.1', port: port, token: 'omnia'), isFalse);
+      expect(service.hasConnectedClients, isFalse);
+    });
+
+    test('dix secrets faux ferment la porte un moment, même au bon secret',
+        () async {
+      final port = await service.start(address: InternetAddress.loopbackIPv4);
+      final pin = service.pairingPin!;
+      final wrong = pin == '000000' ? '111111' : '000000';
+      final client = OmniaConnectClient();
+      addTearDown(client.dispose);
+      for (var i = 0; i < 10; i++) {
+        expect(await client.connect(host: '127.0.0.1', port: port, token: wrong), isFalse);
+      }
+      expect(await client.connect(host: '127.0.0.1', port: port, token: pin), isFalse,
+          reason: 'la porte est fermée une minute');
+    });
+
+    test('accepte un appairage manuel avec le secret à six chiffres',
+        () async {
+      // Le repli quand le scan échoue : on recopie l'adresse et le secret
+      // affichés à côté du QR code.
+      final port = await service.start(address: InternetAddress.loopbackIPv4);
+      final client = OmniaConnectClient();
+      addTearDown(client.dispose);
+
+      expect(service.pairingPin, matches(RegExp(r'^[0-9]{6}$')));
       final ok = await client.connect(
         host: '127.0.0.1',
         port: port,
-        token: '',
+        token: service.pairingPin!,
       );
 
       expect(ok, isTrue, reason: "l'appairage manuel doit être accepté");

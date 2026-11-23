@@ -154,7 +154,13 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
     final target = PairingCode.parse(data);
     if (target == null) return null;
     if (!OmniaConnectService.isProjectableHost(target.host)) return null;
-    return PairingCode.format(host: target.host, port: target.port);
+    // Le secret de la session suit l'adresse : sans lui, l'autre appareil
+    // est refusé.
+    return PairingCode.format(
+      host: target.host,
+      port: target.port,
+      pin: ref.read(omniaConnectServiceProvider).pairingPin ?? '',
+    );
   }
 
   /// Demande au mobile appairé de lire le média ouvert sur ce poste.
@@ -189,10 +195,10 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
       setState(() {
         _clientError = raw.trim().isEmpty
             ? 'Saisissez l\'adresse affichée sur l\'autre appareil, par '
-                'exemple 192.168.1.24:41530.'
+                'exemple 192.168.1.24:41530-482913.'
             : 'Cette saisie ne contient pas d\'adresse lisible. Recopiez le '
                 'code affiché sur l\'autre appareil, par exemple '
-                '192.168.1.24:41530.';
+                '192.168.1.24:41530-482913.';
       });
       return;
     }
@@ -611,7 +617,7 @@ class _OmniaConnectDialogState extends ConsumerState<OmniaConnectDialog> {
             controller: _ipController,
             style: TextStyle(color: colors.screen, fontFamily: OmniaFonts.mono, fontSize: 14),
             decoration: InputDecoration(
-              hintText: '192.168.1.X:41530',
+              hintText: '192.168.1.X:41530-123456',
               hintStyle: TextStyle(color: colors.dust.withValues(alpha: 0.5)),
               filled: true,
               fillColor: colors.velvet,

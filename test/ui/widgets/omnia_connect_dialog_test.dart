@@ -88,7 +88,8 @@ void main() {
       find.text('Si le scan ne prend pas, saisissez ce code sur le téléphone'),
       findsOneWidget,
     );
-    expect(find.text('192.168.1.24:41530'), findsOneWidget);
+    // Suivi du secret de la session quand le serveur tourne.
+    expect(find.textContaining('192.168.1.24:41530'), findsOneWidget);
   });
 
   testWidgets('une adresse injoignable ne propose aucun code à recopier',
