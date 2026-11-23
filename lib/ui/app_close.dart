@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/models/app_preferences.dart';
+import '../core/models/media_type.dart';
 import '../core/providers.dart';
 import '../core/services/window_service.dart';
 import 'app.dart';
@@ -155,7 +156,11 @@ ExitSteps exitStepsFor(dynamic ref, {Future<void> Function()? closeWindow}) {
   final window = ref.read(windowServiceProvider) as WindowService;
   return ExitSteps(
     hideWindow: window.hide,
+    // Un moteur qui n'a jamais démarré n'a rien à taire ni à arrêter : le
+    // créer pour l'arrêter retarderait la fermeture d'une fenêtre de
+    // documents.
     silence: () async {
+      if (!ref.read(mediaRouterProvider).isStarted(MediaType.video)) return;
       await (ref.read(avControllerProvider) as dynamic).player.setVolume(0);
     },
     saveState: () async {
@@ -163,6 +168,7 @@ ExitSteps exitStepsFor(dynamic ref, {Future<void> Function()? closeWindow}) {
     },
     closeWindow: closeWindow ?? window.close,
     stopEngine: () async {
+      if (!ref.read(mediaRouterProvider).isStarted(MediaType.video)) return;
       await (ref.read(avControllerProvider) as dynamic).player.stop();
     },
   );

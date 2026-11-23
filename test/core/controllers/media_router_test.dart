@@ -96,6 +96,36 @@ void main() {
     });
   });
 
+  group('Moteur créé à la demande', () {
+    test('rien n’est créé tant qu’aucun son ni vidéo ne s’ouvre', () {
+      var created = 0;
+      final pdf = _StubController({MediaType.pdf});
+      final router = MediaRouter(
+        [pdf],
+        lazy: [
+          LazyMediaController({MediaType.video, MediaType.audio}, () {
+            created++;
+            return _StubController({MediaType.video, MediaType.audio});
+          }),
+        ],
+      );
+
+      // Ouvrir un PDF, savoir si une vidéo se lit, lister les contrôleurs :
+      // le moteur reste à créer.
+      expect(router.controllerFor(MediaType.pdf), same(pdf));
+      expect(router.canOpen(MediaType.video), isTrue);
+      expect(router.isStarted(MediaType.video), isFalse);
+      expect(router.controllers, [pdf]);
+      expect(created, 0);
+
+      final av = router.controllerFor(MediaType.video);
+      expect(router.controllerFor(MediaType.audio), same(av), reason: 'un seul moteur');
+      expect(created, 1);
+      expect(router.isStarted(MediaType.audio), isTrue);
+      expect(router.controllers, [pdf, av]);
+    });
+  });
+
   group('MediaRouter.controllerFor', () {
     final av = _StubController({MediaType.video, MediaType.audio});
     final pdf = _StubController({MediaType.pdf});

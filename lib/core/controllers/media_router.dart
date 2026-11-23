@@ -11,11 +11,45 @@ import 'media_controller.dart';
 ///
 /// Les listes d'extensions sont la source de vérité pour tout OMNIA : dialogue
 /// d'ouverture, scan de dossier, associations MIME du fichier `.desktop`.
+/// Un contrôleur créé seulement quand un média de son type s'ouvre.
+///
+/// Le moteur audio/vidéo est le plus lourd : mpv, ses fils, sa surface de
+/// rendu et, sous Linux, son contexte graphique. Une fenêtre qui n'affiche
+/// que des documents n'en a pas besoin — et trois fenêtres ouvertes en
+/// créaient trois (CHANTIERS S.2).
+class LazyMediaController {
+  LazyMediaController(this.supportedTypes, this._create);
+
+  final Set<MediaType> supportedTypes;
+  final MediaController Function() _create;
+  MediaController? _instance;
+
+  /// Le contrôleur, créé au premier appel.
+  MediaController get instance => _instance ??= _create();
+
+  /// Vrai une fois le contrôleur créé.
+  bool get isCreated => _instance != null;
+}
+
 class MediaRouter {
-  MediaRouter(Iterable<MediaController> controllers)
-      : _controllers = List.unmodifiable(controllers);
+  MediaRouter(Iterable<MediaController> controllers, {Iterable<LazyMediaController> lazy = const []})
+      : _controllers = List.unmodifiable(controllers),
+        _lazy = List.unmodifiable(lazy);
 
   final List<MediaController> _controllers;
+  final List<LazyMediaController> _lazy;
+
+  /// Vrai si le contrôleur de [type] existe déjà : pour l'arrêter sans le
+  /// créer à seule fin de l'arrêter.
+  bool isStarted(MediaType type) {
+    for (final c in _controllers) {
+      if (c.supportedTypes.contains(type)) return true;
+    }
+    for (final entry in _lazy) {
+      if (entry.supportedTypes.contains(type)) return entry.isCreated;
+    }
+    return false;
+  }
 
   // Vidéo et audio passent par mpv (FFmpeg), qui lit bien plus de formats
   // que le seul MP4 : la liste couvre ce que l'on croise réellement, du
@@ -141,12 +175,26 @@ class MediaRouter {
     for (final c in _controllers) {
       if (c.supportedTypes.contains(type)) return c;
     }
+    for (final entry in _lazy) {
+      if (entry.supportedTypes.contains(type)) return entry.instance;
+    }
     return null;
   }
+
+  /// Vrai si un contrôleur sait ouvrir [type], sans le créer.
+  bool canOpen(MediaType type) =>
+      _controllers.any((c) => c.supportedTypes.contains(type)) ||
+      _lazy.any((entry) => entry.supportedTypes.contains(type));
 
   /// Contrôleur pour un chemin donné, ou `null` si non pris en charge.
   MediaController? controllerForPath(String path) =>
       controllerFor(typeForPath(path));
 
-  Iterable<MediaController> get controllers => _controllers;
+  /// Les contrôleurs existants ; ceux qui attendent leur premier média n'y
+  /// sont pas.
+  Iterable<MediaController> get controllers => [
+        ..._controllers,
+        for (final entry in _lazy)
+          if (entry.isCreated) entry.instance,
+      ];
 }

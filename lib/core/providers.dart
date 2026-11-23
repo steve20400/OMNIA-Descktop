@@ -12,6 +12,7 @@ import 'controllers/pdf_controller.dart';
 import 'controllers/text_controller.dart';
 
 import 'models/app_preferences.dart';
+import 'models/media_type.dart';
 import 'models/playback_state.dart';
 import 'models/playlist_state.dart';
 import 'services/audio_metadata_service.dart';
@@ -167,12 +168,21 @@ final imageControllerProvider = Provider<ImageController>((ref) {
 });
 
 final mediaRouterProvider = Provider<MediaRouter>(
-  (ref) => MediaRouter([
-    ref.watch(avControllerProvider),
-    ref.watch(textControllerProvider),
-    ref.watch(pdfControllerProvider),
-    ref.watch(imageControllerProvider),
-  ]),
+  (ref) => MediaRouter(
+    [
+      ref.watch(textControllerProvider),
+      ref.watch(pdfControllerProvider),
+      ref.watch(imageControllerProvider),
+    ],
+    // mpv ne démarre qu'au premier son ou à la première vidéo : une fenêtre
+    // de documents n'en porte pas le poids.
+    lazy: [
+      LazyMediaController(
+        const {MediaType.video, MediaType.audio},
+        () => ref.read(avControllerProvider),
+      ),
+    ],
+  ),
 );
 
 
@@ -185,7 +195,7 @@ final playlistServiceProvider = Provider<PlaylistService>((ref) {
     settings: ref.watch(settingsStoreProvider),
     // Le panneau liste tout le dossier ; la navigation n'enchaîne que sur ce
     // qu'un contrôleur sait réellement ouvrir.
-    isPlayable: (path) => router.controllerForPath(path) != null,
+    isPlayable: (path) => router.canOpen(MediaRouter.typeForPath(path)),
   );
   ref.onDispose(service.dispose);
   return service;
