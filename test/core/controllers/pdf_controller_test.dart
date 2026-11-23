@@ -406,6 +406,21 @@ void main() {
       expect(written, hasLength(2));
     });
 
+    test('un passage commenté part au moteur avec ses lignes', () async {
+      final notesOf = notesController();
+      await notesOf.open(file, sink);
+
+      await notesOf.handle(
+        const AddPdfHighlight(page: 2, quads: [72, 700, 300, 688], text: 'Source ?'),
+      );
+
+      final added = notes.applied.single as PdfHighlightAdded;
+      expect(added.page, 2);
+      expect(added.quads, [72, 700, 300, 688]);
+      expect(added.text, 'Source ?');
+      expect(written, hasLength(1));
+    });
+
     test('un fichier qui refuse l’écriture : le document reste, et le dit', () async {
       final notesOf = notesController(
         writer: (path, bytes) async => throw const FileSystemException('refusé'),
