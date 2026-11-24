@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/end_of_playback_mode.dart';
 import '../../core/models/playback_state.dart';
+import '../../core/models/recording_failure.dart';
 import '../../core/models/video_adjust.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
@@ -298,7 +300,7 @@ class _OsdPill extends StatelessWidget {
             ),
           ),
         ),
-      OsdRecordingFailed() => (
+      OsdRecordingFailed(:final reason) => (
           Icons.error_outline_rounded,
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
@@ -309,9 +311,9 @@ class _OsdPill extends StatelessWidget {
                 Text(l10n.recordingFailed, style: type.osdLabel),
                 const SizedBox(height: 3),
                 Text(
-                  l10n.recordingFailedHint,
+                  recordingFailureHint(reason, fallback: l10n.recordingFailedHint),
                   style: type.caption,
-                  maxLines: 2,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -436,4 +438,23 @@ class _LevelBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Ce qu'on dit d'un extrait raté, selon sa cause.
+///
+/// Sous Windows, la bibliothèque vidéo livrée avec OMNIA ne sait pas écrire
+/// d'extrait : mieux vaut le dire franchement que d'accuser la lecture ou le
+/// dossier (CHANTIERS S.6).
+String recordingFailureHint(RecordingFailure reason, {required String fallback, bool? windows}) {
+  return switch (reason) {
+    RecordingFailure.notPlaying => 'La lecture doit avancer pour qu’un extrait s’enregistre.',
+    RecordingFailure.folderUnavailable => 'Le dossier des extraits est inaccessible : vérifiez-le dans les paramètres.',
+    RecordingFailure.engineRefused => (windows ?? Platform.isWindows)
+        ? 'Les extraits ne sont pas encore disponibles sous Windows : la bibliothèque vidéo ne sait pas les écrire.'
+        : 'Le moteur vidéo a refusé d’enregistrer cet extrait.',
+    RecordingFailure.containerRefused => 'Ce format ne peut pas être enregistré tel quel dans un extrait.',
+    RecordingFailure.nothingRecorded => 'Rien n’a été enregistré : l’extrait était trop court.',
+    RecordingFailure.unsupportedMedia => 'Seuls un son ou une vidéo s’enregistrent en extrait.',
+    RecordingFailure.none => fallback,
+  };
 }

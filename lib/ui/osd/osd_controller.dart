@@ -57,7 +57,7 @@ class OsdController extends Notifier<OsdMessage?> {
       if (before.recording && !next.recording) {
         final saved = next.recordingFailed ? null : next.lastRecording;
         if (saved == null) {
-          show(const OsdRecordingFailed());
+          show(OsdRecordingFailed(next.recordingFailure));
           return;
         }
         final started = before.recordingStartedAt;
@@ -73,7 +73,7 @@ class OsdController extends Notifier<OsdMessage?> {
       // le suivant laisse l'état inchangé, même raison —, c'est pourquoi
       // `osdFor` annonce aussi l'échec à la commande : un appui, une réponse.
       if (!before.recordingFailed && next.recordingFailed) {
-        show(const OsdRecordingFailed());
+        show(OsdRecordingFailed(next.recordingFailure));
       }
     });
 

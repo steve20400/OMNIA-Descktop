@@ -6,7 +6,9 @@ import 'package:omnia/core/models/media_file.dart';
 import 'package:omnia/core/models/media_type.dart';
 import 'package:omnia/core/models/playback_state.dart';
 import 'package:omnia/core/models/playback_status.dart';
+import 'package:omnia/core/models/recording_failure.dart';
 import 'package:omnia/ui/osd/osd_message.dart';
+import 'package:omnia/ui/widgets/osd_overlay.dart';
 
 void main() {
   const playing = PlaybackState(
@@ -210,6 +212,32 @@ void main() {
       expect(osdFor(const SetPlaylistQuery('a'), playing), isNull);
       expect(osdFor(const ToggleSidePanel(), playing), isNull);
       expect(osdFor(const Stop(), playing), isNull);
+    });
+  });
+
+  group('Extrait raté', () {
+    test('la cause est dite, et sous Windows le moteur qui ne sait pas écrire', () {
+      expect(
+        recordingFailureHint(RecordingFailure.engineRefused, fallback: '?', windows: true),
+        contains('pas encore disponibles sous Windows'),
+      );
+      expect(
+        recordingFailureHint(RecordingFailure.engineRefused, fallback: '?', windows: false),
+        isNot(contains('Windows')),
+      );
+      expect(recordingFailureHint(RecordingFailure.notPlaying, fallback: '?'), contains('lecture'));
+      expect(recordingFailureHint(RecordingFailure.none, fallback: 'défaut'), 'défaut');
+    });
+
+    test('le message porte la cause depuis l’état', () {
+      const after = PlaybackState(
+        file: MediaFile(path: '/films/a.mkv', type: MediaType.video),
+        recordingFailed: true,
+        recordingFailure: RecordingFailure.engineRefused,
+      );
+      final message = osdFor(const ToggleRecording(), after);
+      expect(message, isA<OsdRecordingFailed>());
+      expect((message! as OsdRecordingFailed).reason, RecordingFailure.engineRefused);
     });
   });
 }

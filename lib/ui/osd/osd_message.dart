@@ -4,6 +4,7 @@ import '../../core/commands/player_command.dart';
 import '../../core/commands/player_command_bus.dart';
 import '../../core/models/end_of_playback_mode.dart';
 import '../../core/models/playback_state.dart';
+import '../../core/models/recording_failure.dart';
 import '../../core/models/video_adjust.dart';
 
 /// Ce que l'OSD (affichage à l'écran) doit montrer après une action.
@@ -113,9 +114,13 @@ final class OsdRecordingSaved extends OsdMessage {
 }
 
 /// Rien n'a pu être enregistré (lecture restée en pause, dossier
-/// inaccessible, format refusé).
+/// inaccessible, format refusé), et pourquoi.
 final class OsdRecordingFailed extends OsdMessage {
-  const OsdRecordingFailed();
+  const OsdRecordingFailed([this.reason = RecordingFailure.none]);
+
+  /// La cause, pour la dire : « la lecture n'a pas avancé » et « le moteur ne
+  /// sait pas écrire d'extrait » n'appellent pas le même geste.
+  final RecordingFailure reason;
 }
 
 final class OsdAspect extends OsdMessage {
@@ -268,7 +273,7 @@ OsdMessage? osdFor(PlayerCommand command, PlaybackState after) {
     // raison : le suivi d'état ne voit aucun front et resterait muet au second
     // appui. La commande, elle, arrive à chaque appui.
     ToggleRecording() when after.hasFile && after.recordingFailed =>
-      const OsdRecordingFailed(),
+      OsdRecordingFailed(after.recordingFailure),
     SetAspectMode() when hasMedia => OsdAspect(after.aspectMode),
     VideoZoomRelative() || ResetVideoZoom() when hasMedia => OsdVideoZoom(after.videoZoom),
     RotateVideo() when hasMedia => OsdVideoRotation(after.videoRotation),
