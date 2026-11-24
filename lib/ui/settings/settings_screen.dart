@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
@@ -15,6 +16,7 @@ import '../../core/models/playback_state.dart';
 import '../../core/providers.dart';
 import '../../core/services/update_service.dart';
 import '../../core/utils/connect_mode.dart';
+import '../../core/utils/gpu_quirks.dart';
 import '../../core/utils/screenshot_naming.dart';
 import '../../core/utils/time_format.dart';
 import '../../l10n/app_localizations.dart';
@@ -780,6 +782,41 @@ class _PlaybackSection extends ConsumerWidget {
             onChanged: (v) => ref.change((p) => p.copyWith(tapToPause: v)),
           ),
         ),
+        const SettingDivider(),
+        SettingRow(
+          title: 'Décodage matériel',
+          hint: fragileVideoDecoder
+              ? 'Automatique le coupe sur cette machine : sa puce graphique Intel '
+                  '(Sandy Bridge ou plus ancienne) peut figer tout le système pendant '
+                  'une vidéo. Le processeur décode à sa place, un peu plus chargé.'
+              : 'La puce graphique décode la vidéo, sauf celles dont le pilote peut '
+                  'figer la machine. Désactivé : le processeur s’en charge. '
+                  'Vaut dès la vidéo suivante.',
+          control: OmniaSegmented<HardwareDecoding>(
+            values: HardwareDecoding.values,
+            selected: p.hardwareDecoding,
+            labelOf: (v) => switch (v) {
+              HardwareDecoding.auto => 'Automatique',
+              HardwareDecoding.on => 'Activé',
+              HardwareDecoding.off => 'Désactivé',
+            },
+            onChanged: (v) => ref.change((p) => p.copyWith(hardwareDecoding: v)),
+          ),
+        ),
+        if (Platform.isLinux) ...[
+          const SettingDivider(),
+          SettingRow(
+            title: 'Rendu vidéo par la carte graphique',
+            hint: 'Éteint, le processeur dessine l’image : plus lent, mais le pilote '
+                'graphique n’est plus sollicité du tout. À essayer si la machine se '
+                'fige encore, décodage matériel coupé. Vaut au prochain lancement.',
+            control: OmniaSwitch(
+              label: 'Rendu par la carte graphique',
+              value: p.hardwareRendering,
+              onChanged: (v) => ref.change((p) => p.copyWith(hardwareRendering: v)),
+            ),
+          ),
+        ],
       ],
     );
   }

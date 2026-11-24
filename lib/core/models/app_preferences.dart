@@ -24,6 +24,22 @@ enum AppThemeMode {
       values.firstWhere((e) => e.name == value, orElse: () => AppThemeMode.dark);
 }
 
+/// Qui décode la vidéo : la puce graphique, ou le processeur.
+enum HardwareDecoding {
+  /// La puce graphique, sauf celles dont le pilote peut figer la machine
+  /// (défaut).
+  auto,
+
+  /// La puce graphique, toujours.
+  on,
+
+  /// Le processeur, toujours : plus lent, mais sans le pilote graphique.
+  off;
+
+  static HardwareDecoding fromJson(Object? value) =>
+      values.firstWhere((e) => e.name == value, orElse: () => HardwareDecoding.auto);
+}
+
 /// Que faire quand on rouvre un fichier interrompu en cours de route.
 enum ResumePolicy {
   /// Reprendre directement à la position mémorisée (défaut).
@@ -140,6 +156,8 @@ class AppPreferences {
     this.wirelessMode = 'wifi',
     this.projectionMode = 'file',
     this.tapToPause = true,
+    this.hardwareDecoding = HardwareDecoding.auto,
+    this.hardwareRendering = true,
     this.autoCheckUpdates = true,
     this.updateChannel = 'stable',
     this.mobilePromoDismissed = false,
@@ -256,6 +274,13 @@ class AppPreferences {
   /// Désactivé, il ne fait que rappeler les commandes : la lecture continue.
   final bool tapToPause;
 
+  /// Qui décode la vidéo. Voir [HardwareDecoding].
+  final HardwareDecoding hardwareDecoding;
+
+  /// L'image dessinée par la carte graphique (défaut) ou par le processeur.
+  /// Pris en compte au prochain démarrage du moteur vidéo.
+  final bool hardwareRendering;
+
   // Réseau & Mises à jour
   final bool autoCheckUpdates;
   final String updateChannel;
@@ -312,6 +337,8 @@ class AppPreferences {
     String? wirelessMode,
     String? projectionMode,
     bool? tapToPause,
+    HardwareDecoding? hardwareDecoding,
+    bool? hardwareRendering,
     bool? autoCheckUpdates,
     String? updateChannel,
     bool? mobilePromoDismissed,
@@ -357,6 +384,8 @@ class AppPreferences {
       wirelessMode: wirelessMode ?? this.wirelessMode,
       projectionMode: projectionMode ?? this.projectionMode,
       tapToPause: tapToPause ?? this.tapToPause,
+      hardwareDecoding: hardwareDecoding ?? this.hardwareDecoding,
+      hardwareRendering: hardwareRendering ?? this.hardwareRendering,
       autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
       updateChannel: updateChannel ?? this.updateChannel,
       mobilePromoDismissed: mobilePromoDismissed ?? this.mobilePromoDismissed,
@@ -439,6 +468,8 @@ class AppPreferences {
         'wirelessMode': wirelessMode,
         'projectionMode': projectionMode,
         'tapToPause': tapToPause,
+        'hardwareDecoding': hardwareDecoding.name,
+        'hardwareRendering': hardwareRendering,
         'autoCheckUpdates': autoCheckUpdates,
         'updateChannel': updateChannel,
         'mobilePromoDismissed': mobilePromoDismissed,
@@ -511,6 +542,10 @@ class AppPreferences {
       tapToPause: json['tapToPause'] is bool
           ? json['tapToPause']! as bool
           : d.tapToPause,
+      hardwareDecoding: HardwareDecoding.fromJson(json['hardwareDecoding']),
+      hardwareRendering: json['hardwareRendering'] is bool
+          ? json['hardwareRendering']! as bool
+          : d.hardwareRendering,
       autoCheckUpdates: bool0('autoCheckUpdates', d.autoCheckUpdates),
       updateChannel: json['updateChannel'] is String ? json['updateChannel']! as String : d.updateChannel,
       mobilePromoDismissed: bool0('mobilePromoDismissed', d.mobilePromoDismissed),

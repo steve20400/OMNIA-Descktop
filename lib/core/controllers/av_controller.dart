@@ -16,6 +16,7 @@ import '../models/playback_status.dart';
 import '../models/recording_failure.dart';
 import '../models/track_info.dart';
 import '../models/video_adjust.dart';
+import '../utils/gpu_quirks.dart';
 import '../utils/os_errors.dart';
 import '../utils/volume_curve.dart';
 import 'frame_capturer.dart';
@@ -57,13 +58,18 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
             ),
         _preferences = preferences ?? (() => AppPreferences.defaults) {
     // Décodage matériel « sûr » : mpv n'essaie que les méthodes qu'il sait
-    // fiables. `auto`, le choix de media_kit, peut en retenir que certains
-    // pilotes graphiques supportent mal sous Linux — et un pilote en faute
-    // fige la machine entière, pas seulement OMNIA (CHANTIERS R.1).
+    // fiables — et pas du tout sur les puces Intel dont le pilote Linux fige
+    // la machine entière pendant une vidéo (CHANTIERS S.2). Le réglage peut
+    // forcer l'un ou l'autre ; le rendu par la carte graphique se coupe aussi,
+    // en dernier recours.
     if (withVideoOutput) {
+      final prefs = _preferences();
       videoController = VideoController(
         this.player,
-        configuration: const VideoControllerConfiguration(hwdec: 'auto-safe'),
+        configuration: VideoControllerConfiguration(
+          hwdec: hwdecFor(prefs.hardwareDecoding, fragile: fragileVideoDecoder),
+          enableHardwareAcceleration: prefs.hardwareRendering,
+        ),
       );
     }
     _listen();
@@ -360,6 +366,8 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
     }
 
     final prefs = _preferences();
+    // Le réglage du décodage vaut dès le fichier suivant, sans redémarrer.
+    await _setProperty('hwdec', hwdecFor(prefs.hardwareDecoding, fragile: fragileVideoDecoder));
     // Vitesse, volume, sourdine, sous-titres, image et égaliseur sont
     // conservés d'un fichier à l'autre. On les relève AVANT d'ouvrir : le
     // moteur peut publier ses propres valeurs pendant l'ouverture, qui
