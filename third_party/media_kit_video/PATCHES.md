@@ -40,6 +40,15 @@ because the test created the `VideoController` before the window's first frame, 
 current yet. The app creates it when a film starts. A test that does not do the same does not test
 this.
 
+## Test the frame sharing before using it — `linux/video_output.cc`, `linux/texture_gl.cc`
+
+Every H/W frame reaches Flutter through an EGLImage of mpv's texture. A driver without
+`EGL_KHR_gl_texture_2D_image` / `GL_OES_EGL_image`, or one that refuses the image, showed the
+picture black with the sound playing — and calling a missing entry point through libepoxy aborts
+the process. `texture_gl_probe_egl_image` now checks the extensions and does one real round trip
+in mpv's context before the H/W path is chosen; on failure the existing S/W fallback takes over and
+the leftover EGL context is destroyed. At run time, a refused image is no longer bound.
+
 ## Not taken: upstream `main`'s `BLOCK_FOR_TARGET_TIME = 0`
 
 Upstream `main` passes `MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME = 0` in `texture_gl.cc` — its only

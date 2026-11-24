@@ -23,6 +23,15 @@ G_DECLARE_FINAL_TYPE(TextureGL, texture_gl, TEXTURE_GL, TEXTURE_GL, FlTextureGL)
 TextureGL* texture_gl_new(VideoOutput* video_output);
 
 /**
+ * @brief OMNIA patch: checks, with |context| current, that frames rendered in
+ * mpv's isolated EGL context can be shared with Flutter through an EGLImage.
+ * Returns FALSE when the driver lacks the extensions or refuses the image, so
+ * the caller falls back to S/W rendering instead of showing a black picture —
+ * or, through libepoxy, aborting the whole process.
+ */
+gboolean texture_gl_probe_egl_image(EGLDisplay display, EGLContext context);
+
+/**
  * @brief Populates texture with video frame.
  */
 gboolean texture_gl_populate_texture(FlTextureGL* texture,

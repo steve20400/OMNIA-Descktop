@@ -37,6 +37,58 @@ static void init_egl_image_extensions() {
   }
 }
 
+gboolean texture_gl_probe_egl_image(EGLDisplay display, EGLContext context) {
+  // libepoxy aborts the process when a missing entry point is called: check
+  // the extensions before touching any of them.
+  if (!epoxy_has_egl_extension(display, "EGL_KHR_image_base") ||
+      !epoxy_has_egl_extension(display, "EGL_KHR_gl_texture_2D_image")) {
+    g_printerr("media_kit: VideoOutput: EGL cannot make images of GL textures.\n");
+    return FALSE;
+  }
+  if (!epoxy_has_gl_extension("GL_OES_EGL_image")) {
+    g_printerr("media_kit: VideoOutput: GL_OES_EGL_image is unavailable.\n");
+    return FALSE;
+  }
+  init_egl_image_extensions();
+  if (eglCreateImageKHR == NULL || eglDestroyImageKHR == NULL ||
+      glEGLImageTargetTexture2DOES == NULL) {
+    g_printerr("media_kit: VideoOutput: EGLImage entry points are missing.\n");
+    return FALSE;
+  }
+
+  // A real round trip, the one every frame takes: a texture in mpv's
+  // context, an EGLImage of it, and a texture bound to that image.
+  while (glGetError() != GL_NO_ERROR) {
+  }
+  GLuint source = 0;
+  glGenTextures(1, &source);
+  glBindTexture(GL_TEXTURE_2D, source);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  EGLint attributes[] = {EGL_NONE};
+  EGLImageKHR image = eglCreateImageKHR(display, context, EGL_GL_TEXTURE_2D_KHR,
+                                        (EGLClientBuffer)(guintptr)source, attributes);
+  gboolean shared = image != EGL_NO_IMAGE_KHR;
+  if (shared) {
+    GLuint target = 0;
+    glGenTextures(1, &target);
+    glBindTexture(GL_TEXTURE_2D, target);
+    glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+    shared = glGetError() == GL_NO_ERROR;
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDeleteTextures(1, &target);
+    eglDestroyImageKHR(display, image);
+  }
+  glDeleteTextures(1, &source);
+  if (!shared) {
+    g_printerr("media_kit: VideoOutput: EGLImage sharing failed (EGL error 0x%x).\n", eglGetError());
+  }
+  return shared;
+}
+
 struct _TextureGL {
   FlTextureGL parent_instance;
   guint32 name;              // Flutter's texture name
@@ -219,7 +271,14 @@ gboolean texture_gl_populate_texture(FlTextureGL* texture,
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-      glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, self->egl_image);
+      // OMNIA patch: an image the driver refused is not bound — binding
+      // EGL_NO_IMAGE_KHR is undefined behaviour.
+      if (self->egl_image != EGL_NO_IMAGE_KHR) {
+        glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, self->egl_image);
+      } else {
+        g_printerr("media_kit: VideoOutput: EGLImage refused for a %dx%d frame.\n",
+                   required_width, required_height);
+      }
       glBindTexture(GL_TEXTURE_2D, 0);
       
       self->current_width = required_width;

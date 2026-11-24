@@ -289,10 +289,17 @@ VideoOutput* video_output_new(FlTextureRegistrar* texture_registrar,
         if (self->egl_context != EGL_NO_CONTEXT) {
           // Make our isolated context current for initialization (surfaceless)
           if (eglMakeCurrent(self->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, self->egl_context)) {
-            // Create texture with our isolated context
-            self->texture_gl = texture_gl_new(self);
-            
-            if (fl_texture_registrar_register_texture(
+            // OMNIA patch: every frame reaches Flutter through an EGLImage.
+            // A driver that cannot do it showed the picture black, sound
+            // still playing — or aborted inside libepoxy. Test it first; on
+            // failure, S/W rendering below takes over.
+            gboolean sharing = texture_gl_probe_egl_image(self->egl_display, self->egl_context);
+            if (sharing) {
+              // Create texture with our isolated context
+              self->texture_gl = texture_gl_new(self);
+            }
+
+            if (sharing && fl_texture_registrar_register_texture(
                     texture_registrar, FL_TEXTURE(self->texture_gl))) {
               // Initialize mpv with our isolated EGL context
               mpv_opengl_init_params gl_init_params{
@@ -336,7 +343,7 @@ VideoOutput* video_output_new(FlTextureRegistrar* texture_registrar,
               } else {
                 g_printerr("media_kit: VideoOutput: Failed to create mpv_render_context.\n");
               }
-            } else {
+            } else if (sharing) {
               g_printerr("media_kit: VideoOutput: Failed to register texture.\n");
             }
             
@@ -360,6 +367,14 @@ VideoOutput* video_output_new(FlTextureRegistrar* texture_registrar,
     }
 
     glassfin_restore_gdk_gl_context(gdk_context);
+
+    // OMNIA patch: a context left over from a refused H/W attempt goes, so
+    // that dispose takes the S/W path only.
+    if (!hardware_acceleration_supported && self->texture_gl == NULL &&
+        self->egl_context != EGL_NO_CONTEXT) {
+      eglDestroyContext(self->egl_display, self->egl_context);
+      self->egl_context = EGL_NO_CONTEXT;
+    }
   }
 #ifdef MPV_RENDER_API_TYPE_SW
   if (!hardware_acceleration_supported) {
