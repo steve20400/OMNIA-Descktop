@@ -23,6 +23,41 @@ mkdir -p "$BIN_DIR" "$APP_DIR" "$PIXMAPS_DIR"
 # Fermeture propre de toute instance active avant mise à niveau en place
 pkill -x omnia 2>/dev/null || true
 
+# 0. libmpv, la bibliothèque de lecture, n'est pas dans l'archive : sans elle,
+# OMNIA ne lit ni son ni image. Installé pour tout le système, le script a les
+# droits de l'installer lui-même, comme le ferait un paquet .deb ou .rpm.
+libmpv_present() {
+  ldconfig -p 2>/dev/null | grep -q 'libmpv\.so\.2'
+}
+if ! libmpv_present && [ "$EUID" -eq 0 ]; then
+  echo "Installation de libmpv (lecture audio et vidéo)..."
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get install -y libmpv2 >/dev/null 2>&1 ||
+      { apt-get update >/dev/null 2>&1 && apt-get install -y libmpv2 >/dev/null 2>&1; } || true
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y mpv-libs >/dev/null 2>&1 || true
+  elif command -v zypper >/dev/null 2>&1; then
+    zypper --non-interactive install libmpv2 >/dev/null 2>&1 || true
+  elif command -v pacman >/dev/null 2>&1; then
+    pacman -S --noconfirm --needed mpv >/dev/null 2>&1 || true
+  fi
+  ldconfig 2>/dev/null || true
+fi
+if ! libmpv_present; then
+  echo
+  if ldconfig -p 2>/dev/null | grep -q 'libmpv\.so\.1'; then
+    echo "Attention : ce système n'a que l'ancienne libmpv (libmpv.so.1)."
+    echo "OMNIA demande libmpv 2 : Ubuntu 24.04, Debian 13, Fedora 39 ou plus récent."
+  else
+    echo "Attention : libmpv est introuvable, et OMNIA ne pourra rien lire."
+    echo "Installez-la, puis relancez OMNIA :"
+    echo "    Ubuntu, Debian : sudo apt install libmpv2"
+    echo "    Fedora (RPM Fusion) : sudo dnf install mpv-libs"
+    echo "    Arch : sudo pacman -S mpv"
+  fi
+  echo
+fi
+
 # 1. Binaire / Bundle
 if [ -d "$ROOT_DIR/build/linux/x64/release/bundle" ]; then
   BUNDLE_DIR="$DEST_PREFIX/opt/omnia"
