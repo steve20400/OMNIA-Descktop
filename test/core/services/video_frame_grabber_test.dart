@@ -191,6 +191,22 @@ void main() {
       expect(await grabber.frameOf(p.join(work.path, 'absent.mkv')), isNull);
     });
 
+    test('le cache garde les affiches les plus récemment vues, pas plus', () async {
+      final cache = Directory(p.join(work.path, 'affiches'))..createSync();
+      final base = DateTime(2026, 11, 1);
+      for (var i = 0; i < 5; i++) {
+        File(p.join(cache.path, 'affiche$i.jpg'))
+          ..writeAsBytesSync(const [0xFF, 0xD8, 0xFF])
+          ..setLastModifiedSync(base.add(Duration(days: i)));
+      }
+      File(p.join(cache.path, 'autre.txt')).writeAsStringSync('pas une affiche');
+
+      await VideoFrameGrabber(cacheDirectory: () async => cache).trimCache(keep: 3);
+
+      final restent = cache.listSync().map((e) => p.basename(e.path)).toList()..sort();
+      expect(restent, ['affiche2.jpg', 'affiche3.jpg', 'affiche4.jpg', 'autre.txt']);
+    });
+
     test('l’empreinte du cache est stable et distingue les fichiers', () {
       final a = VideoFrameGrabber.cacheKey('/films/a.mkv|10|1');
       expect(a, hasLength(16));

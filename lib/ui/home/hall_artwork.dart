@@ -24,8 +24,8 @@ final bool _underTest = Platform.environment.containsKey('FLUTTER_TEST');
 final hallArtworkEnabledProvider = Provider<bool>((_) => !_underTest);
 
 /// L'extracteur d'images des vidéos, et son cache sur disque.
-final videoFrameGrabberProvider = Provider<VideoFrameGrabber>(
-  (ref) => VideoFrameGrabber(
+final videoFrameGrabberProvider = Provider<VideoFrameGrabber>((ref) {
+  final grabber = VideoFrameGrabber(
     enabled: ref.watch(hallArtworkEnabledProvider),
     cacheDirectory: () async {
       try {
@@ -34,8 +34,11 @@ final videoFrameGrabberProvider = Provider<VideoFrameGrabber>(
         return null;
       }
     },
-  ),
-);
+  );
+  // Une fois par lancement : le cache ne grossit pas sans fin.
+  if (ref.read(hallArtworkEnabledProvider)) unawaited(grabber.trimCache());
+  return grabber;
+});
 
 /// L'image d'une vidéo, tant qu'une affiche la montre. Quand aucune ne la
 /// montre plus — on a fait défiler un long dossier —, l'extraction qui

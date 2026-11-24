@@ -5,6 +5,7 @@ import 'package:omnia/core/controllers/media_router.dart';
 import 'package:omnia/core/models/media_file.dart';
 import 'package:omnia/core/models/media_type.dart';
 import 'package:omnia/core/utils/remote_media.dart';
+import 'package:path/path.dart' as p;
 
 /// Une adresse telle qu'OMNIA Connect en produit : le vrai chemin du fichier
 /// voyage dans le paramètre `path`.
@@ -107,6 +108,22 @@ void main() {
         timeout: const Duration(seconds: 2),
       );
       expect(local, isNull);
+    });
+
+    test('la purge n’efface que les dossiers d’OMNIA, et seulement les anciens', () async {
+      final racine = Directory.systemTemp.createTempSync('omnia_purge_');
+      addTearDown(() => racine.deleteSync(recursive: true));
+      for (final nom in ['omnia_recu_a', 'omnia-update-b', 'autre_logiciel']) {
+        Directory(p.join(racine.path, nom)).createSync();
+      }
+
+      // À l'instant : une autre fenêtre peut encore s'en servir, rien ne part.
+      await purgeReceivedMedia(root: racine);
+      expect(racine.listSync(), hasLength(3));
+
+      // Deux jours plus tard : les dossiers d'OMNIA partent, l'autre reste.
+      await purgeReceivedMedia(root: racine, now: DateTime.now().add(const Duration(days: 2)));
+      expect(racine.listSync().map((e) => p.basename(e.path)), ['autre_logiciel']);
     });
 
     test('un nom venu du réseau ne peut pas désigner un autre dossier', () {

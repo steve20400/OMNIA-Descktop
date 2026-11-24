@@ -63,7 +63,14 @@ class VideoFrameGrabber {
     final cached = await _cacheFileFor(file);
     if (cached != null && cached.existsSync()) {
       try {
-        return await cached.readAsBytes();
+        final bytes = await cached.readAsBytes();
+        // Vue à l'instant : elle passe en tête de celles qu'on garde.
+        try {
+          cached.setLastModifiedSync(DateTime.now());
+        } on FileSystemException {
+          // Date inchangée : elle partira un peu plus tôt, voilà tout.
+        }
+        return bytes;
       } on FileSystemException {
         // Illisible : on la refait.
       }
@@ -106,6 +113,32 @@ class VideoFrameGrabber {
       }
     } finally {
       _working = false;
+    }
+  }
+
+  /// Affiches gardées sur le disque, au plus : environ 60 Mo. Au-delà, les
+  /// moins récemment vues partent. Une bibliothèque de milliers de films ne
+  /// remplit pas le disque d'images qu'on ne regarde plus.
+  static const int maxCachedPosters = 600;
+
+  /// Ramène le cache à [keep] affiches, les plus récemment vues.
+  Future<void> trimCache({int keep = maxCachedPosters}) async {
+    final directory = await cacheDirectory?.call();
+    if (directory == null || !directory.existsSync()) return;
+    try {
+      final posters = [
+        for (final entry in directory.listSync())
+          if (entry is File && entry.path.endsWith('.jpg')) (entry, entry.statSync().modified),
+      ]..sort((a, b) => b.$2.compareTo(a.$2));
+      for (final (file, _) in posters.skip(keep)) {
+        try {
+          file.deleteSync();
+        } on FileSystemException {
+          // Lue en ce moment : elle partira la prochaine fois.
+        }
+      }
+    } on FileSystemException {
+      // Dossier illisible : rien à faire.
     }
   }
 
