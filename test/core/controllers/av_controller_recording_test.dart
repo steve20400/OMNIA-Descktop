@@ -29,6 +29,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:omnia/core/controllers/av_controller.dart';
@@ -360,7 +361,30 @@ void main() {
       final source = File(p.join(work.path, 'essai.y4m'))..writeAsBytesSync(_rawVideoY4m());
       final clip = p.join(work.path, 'extrait.mkv');
 
-      await openAndPlay(MediaFile(path: source.path, type: MediaType.video));
+      // Sans VideoController, media_kit coupe la piste vidéo (vid=no) : ce
+      // fichier sans son ne défilerait jamais (CI Linux du 24 novembre :
+      // « playing », position 0). On la rallume, sans fenêtre (vo=null).
+      final native = player.platform! as NativePlayer;
+      await native.setProperty('vo', 'null');
+      await native.setProperty('vid', 'auto');
+
+      final video = MediaFile(path: source.path, type: MediaType.video);
+      await controller.open(video, sink);
+      await waitFor(
+        () =>
+            sink.state.error != null ||
+            (sink.state.status == PlaybackStatus.playing && sink.state.position > Duration.zero),
+        () => 'libmpv n’a pas lu essai.y4m : ${sink.state.status.name},'
+            ' position ${sink.state.position} (sans erreur).',
+      );
+      if (sink.state.error != null) {
+        // La bibliothèque réduite livrée sous Windows ne connaît pas ce
+        // format : il n'y a alors rien à vérifier ici.
+        debugPrint('essai.y4m illisible par ce libmpv (${sink.state.error}) : cas non vérifié.');
+        return;
+      }
+      trace.add('lecture commencée : position ${sink.state.position},'
+          ' durée ${sink.state.duration}');
       final result = await recordClip(clip, play: const Duration(seconds: 2));
 
       if (result.failure == RecordingFailure.none) {

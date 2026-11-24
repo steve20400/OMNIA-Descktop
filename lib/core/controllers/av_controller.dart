@@ -791,9 +791,18 @@ class AvController implements MediaController, FrameCapturer, StreamRecorder {
 
       // Position exacte du moteur, et non celle de l'état, filtrée à six mises
       // à jour par seconde.
+      //
+      // La pause est regardée aussi, avant et après : la dernière position
+      // envoyée par mpv arrive parfois juste après la mise en pause, et
+      // suffisait à faire croire que la lecture avançait (vu sous Linux, CI du
+      // 24 novembre : 44 ms d'écart, en pause).
       final before = player.state.position;
+      if (!player.state.playing) {
+        await releaseRecording();
+        return RecordingFailure.notPlaying;
+      }
       await Future<void>.delayed(_playbackProofDelay);
-      if (player.state.position - before < _playbackProofProgress) {
+      if (!player.state.playing || player.state.position - before < _playbackProofProgress) {
         await releaseRecording();
         return RecordingFailure.notPlaying;
       }

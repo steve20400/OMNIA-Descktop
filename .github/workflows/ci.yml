@@ -351,7 +351,9 @@ jobs:
       # cache qui n'attend que les exécutions entièrement vertes ne se
       # remplirait jamais les jours où le réseau cale.
       - name: Garder les paquets en cache
-        if: ${{ steps.cache-apt.outputs.cache-hit != 'true' }}
+        # success() explicite : un cache partiel, enregistré après un échec,
+        # resterait figé sous cette clé et ne serait jamais complété.
+        if: ${{ success() && steps.cache-apt.outputs.cache-hit != 'true' }}
         continue-on-error: true
         uses: actions/cache/save@v4
         with:
