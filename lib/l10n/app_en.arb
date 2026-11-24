@@ -351,6 +351,8 @@
   "themeDark": "Dark",
   "themeLight": "Light",
   "themeSystem": "System",
+  "themeMixed": "Mixed",
+  "settingsThemeHint": "Mixed: a light interface, with a black background around the video, the image or the pages of a PDF.",
   "settingsEndModeHint": "What OMNIA does when a file ends. Press L to change it while playing.",
   "settingsResume": "Resume playback",
   "settingsResumeHint": "When you reopen a file you stopped part-way through.",

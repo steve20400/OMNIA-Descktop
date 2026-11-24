@@ -133,7 +133,12 @@ Future<void> _showWindow({
     size: bounds?.size ?? WindowSizes.mainDefault,
     minimumSize: WindowSizes.mainMinimum,
     center: bounds == null || isWaylandSession,
-    backgroundColor: OmniaColors.dark.velvet,
+    // Pas sous Windows : window_manager y applique la couleur de fond à
+    // toute la fenêtre, y compris aux bords de redimensionnement que le
+    // système laisse autour de l'application et qui doivent rester
+    // invisibles. On voyait une bande noire au-delà du trait gris du bord
+    // (retour du 24 novembre). L'application peint son propre fond.
+    backgroundColor: Platform.isWindows ? null : OmniaColors.dark.velvet,
     alwaysOnTop: alwaysOnTop,
     titleBarStyle: TitleBarStyle.hidden,
     title: 'OMNIA',

@@ -20,3 +20,11 @@ bool get isWaylandSession {
 /// y compris les bords de redimensionnement : l'application doit les fournir
 /// elle-même. Windows et macOS gardent leur cadre natif.
 bool get needsCustomResizeEdges => Platform.isLinux;
+
+/// Vrai si OMNIA doit fournir le seul bord HAUT de la fenêtre.
+///
+/// Sous Windows, la barre de titre masquée (window_manager) laisse au système
+/// ses bords gauche, droit et bas, mais étend la zone de l'application
+/// jusqu'au sommet de la fenêtre : plus aucun bord haut où l'attraper. On ne
+/// pouvait pas redimensionner la fenêtre par le haut (retour du 24 novembre).
+bool get needsCustomTopResizeEdge => Platform.isWindows;

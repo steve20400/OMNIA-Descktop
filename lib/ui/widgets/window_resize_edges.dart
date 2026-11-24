@@ -43,6 +43,7 @@ class WindowResizeEdges extends StatelessWidget {
     required this.child,
     this.enabled = true,
     this.force,
+    this.topOnly,
   });
 
   final Widget child;
@@ -55,8 +56,22 @@ class WindowResizeEdges extends StatelessWidget {
   /// tests : en vrai, seul Linux en a besoin.
   final bool? force;
 
+  /// Le bord haut seulement — sous Windows, le système fournit les trois
+  /// autres. `null` : selon la plateforme. Réservé aux tests aussi.
+  final bool? topOnly;
+
   /// Épaisseur des bandes, en pixels logiques.
   static const double thickness = 8;
+
+  /// Pression dont une bande a confié le geste au système.
+  ///
+  /// Les bandes laissent passer les pressions : sous la bande du haut, la
+  /// barre de titre reçoit le même glissement, et lancerait aussi un
+  /// déplacement de la fenêtre. Sous Windows, ce déplacement demandé après
+  /// coup, bouton déjà relâché, laisse la fenêtre collée au curseur. Les
+  /// bandes sont servies les premières ; la zone de déplacement regarde ce
+  /// numéro et s'efface.
+  static int? claimedPointer;
 
   /// Distance à parcourir, bouton enfoncé, avant de confier le geste au
   /// système : assez pour ne pas confondre un clic un peu tremblant avec un
@@ -65,47 +80,61 @@ class WindowResizeEdges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!(force ?? needsCustomResizeEdges)) return child;
+    final all = force ?? needsCustomResizeEdges;
+    final top = all || (topOnly ?? needsCustomTopResizeEdge);
+    if (!top) return child;
+    // Les bords que le système fournit déjà restent vides : une boîte sans
+    // enfant ne répond pas au test de pointeur.
+    Widget edge(ResizeEdge edge, MouseCursor cursor, {double? width, double? height}) {
+      final mine = all ||
+          edge == ResizeEdge.top ||
+          edge == ResizeEdge.topLeft ||
+          edge == ResizeEdge.topRight;
+      return mine
+          ? _Edge(edge, cursor, width: width, height: height)
+          : SizedBox(width: width, height: height);
+    }
+
     return Stack(
       fit: StackFit.passthrough,
       children: [
         child,
         if (enabled)
-          const Positioned.fill(
+          Positioned.fill(
             child: Column(
               children: [
                 Row(
                   children: [
-                    _Edge(ResizeEdge.topLeft, SystemMouseCursors.resizeUpLeft,
+                    edge(ResizeEdge.topLeft, SystemMouseCursors.resizeUpLeft,
                         width: thickness, height: thickness),
                     Expanded(
-                      child: _Edge(ResizeEdge.top, SystemMouseCursors.resizeUp,
+                      child: edge(ResizeEdge.top, SystemMouseCursors.resizeUp,
                           height: thickness),
                     ),
-                    _Edge(ResizeEdge.topRight, SystemMouseCursors.resizeUpRight,
+                    edge(ResizeEdge.topRight, SystemMouseCursors.resizeUpRight,
                         width: thickness, height: thickness),
                   ],
                 ),
                 Expanded(
                   child: Row(
                     children: [
-                      _Edge(ResizeEdge.left, SystemMouseCursors.resizeLeft, width: thickness),
+                      edge(ResizeEdge.left, SystemMouseCursors.resizeLeft, width: thickness),
                       // Le centre ne doit rien intercepter : une boîte sans
                       // enfant ne répond pas au test de pointeur.
-                      Expanded(child: SizedBox.expand()),
-                      _Edge(ResizeEdge.right, SystemMouseCursors.resizeRight, width: thickness),
+                      const Expanded(child: SizedBox.expand()),
+                      edge(ResizeEdge.right, SystemMouseCursors.resizeRight, width: thickness),
                     ],
                   ),
                 ),
                 Row(
                   children: [
-                    _Edge(ResizeEdge.bottomLeft, SystemMouseCursors.resizeDownLeft,
+                    edge(ResizeEdge.bottomLeft, SystemMouseCursors.resizeDownLeft,
                         width: thickness, height: thickness),
                     Expanded(
-                      child: _Edge(ResizeEdge.bottom, SystemMouseCursors.resizeDown,
+                      child: edge(ResizeEdge.bottom, SystemMouseCursors.resizeDown,
                           height: thickness),
                     ),
-                    _Edge(ResizeEdge.bottomRight, SystemMouseCursors.resizeDownRight,
+                    edge(ResizeEdge.bottomRight, SystemMouseCursors.resizeDownRight,
                         width: thickness, height: thickness),
                   ],
                 ),
@@ -154,6 +183,7 @@ class _EdgeState extends ConsumerState<_Edge> {
     if ((event.position - origin).distance < WindowResizeEdges.threshold) return;
     // Un seul départ par pression : le système mène la suite du geste.
     _origin = null;
+    WindowResizeEdges.claimedPointer = event.pointer;
     ref.read(startWindowResizeProvider)(widget.edge);
   }
 

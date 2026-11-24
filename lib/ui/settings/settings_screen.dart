@@ -526,12 +526,14 @@ class _GeneralSection extends ConsumerWidget {
         const SettingDivider(),
         SettingRow(
           title: l10n.settingsTheme,
+          hint: l10n.settingsThemeHint,
           control: OmniaSegmented<AppThemeMode>(
             values: AppThemeMode.values,
             selected: p.themeMode,
             labelOf: (v) => switch (v) {
               AppThemeMode.dark => l10n.themeDark,
               AppThemeMode.light => l10n.themeLight,
+              AppThemeMode.mixed => l10n.themeMixed,
               AppThemeMode.system => l10n.themeSystem,
             },
             onChanged: (v) => ref.change((p) => p.copyWith(themeMode: v)),

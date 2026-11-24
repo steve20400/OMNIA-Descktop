@@ -18,6 +18,10 @@ enum AppLanguage {
 enum AppThemeMode {
   dark,
   light,
+
+  /// L'interface claire, et l'espace du média — autour d'une vidéo, d'une
+  /// image, des pages d'un PDF — noir, comme une salle de projection.
+  mixed,
   system;
 
   static AppThemeMode fromJson(Object? value) =>

@@ -218,6 +218,43 @@ Retour du 24 novembre, sur la rangée horizontale « Ajoutés récemment ».
       bornées (240, les plus récemment vues) ; jusque-là, une longue séance
       à parcourir des milliers de vidéos les gardait toutes
 
+### S.8 — Un troisième thème : « Mixte »
+
+Retour du 24 novembre : en thème clair, tout ce que le média ne couvre pas
+devenait blanc — les bandes autour d'une vidéo, le tour d'une image, le fond
+entre les pages d'un PDF.
+
+- [x] Bureau : thème **Mixte** dans Paramètres → Général → Thème.
+      L'interface reste claire (barre de titre, panneau, commandes), et
+      l'espace du média — vidéo, image, PDF, son — est noir, mini-lecteur
+      compris. Le thème clair, lui, ne change pas
+- [ ] **Mobile : le réglage du thème ne fait rien** — l'application est
+      toujours sombre, quel que soit le choix. Le brancher demande de
+      revoir une trentaine de couleurs fixées en dur et la barre d'état,
+      réglée pour un fond sombre. Décision de Steve : le brancher (Clair et
+      Mixte), ou retirer le réglage du mobile ?
+
+### S.9 — Windows : la fenêtre ne se redimensionne pas par le haut
+
+- [x] La barre de titre masquée laisse au système les bords gauche, droit
+      et bas, mais étend l'application jusqu'au sommet de la fenêtre : plus
+      aucun bord haut où l'attraper. OMNIA fournit désormais lui-même le
+      bord haut et ses deux coins, comme il fournit déjà les quatre bords
+      sous Linux ; les clics sur la barre de titre passent toujours, et un
+      glissement pris par le bord ne déplace pas la fenêtre en même temps
+
+### S.10 — Une bande noire au-delà du trait gris du bord
+
+- [x] Windows : la couleur de fond donnée à la fenêtre au démarrage
+      (sombre) était appliquée par window_manager à toute la fenêtre, y
+      compris aux huit pixels de bord que le système garde autour de
+      l'application pour la redimensionner, et qui doivent rester
+      invisibles. D'où le noir au-delà du trait gris, à gauche, à droite et
+      en bas. Cette couleur n'est plus donnée sous Windows : l'application
+      peint son propre fond
+- [ ] Linux : la fenêtre n'a aucun bord autour de l'application (OMNIA
+      dessine les siens) ; rien de tel n'y est attendu. À confirmer au test
+
 ---
 
 ## R. Retours du 19 novembre — à traiter avant tout le reste

@@ -1426,6 +1426,18 @@ abstract class AppLocalizations {
   /// **'Système'**
   String get themeSystem;
 
+  /// No description provided for @themeMixed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mixte'**
+  String get themeMixed;
+
+  /// No description provided for @settingsThemeHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mixte : l\'interface claire, et un fond noir autour de la vidéo, de l\'image ou des pages d\'un PDF.'**
+  String get settingsThemeHint;
+
   /// No description provided for @settingsEndModeHint.
   ///
   /// In fr, this message translates to:

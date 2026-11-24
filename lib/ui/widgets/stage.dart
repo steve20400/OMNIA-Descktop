@@ -16,6 +16,7 @@ import '../home/home_hall.dart';
 import '../theme/omnia_theme.dart';
 import 'audio_stage.dart';
 import 'image_stage.dart';
+import 'media_stage_theme.dart';
 import 'omnia_button.dart';
 
 import 'pdf_stage.dart';
@@ -35,6 +36,9 @@ class Stage extends ConsumerWidget {
 
     final textDocument = ref.watch(textDocumentProvider);
 
+    // L'espace d'un média — par opposition au hall, au texte et aux
+    // messages d'erreur, qui sont de l'interface.
+    var media = false;
     Widget content;
     if (state.status == PlaybackStatus.error) {
       content = _ErrorStage(
@@ -53,20 +57,30 @@ class Stage extends ConsumerWidget {
         search: ref.watch(documentSearchProvider) as PlainTextSearch?,
       );
     } else if (state.mediaType == MediaType.image && state.hasFile) {
+      media = true;
       content = ImageStage(
         key: ValueKey('image:${state.file!.path}'),
         file: state.file!,
       );
     } else if (state.mediaType == MediaType.pdf) {
+      media = true;
       content = const PdfStage(key: ValueKey('pdf'));
     } else if (state.isDocument) {
       // Document en cours de chargement.
       content = const SizedBox.shrink(key: ValueKey('doc-loading'));
     } else if (state.hasVideo) {
+      media = true;
       content = const _VideoStage(key: ValueKey('video'));
     } else {
+      media = true;
       content = AudioStage(key: const ValueKey('audio'), file: state.file!);
     }
+
+    // Thème Mixte : ce que le média ne couvre pas reste noir. Le thème est
+    // posé sur le contenu lui-même, sous sa clé : le fondu qui passe du hall
+    // à la vidéo ne repeint pas le hall en sombre pendant qu'il s'efface.
+    final darkStage = media && ref.watch(mixedThemeProvider);
+    if (media) content = MediaStageTheme(key: content.key, child: content);
 
     if (state.isDocument) {
       content = Listener(
@@ -77,7 +91,7 @@ class Stage extends ConsumerWidget {
     }
 
     return ColoredBox(
-      color: colors.velvet,
+      color: darkStage ? OmniaColors.dark.velvet : colors.velvet,
       child: Stack(
         fit: StackFit.expand,
         children: [

@@ -3,6 +3,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'window_resize_edges.dart';
+
 /// Démarre le déplacement de la fenêtre par le système, injectable.
 ///
 /// Exception documentée à la règle d'or : déplacer une fenêtre n'est pas une
@@ -65,6 +67,11 @@ class _WindowDragAreaState extends ConsumerState<WindowDragArea> {
     if (origin == null) return;
     // Bouton relâché entre-temps : plus rien à déplacer.
     if ((event.buttons & kPrimaryButton) == 0) {
+      _origin = null;
+      return;
+    }
+    // Un bord de la fenêtre a déjà pris ce geste pour la redimensionner.
+    if (WindowResizeEdges.claimedPointer == event.pointer) {
       _origin = null;
       return;
     }

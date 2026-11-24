@@ -733,6 +733,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get themeSystem => 'Système';
 
   @override
+  String get themeMixed => 'Mixte';
+
+  @override
+  String get settingsThemeHint =>
+      'Mixte : l\'interface claire, et un fond noir autour de la vidéo, de l\'image ou des pages d\'un PDF.';
+
+  @override
   String get settingsEndModeHint =>
       'Ce qu\'OMNIA fait quand un fichier se termine. Touche L pour changer pendant la lecture.';
 

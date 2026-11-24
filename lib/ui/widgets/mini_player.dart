@@ -30,6 +30,7 @@ import '../wheel_steps.dart';
 import 'beam_progress_bar.dart';
 import 'image_edit_dialog.dart';
 import 'image_stage.dart';
+import 'media_stage_theme.dart';
 import 'omnia_icon_button.dart';
 import 'omnia_menu.dart';
 import 'osd_overlay.dart';
@@ -422,7 +423,15 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
           child: _windowGestures(
             hasMedia: hasMedia,
             allowWindowDrag: !chromeVisible,
-            child: surface(context, fit: BoxFit.contain, aspectRatio: null),
+            // Thème Mixte : les bandes autour de la vidéo restent noires.
+            child: MediaStageTheme(
+              child: Builder(
+                builder: (context) => ColoredBox(
+                  color: context.colors.velvet,
+                  child: surface(context, fit: BoxFit.contain, aspectRatio: null),
+                ),
+              ),
+            ),
           ),
         ),
         _MiniOverlay(state: state, onWindowDragStart: _markWindowDragged),
@@ -443,9 +452,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             hasMedia: false,
             allowWindowDrag: !chromeVisible,
             child: IgnorePointer(
-              child: ImageStage(
-                key: ValueKey('mini-image:${state.file!.path}'),
-                file: state.file!,
+              child: MediaStageTheme(
+                child: ImageStage(
+                  key: ValueKey('mini-image:${state.file!.path}'),
+                  file: state.file!,
+                ),
               ),
             ),
           ),
@@ -477,7 +488,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
             );
     } else if (state.mediaType == MediaType.pdf) {
       docWidget = const IgnorePointer(
-        child: PdfStage(key: ValueKey('pdf')),
+        child: MediaStageTheme(child: PdfStage(key: ValueKey('pdf'))),
       );
     } else {
       docWidget = const SizedBox.shrink();

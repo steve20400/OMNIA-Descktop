@@ -14,6 +14,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omnia/ui/widgets/window_drag_area.dart';
 import 'package:omnia/ui/widgets/window_resize_edges.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -205,5 +206,99 @@ void main() {
       1,
       reason: 'les bandes d’OMNIA sont translucides au test de pointeur',
     );
+  });
+
+  testWidgets('sous Windows, OMNIA ne fournit que le bord haut', (tester) async {
+    // La barre de titre masquée y laisse au système les bords gauche, droit
+    // et bas, mais plus aucun bord haut : on ne pouvait pas redimensionner la
+    // fenêtre par le haut (retour du 24 novembre).
+    final resized = <ResizeEdge>[];
+    final container = ProviderContainer(
+      overrides: [startWindowResizeProvider.overrideWithValue(resized.add)],
+    );
+    addTearDown(container.dispose);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const Directionality(
+          textDirection: TextDirection.ltr,
+          child: WindowResizeEdges(force: false, topOnly: true, child: SizedBox.expand()),
+        ),
+      ),
+    );
+    await tester.pump();
+    final size = tester.getSize(find.byType(WindowResizeEdges));
+
+    Future<void> dragAt(Offset point) async {
+      final gesture = await tester.startGesture(point);
+      await gesture.moveBy(const Offset(6, 6));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+    }
+
+    await dragAt(const Offset(4, 4));
+    await dragAt(Offset(size.width / 2, 4));
+    await dragAt(Offset(size.width - 4, 4));
+    // Les bords du système : rien à faire pour OMNIA.
+    await dragAt(Offset(4, size.height / 2));
+    await dragAt(Offset(size.width - 4, size.height / 2));
+    await dragAt(Offset(size.width / 2, size.height - 4));
+    expect(resized, [ResizeEdge.topLeft, ResizeEdge.top, ResizeEdge.topRight]);
+  });
+
+  testWidgets('au bord haut, la barre de titre dessous ne déplace pas la fenêtre en même temps',
+      (tester) async {
+    final resized = <ResizeEdge>[];
+    var dragged = 0;
+    final container = ProviderContainer(
+      overrides: [
+        startWindowResizeProvider.overrideWithValue(resized.add),
+        startWindowDragProvider.overrideWithValue(() => dragged++),
+      ],
+    );
+    addTearDown(container.dispose);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const Directionality(
+          textDirection: TextDirection.ltr,
+          child: WindowResizeEdges(
+            force: false,
+            topOnly: true,
+            // Une barre de titre de 40 px, collée en haut.
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(height: 40, child: WindowDragArea(child: SizedBox.expand())),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final width = tester.getSize(find.byType(WindowResizeEdges)).width;
+
+    Future<void> dragAt(Offset point) async {
+      final gesture = await tester.startGesture(point);
+      await gesture.moveBy(const Offset(0, 6));
+      await gesture.moveBy(const Offset(0, 6));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+    }
+
+    // Dans la bande du haut : redimensionner, et rien d'autre.
+    await dragAt(Offset(width / 2, 3));
+    expect(resized, [ResizeEdge.top]);
+    expect(dragged, 0);
+
+    // Plus bas dans la barre : déplacer, comme avant.
+    await dragAt(Offset(width / 2, 24));
+    expect(resized, [ResizeEdge.top]);
+    expect(dragged, 1);
   });
 }

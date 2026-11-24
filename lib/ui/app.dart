@@ -167,7 +167,9 @@ class _OmniaAppState extends ConsumerState<OmniaApp> {
       // dans les paramètres.
       themeMode: switch (themeMode) {
         AppThemeMode.dark => ThemeMode.dark,
-        AppThemeMode.light => ThemeMode.light,
+        // Mixte : l'interface est claire ; la scène se met en sombre
+        // d'elle-même (MediaStageTheme).
+        AppThemeMode.light || AppThemeMode.mixed => ThemeMode.light,
         AppThemeMode.system => ThemeMode.system,
       },
       // Langue imposée par les paramètres, sinon celle du système.
