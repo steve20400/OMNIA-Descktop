@@ -193,6 +193,7 @@ jobs:
       # d'enregistrement relue, état du cache, journal du moteur), et c'est la
       # seule façon de comprendre une CI rouge sans machine Windows sous la main.
       - name: Extrait écrit par libmpv
+        id: extraits
         # Défaut connu : mpv ne recopie rien quand le cache de
         # démultiplexage est inactif. L'étape reste en place pour le
         # signaler, sans priver de l'installateur tant qu'il n'est pas
@@ -211,9 +212,17 @@ jobs:
           if command -v cygpath >/dev/null 2>&1; then
             export LIBMPV_LIBRARY_PATH="$(cygpath -w "$release/libmpv-2.dll")"
           fi
+          mkdir -p build
           bash tool/ci/run.sh "Extrait écrit par libmpv (Windows)" \
-            flutter test --reporter expanded \
+            flutter test --reporter expanded --file-reporter json:build/rapport-extraits.json \
             test/core/controllers/av_controller_recording_test.dart
+
+      # La cause de chaque extrait raté, en annotation : sans elle, seule la
+      # fin du journal remontait, et pas la raison donnée par le test.
+      - name: Détail des extraits échoués
+        if: ${{ !cancelled() && steps.extraits.outcome == 'failure' }}
+        continue-on-error: true
+        run: dart run tool/ci/test_failures.dart build/rapport-extraits.json
 
       # L'affiche des vidéos de l'accueil : une image tirée par le vrai
       # libmpv, sans fenêtre ni son. Même préparation que l'étape des
@@ -345,6 +354,7 @@ jobs:
       # vidéo et impose le pilote audio nul. Même chemin de code que sous
       # Windows, même rapport détaillé en cas d'échec.
       - name: Extrait écrit par libmpv
+        id: extraits
         # Défaut connu : mpv ne recopie rien quand le cache de
         # démultiplexage est inactif. L'étape reste en place pour le
         # signaler, sans priver de l'installateur tant qu'il n'est pas
@@ -354,9 +364,17 @@ jobs:
         env:
           OMNIA_LIBMPV_TEST: '1'
         run: |
+          mkdir -p build
           bash tool/ci/run.sh "Extrait écrit par libmpv (Linux)" \
-            flutter test --reporter expanded \
+            flutter test --reporter expanded --file-reporter json:build/rapport-extraits.json \
             test/core/controllers/av_controller_recording_test.dart
+
+      # La cause de chaque extrait raté, en annotation : sans elle, seule la
+      # fin du journal remontait, et pas la raison donnée par le test.
+      - name: Détail des extraits échoués
+        if: ${{ !cancelled() && steps.extraits.outcome == 'failure' }}
+        continue-on-error: true
+        run: dart run tool/ci/test_failures.dart build/rapport-extraits.json
 
       # L'affiche des vidéos de l'accueil, tirée par le vrai libmpv : voir
       # l'étape du même nom sous Windows.
