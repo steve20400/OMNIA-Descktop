@@ -183,10 +183,14 @@ modes de projection.
       Ubuntu 24.04, y demande libmpv 2. Une seconde archive Linux,
       compilée sur 22.04, les couvrirait
 - [ ] Relire le reste du code à la recherche de failles et de bugs non vus
-- [ ] Extraits : deux cas limites échouent sur le vrai libmpv, Windows et
-      Linux (étape tolérée de la CI) — une vidéo non compressée que
-      Matroska refuse, et une demande d'extrait pendant une pause. La cause
-      n'apparaît pas dans les annotations : à faire remonter, puis corriger
+- [x] La cause de chaque extrait raté remonte désormais en annotation
+- [ ] **Extraits sous Windows : impossibles avec la libmpv actuelle.** La
+      libmpv réduite que fournit media_kit pour Windows refuse la commande
+      `dump-cache` qui écrit l'extrait, et ne lit pas non plus le format de
+      test y4m. Il faut une libmpv Windows complète — ce qui rejoint la
+      décision en attente sur sa licence (GPL probable). En attendant, le
+      bouton doit le dire plutôt que d'échouer
+- [ ] Extraits sous Linux : cause à lire à la prochaine exécution complète
 
 ---
 
