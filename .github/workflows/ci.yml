@@ -277,7 +277,7 @@ jobs:
   linux:
     name: Linux (application, lancement réel)
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 70
     # Publier une version demande le droit d'écriture sur le dépôt.
     permissions:
       contents: write
@@ -286,21 +286,30 @@ jobs:
 
       # Chaîne de compilation Flutter pour Linux, libmpv (lecture), et pour le
       # lancement réel : écran virtuel, rendu OpenGL logiciel, capture.
-      # Un miroir apt qui ne répond plus a déjà figé cette étape jusqu'à la
-      # limite du travail (45 min, le 24 novembre) : la version publiée est
-      # alors sortie sans archive Linux. Chaque essai est borné, et trois
-      # essais valent mieux qu'un.
+      # Le miroir apt d'Azure s'est figé deux nuits de suite (24 novembre) :
+      # l'étape tenait jusqu'à la limite et la version sortait sans archive
+      # Linux. Les dépôts tiers de la machine, inutiles ici, sont écartés ;
+      # chaque essai est borné ; à partir du deuxième, c'est le dépôt
+      # principal d'Ubuntu qui sert, et non plus le miroir.
       - name: Paquets système
-        timeout-minutes: 20
+        timeout-minutes: 32
         run: |
           paquets="clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libmpv-dev xvfb libgl1-mesa-dri imagemagick ffmpeg xdotool"
-          options="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          options="-o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
+          sudo find /etc/apt/sources.list.d -type f ! -name 'ubuntu.sources' -delete || true
           for essai in 1 2 3; do
-            if timeout 6m sudo apt-get $options update               && timeout 10m sudo apt-get $options install -y $paquets; then
-              exit 0
+            if [ "$essai" -gt 1 ]; then
+              echo "Essai $essai : dépôt principal d'Ubuntu au lieu du miroir."
+              sudo sed -i 's#https\?://azure\.archive\.ubuntu\.com#http://archive.ubuntu.com#g' \
+                /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
             fi
-            echo "Essai $essai échoué : nouvel essai dans $((essai * 20)) s."
-            sleep $((essai * 20))
+            if timeout 3m sudo apt-get $options update; then
+              if timeout 7m sudo apt-get $options install -y $paquets; then
+                exit 0
+              fi
+            fi
+            echo "Essai $essai échoué."
+            sleep 10
           done
           exit 1
 
