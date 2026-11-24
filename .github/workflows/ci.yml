@@ -301,7 +301,8 @@ jobs:
       # exécution réussie sont gardés en cache : les suivantes les installent
       # sans réseau, et ne retombent sur lui qu'en cas de besoin.
       - name: Paquets en cache
-        uses: actions/cache@v4
+        id: cache-apt
+        uses: actions/cache/restore@v4
         with:
           path: ~/omnia-apt
           key: apt-ubuntu-24.04-v1
@@ -323,14 +324,15 @@ jobs:
             exit 0
           fi
 
+          journal="$RUNNER_TEMP/apt.log"
           for essai in 1 2 3; do
             if [ "$essai" -gt 1 ]; then
               echo "Essai $essai : dépôt principal d'Ubuntu au lieu du miroir."
               sudo sed -i 's#https\?://azure\.archive\.ubuntu\.com#http://archive.ubuntu.com#g' \
                 /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
             fi
-            if timeout 3m sudo apt-get $options update; then
-              if timeout 7m sudo apt-get $options install -y $paquets; then
+            if timeout 3m sudo apt-get $options update >"$journal" 2>&1; then
+              if timeout 7m sudo apt-get $options install -y $paquets >>"$journal" 2>&1; then
                 garder
                 exit 0
               fi
@@ -339,7 +341,22 @@ jobs:
             sleep 10
           done
           garder
+          # Ce qui bloque, lisible sans ouvrir le journal : la fin de celui
+          # d'apt, en annotation.
+          fin="$(tail -c 3000 "$journal" | sed -e 's/%/%25/g' | sed -e ':a;N;$!ba;s/\n/%0A/g')"
+          echo "::error title=Paquets système::$fin"
           exit 1
+
+      # Enregistré dès l'installation réussie, même si la suite échoue : un
+      # cache qui n'attend que les exécutions entièrement vertes ne se
+      # remplirait jamais les jours où le réseau cale.
+      - name: Garder les paquets en cache
+        if: ${{ steps.cache-apt.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ~/omnia-apt
+          key: apt-ubuntu-24.04-v1
 
       - uses: subosito/flutter-action@v2
         with:
