@@ -207,6 +207,27 @@ void main() {
       expect(restent, ['affiche2.jpg', 'affiche3.jpg', 'affiche4.jpg', 'autre.txt']);
     });
 
+    test('une affiche prête est resservie sans attendre, la même', () async {
+      final cache = Directory(p.join(work.path, 'affiches'))..createSync();
+      final video = File(p.join(work.path, 'film.mkv'))..writeAsBytesSync(const [1, 2, 3]);
+      final stat = video.statSync();
+      final key = '${video.absolute.path}|${stat.size}|${stat.modified.millisecondsSinceEpoch}|960';
+      File(p.join(cache.path, '${VideoFrameGrabber.cacheKey(key)}.jpg'))
+          .writeAsBytesSync(const [0xFF, 0xD8, 0xFF, 0xD9]);
+      final grabber = VideoFrameGrabber(cacheDirectory: () async => cache);
+
+      expect(grabber.readyFrameOf(video.path), isNull);
+      final first = await grabber.frameOf(video.path);
+      expect(first, const [0xFF, 0xD8, 0xFF, 0xD9]);
+
+      // La même instance, tout de suite : Flutter reconnaît l'image déjà
+      // décodée, et l'affiche ne repasse pas par l'attente.
+      final ready = grabber.readyFrameOf(video.path);
+      expect(ready, isNotNull);
+      expect(identical(ready!.bytes, first), isTrue);
+      expect(identical(await grabber.frameOf(video.path), first), isTrue);
+    });
+
     test('l’empreinte du cache est stable et distingue les fichiers', () {
       final a = VideoFrameGrabber.cacheKey('/films/a.mkv|10|1');
       expect(a, hasLength(16));

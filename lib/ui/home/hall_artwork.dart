@@ -113,14 +113,19 @@ class HallArtwork extends ConsumerWidget {
     final blank = HallBlankPoster(type: type, extension: showExtension ? p.extension(path) : '');
     if (!exists || !ref.watch(hallArtworkEnabledProvider)) return blank;
 
+    // Tant que l'image se décode, l'affiche vierge, et non un trou.
+    Widget image(Uint8List bytes) => Image.memory(
+          bytes,
+          fit: fit,
+          gaplessPlayback: true,
+          filterQuality: FilterQuality.medium,
+          frameBuilder: (_, child, frame, synchronous) =>
+              frame == null && !synchronous ? blank : child,
+          errorBuilder: (_, _, _) => blank,
+        );
+
     Widget fromBytes(AsyncValue<Uint8List?> value) => switch (value) {
-          AsyncData(value: final bytes?) => Image.memory(
-              bytes,
-              fit: fit,
-              gaplessPlayback: true,
-              filterQuality: FilterQuality.medium,
-              errorBuilder: (_, _, _) => blank,
-            ),
+          AsyncData(value: final bytes?) => image(bytes),
           _ => blank,
         };
 
@@ -132,7 +137,13 @@ class HallArtwork extends ConsumerWidget {
           filterQuality: FilterQuality.medium,
           errorBuilder: (_, _, _) => blank,
         ),
-      MediaType.video => fromBytes(ref.watch(_videoFrameProvider(path))),
+      // Déjà prête : affichée d'emblée, sans repasser par l'attente du
+      // fournisseur — c'était le clignotement des rangées.
+      MediaType.video => switch (ref.watch(videoFrameGrabberProvider).readyFrameOf(path)) {
+          (bytes: final bytes?) => image(bytes),
+          (bytes: null) => blank,
+          _ => fromBytes(ref.watch(_videoFrameProvider(path))),
+        },
       MediaType.audio => fromBytes(ref.watch(_audioCoverProvider(path))),
       MediaType.pdf => switch (ref.watch(_pdfDocumentProvider(path))) {
           AsyncData(value: final document?) => _FirstPage(document: document, blank: blank),

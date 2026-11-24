@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -37,14 +38,51 @@ class VideoFrameGrabber {
   final List<_Request> _waiting = [];
   bool _working = false;
 
-  /// Affiches déjà rendues, ou en cours : chaque fichier ne se calcule
-  /// qu'une fois par session.
+  /// Affiches en cours de préparation : deux affiches du même fichier à
+  /// l'écran n'en lancent qu'une.
   final Map<String, Future<Uint8List?>> _results = {};
+
+  /// Affiches prêtes, servies sans attendre ; `null` pour une vidéo sans
+  /// image. Les plus récemment vues sont gardées : sans borne, une longue
+  /// séance à parcourir des milliers de vidéos les aurait toutes gardées en
+  /// mémoire. Les autres restent sur le disque.
+  final LinkedHashMap<String, Uint8List?> _ready = LinkedHashMap();
+
+  /// Affiches prêtes gardées en mémoire, au plus (environ 25 Mo).
+  static const int maxReadyPosters = 240;
 
   /// L'affiche de [path], ou `null` quand il n'y en a pas.
   Future<Uint8List?> frameOf(String path) {
     if (!enabled) return Future<Uint8List?>.value();
+    final ready = readyFrameOf(path);
+    if (ready != null) return Future<Uint8List?>.value(ready.bytes);
     return _results[path] ??= _load(path);
+  }
+
+  /// L'affiche de [path] si elle est déjà prête, tout de suite — `bytes` à
+  /// `null` pour une vidéo sans image —, ou `null` si elle ne l'est pas.
+  ///
+  /// Une affiche qui revient à l'écran s'affiche ainsi dès sa première
+  /// image : en passant par [frameOf], même déjà prête, elle restait une
+  /// trame sur l'affiche vierge, et la rangée clignotait.
+  ({Uint8List? bytes})? readyFrameOf(String path) {
+    if (!enabled || !_ready.containsKey(path)) return null;
+    // Remise en tête : c'est la plus récemment vue.
+    final bytes = _ready.remove(path);
+    _ready[path] = bytes;
+    return (bytes: bytes);
+  }
+
+  /// Range [bytes] parmi les affiches prêtes, et rend la main au suivant.
+  Uint8List? _settle(String path, Uint8List? bytes) {
+    _results.remove(path);
+    _ready
+      ..remove(path)
+      ..[path] = bytes;
+    while (_ready.length > maxReadyPosters) {
+      _ready.remove(_ready.keys.first);
+    }
+    return bytes;
   }
 
   /// Renonce à l'affiche de [path] si son extraction n'a pas commencé : la
@@ -70,7 +108,7 @@ class VideoFrameGrabber {
         } on FileSystemException {
           // Date inchangée : elle partira un peu plus tôt, voilà tout.
         }
-        return bytes;
+        return _settle(path, bytes);
       } on FileSystemException {
         // Illisible : on la refait.
       }
@@ -93,7 +131,7 @@ class VideoFrameGrabber {
         // Pas de cache : l'image sera refaite la prochaine fois.
       }
     }
-    return bytes;
+    return _settle(path, bytes);
   }
 
   /// Une extraction à la fois : chaque lecteur ouvre ses propres décodeurs.
